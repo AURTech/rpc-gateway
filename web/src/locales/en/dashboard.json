@@ -1,0 +1,1780 @@
+{
+  "workspace_label": "Default workspace",
+  "landing": {
+    "title": "Dashboard",
+    "subtitle": "View gateway traffic, resources, and usage.",
+    "sign_out": "Sign out",
+    "metric_requests_24h": "Total requests · 24h",
+    "metric_requests_24h_hint": "JSON-RPC calls handled",
+    "metric_success_rate": "Success rate · 24h",
+    "metric_success_rate_hint": "Valid JSON-RPC responses",
+    "metric_avg_latency": "Avg endpoint latency",
+    "metric_avg_latency_hint": "Per attempt, last 24h",
+    "metric_active_gateways": "Active gateways",
+    "metric_active_gateways_hint": "{total} total provisioned",
+    "chart_title": "Request volume",
+    "chart_window": "Last 24h · UTC",
+    "chart_empty": "No traffic in the last 24 hours yet.",
+    "recent_gateways_title": "Recent gateways",
+    "recent_keys_title": "Recent apps",
+    "view_all": "View all",
+    "empty_gateways": "No gateways yet. Create one to receive JSON-RPC requests.",
+    "empty_keys": "No apps yet. Create one to get an API key."
+  },
+  "sidebar_section_operations": "Operations",
+  "sidebar_overview": "Overview",
+  "sidebar_gateways": "Gateways",
+  "sidebar_account": "Account",
+  "sidebar_open_menu": "Open navigation",
+  "sidebar_close_menu": "Close navigation",
+  "sign_out": "Sign out",
+  "account": {
+    "title": "Account",
+    "subtitle": "View profile and sign-in status."
+  },
+  "placeholder": {
+    "coming_soon_title": "Coming soon",
+    "coming_soon_subtitle": "This feature is not available yet."
+  },
+  "user_menu_open": "Open account menu",
+  "user_menu_account": "Account",
+  "user_menu_signed_in_as": "Signed in as",
+  "topbar_skip_to_content": "Skip to content",
+  "topbar_breadcrumb_overview": "Overview",
+  "topbar_toggle_sidebar": "Toggle sidebar",
+  "gateways": {
+    "metaTitle": "Gateways",
+    "title": "Gateways",
+    "subtitle": "View App-owned RPC endpoints and configure endpoints, routing, and cache.",
+    "cta": {
+      "newEndpoint": "New endpoint",
+      "viewDocs": "View docs"
+    },
+    "stats": {
+      "total": "Total",
+      "totalSub": "gateways",
+      "enabled": "Enabled",
+      "enabledSub": "accepting traffic",
+      "accelerator": "Accelerator on",
+      "acceleratorSub": "edge cache active",
+      "chains": "Chains covered",
+      "chainsSub": "across mainnet + testnet"
+    },
+    "search": {
+      "placeholder": "Search by gateway name, chain, or URL slug…",
+      "aria": "Search gateways"
+    },
+    "filters": {
+      "title": "Filters",
+      "done": "Done",
+      "chain": "Chain",
+      "network": "Network",
+      "state": "State",
+      "allChains": "All chains",
+      "allNetworks": "All networks",
+      "stateAll": "All",
+      "stateEnabled": "Enabled",
+      "stateDisabled": "Disabled",
+      "created": "Created",
+      "presetsHeader": "Presets",
+      "today": "Today",
+      "last7Days": "Last 7 Days",
+      "last28Days": "Last 28 Days",
+      "thisMonth": "This Month",
+      "clearDates": "Clear"
+    },
+    "sort": {
+      "label": "Sort",
+      "modified": "Recently modified",
+      "created": "Created",
+      "name": "Name"
+    },
+    "detail": {
+      "emptyTitle": "Select a gateway",
+      "emptyHint": "Select a gateway to view its endpoint, routes, and cache settings.",
+      "chainId": "Chain ID",
+      "copyUrl": "Copy JSON-RPC URL",
+      "enabled": "Enabled",
+      "edgeCache": "Edge cache",
+      "defaultRoute": "Gateway endpoints",
+      "noDefaultRoute": "No gateway endpoints configured",
+      "configureDefault": "Configure endpoints",
+      "methodOverrides": "Method Rules ({count})",
+      "noMethodOverrides": "No method rules",
+      "addMethodOverride": "Add method rule",
+      "timestamps": "Timestamps",
+      "created": "Created",
+      "modified": "Modified",
+      "minConfirmations": "Min confirmations",
+      "minConf": "min conf",
+      "endpoints": "{count, plural, one {endpoint} other {endpoints}}"
+    },
+    "table": {
+      "id": "ID",
+      "copyId": "Copy gateway ID",
+      "name": "Name",
+      "chain": "Chain",
+      "network": "Network",
+      "state": "State",
+      "edgeCache": "Edge cache",
+      "created": "Created",
+      "modified": "Modified",
+      "sortAsc": "Sort oldest first",
+      "sortDesc": "Sort newest first",
+      "columnsLabel": "Columns",
+      "sortLabel": "Sort",
+      "sortCreatedDesc": "Created · newest",
+      "sortCreatedAsc": "Created · oldest",
+      "sortModifiedDesc": "Modified · newest",
+      "sortModifiedAsc": "Modified · oldest",
+      "action": "Action",
+      "chevron": "Toggle details",
+      "expand": "Show details",
+      "collapse": "Hide details",
+      "showing": "Showing {visible} of {total}",
+      "range": "{from} to {to} of {total} results",
+      "prev": "Prev",
+      "next": "Next",
+      "page": "Page {page}",
+      "on": "On",
+      "off": "Off",
+      "copyJsonRpc": "Copy JSON-RPC URL",
+      "copyEndpoint": "Copy {name} URL",
+      "disabled": "Disabled",
+      "enabledState": "Enabled"
+    },
+    "drawer": {
+      "title": "Gateway Detail",
+      "settings": "Settings",
+      "name": "Name",
+      "jsonRpc": "JSON-RPC",
+      "httpApi": "HTTP API",
+      "chain": "Chain",
+      "network": "Network",
+      "status": "Status",
+      "edgeCache": "Edge cache",
+      "gatewayId": "Gateway ID",
+      "chainId": "Chain ID",
+      "created": "Created",
+      "modified": "Modified",
+      "tags": "Tags",
+      "locked": "Locked",
+      "edit": "Edit",
+      "copy": "Copy",
+      "details": "Details",
+      "edgeCacheHint": "Accelerate read requests that support caching.",
+      "statusHint": "When disabled, this endpoint stops receiving requests."
+    },
+    "actions": {
+      "editGateway": "Edit",
+      "toggleOn": "Toggle on",
+      "toggleOff": "Toggle off",
+      "enable": "Enable",
+      "disable": "Disable",
+      "viewDetails": "Details",
+      "hideDetails": "Hide",
+      "openMenu": "Open actions menu",
+      "rename": "Rename",
+      "edit": "Edit",
+      "configureEndpoints": "Endpoint",
+      "configureMethodRoutes": "Method routes",
+      "configureRoutingMode": "Routing mode",
+      "configure": "Configure"
+    },
+    "routingMode": {
+      "priority_failover": "Priority failover",
+      "load_distribution": "Load balancing",
+      "load_balance": "Load balancing"
+    },
+    "routingModeHint": {
+      "priority_failover": "Try endpoints by priority.",
+      "load_distribution": "Split requests by ratio.",
+      "load_balance": "Split requests across endpoints by weight."
+    },
+    "weights": {
+      "toggle": "Weighted distribution",
+      "toggleHint": "Set the request share for each endpoint.",
+      "toggleHintInactive": "Applies after switching to Load distribution.",
+      "total": "Total {total}/100",
+      "column": "Weight",
+      "relativeColumn": "Relative weight",
+      "relativeInputLabel": "Relative weight for {name}",
+      "share": "{percent}% traffic",
+      "shareInputLabel": "Traffic share for {name}",
+      "shareUnavailable": "--%",
+      "inputLabel": "Weight for {name}",
+      "badge": "Weighted"
+    },
+    "page": {
+      "metaTitle": "Gateway configuration",
+      "back": "Gateways",
+      "notFoundTitle": "Gateway not found",
+      "notFoundBody": "This gateway may have been deleted. Go back to the app to see the current list.",
+      "subtitle": "Manage this gateway's endpoint, endpoint pool, routing mode, and method rules.",
+      "overviewTitle": "Naming, status, endpoints",
+      "overviewSubtitle": "Update this gateway's name and traffic state, and copy its endpoint URLs.",
+      "endpointsTitle": "Endpoints",
+      "endpointsSubtitle": "Manage the default endpoints this gateway uses and their failover order.",
+      "routingModeTitle": "Routing mode",
+      "routingModeSubtitle": "Choose how this gateway routes traffic across its saved endpoint pool.",
+      "protocolLabel": "Gateway API type"
+    },
+    "routing": {
+      "title": "Routing",
+      "subtitle": "Attach endpoints and choose how traffic is split — for all methods by default, or for specific methods.",
+      "methodsLabel": "Methods (optional)",
+      "methodsHint": "Leave empty to edit the default route that applies to all methods.",
+      "saveDefault": "Save default routing",
+      "addRule": "Add rule"
+    },
+    "httpApiRouting": {
+      "subtitle": "Attach HTTP API endpoints and choose how requests fail over or are distributed.",
+      "endpointDescription": "HTTP API requests use these endpoints in the configured routing mode.",
+      "save": "Save HTTP API routing",
+      "error": "Couldn't load the HTTP API route."
+    },
+    "configHub": {
+      "status": {
+        "enabled": "Enabled",
+        "disabled": "Disabled"
+      }
+    },
+    "endpointTable": {
+      "defaultTitle": "Default endpoints",
+      "defaultDescription": "Requests use these endpoints by priority unless a method rule overrides them.",
+      "ruleTitle": "Rule endpoints",
+      "ruleDescription": "The selected methods use these endpoints instead of the default ones.",
+      "createEndpoint": "Create endpoint",
+      "configuration": "Endpoint configuration",
+      "priority": "Priority",
+      "toggleLabel": "Use {name} in this gateway",
+      "state": "In use",
+      "actions": "Actions",
+      "deleteLabel": "Delete {name}",
+      "empty": "No endpoints for this chain and network yet."
+    },
+    "form": {
+      "basicInfo": "Basic information",
+      "name": "Name",
+      "namePlaceholder": "e.g. eth-mainnet-prod",
+      "nameHint": "Used to identify this gateway in lists, logs, and alerts.",
+      "chain": "Chain",
+      "network": "Network",
+      "enabled": "Enable on create",
+      "enabledHint": "Open the endpoint immediately after creation.",
+      "enabledEdit": "Enabled",
+      "enabledEditHint": "When disabled, this endpoint stops receiving requests.",
+      "trafficOn": "Enabled — accepting traffic",
+      "trafficOff": "Disabled — not accepting traffic",
+      "trafficBlockedByApp": "Enabled, but the App is disabled",
+      "saveChanges": "Save changes",
+      "method": "Method",
+      "methodHint": "Enter a JSON-RPC method, such as eth_getLogs.",
+      "methodRequired": "Method is required.",
+      "routingMode": "Routing mode",
+      "routingModeDisabledHint": "Add an endpoint before choosing a routing mode.",
+      "trafficDistribution": "Traffic distribution",
+      "endpoints": "Default endpoints",
+      "endpointsHint": "Select the endpoints this gateway uses by default.",
+      "endpointsRequired": "Pick at least one endpoint.",
+      "noEndpoints": "No endpoints for this chain/network.",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "minConfirmations": "Min confirmations",
+      "minConfirmationsHint": "Return responses after the required confirmations.",
+      "endpointsError": "Couldn't load endpoints.",
+      "endpointChain": "Chain",
+      "endpointChainPlaceholder": "Select a chain",
+      "endpointNetwork": "Network",
+      "endpointNetworkPlaceholder": "Select a network",
+      "endpointName": "Name",
+      "endpointNamePlaceholder": "Generated from the URL, chain, and network",
+      "endpointNameHint": "Generated automatically and editable; used to identify this endpoint in pools and logs.",
+      "endpointUrl": "URL",
+      "endpointUrlPlaceholder": "https://…",
+      "endpointUrlHint": "The RPC endpoint URL.",
+      "endpointUrlInvalid": "Enter a valid URL for the selected API type.",
+      "endpointApiType": "API type",
+      "endpointAuthType": "Authentication",
+      "endpointAuthTypeHint": "How the gateway authenticates to this endpoint.",
+      "endpointAuthHeaderName": "Header name",
+      "endpointAuthHeaderNamePlaceholder": "e.g. X-API-Key",
+      "endpointAuthQueryParam": "Query parameter",
+      "endpointAuthQueryParamPlaceholder": "e.g. apikey",
+      "endpointAuthSecret": "Secret",
+      "endpointAuthSecretPlaceholder": "API key or token",
+      "endpointAuthSecretHint": "Stored encrypted; used only when calling this endpoint.",
+      "endpointEnabled": "Enable on create",
+      "endpointEnabledHint": "Include this endpoint in routing right away."
+    },
+    "authTypes": {
+      "none": "None",
+      "bearer": "Bearer token",
+      "header_api_key": "Header API key",
+      "query_api_key": "Query API key",
+      "path_api_key": "Path API key"
+    },
+    "apiTypes": {
+      "jsonrpc": "JSON-RPC",
+      "httpapi": "HTTP API"
+    },
+    "dialog": {
+      "cancel": "Cancel",
+      "done": "Done",
+      "save": "Save",
+      "saving": "Saving…",
+      "creating": "Creating…",
+      "createEndpoint": {
+        "title": "New endpoint",
+        "subtitle": "Create an endpoint for {chain} · {network} and add it to this gateway.",
+        "subtitleGeneric": "Add a node by entering its RPC endpoint. Pick the chain and network it serves.",
+        "submit": "Create endpoint"
+      },
+      "edit": {
+        "title": "Edit gateway",
+        "subtitle": "Update the gateway name, status, and default route."
+      },
+      "endpoints": {
+        "title": "Configure endpoints",
+        "subtitle": "Select the endpoints this gateway uses by default."
+      },
+      "routingMode": {
+        "title": "Gateway routing mode",
+        "subtitle": "Configure how requests are split across default endpoints."
+      },
+      "status": {
+        "enable": {
+          "title": "Enable this gateway?",
+          "body": "The gateway \"{name}\" will start accepting JSON-RPC traffic at its URL.",
+          "confirm": "Enable gateway"
+        },
+        "disable": {
+          "title": "Disable this gateway?",
+          "body": "The gateway \"{name}\" will stop accepting JSON-RPC traffic immediately.",
+          "confirm": "Disable gateway"
+        }
+      },
+      "rename": {
+        "title": "Rename gateway",
+        "subtitle": "Update the console display name.",
+        "submit": "Save"
+      },
+      "route": {
+        "subtitle": "Configure the default routing mode and endpoint pool.",
+        "createDefault": "Configure endpoints",
+        "editDefault": "Edit endpoints"
+      }
+    },
+    "empty": {
+      "title": "No gateways yet",
+      "body": "Create an App to provision gateways for every supported chain and network.",
+      "cta": "Create an App"
+    },
+    "filteredEmpty": {
+      "title": "No gateways match these filters",
+      "body": "No gateways match. Adjust the filters and try again.",
+      "cta": "Clear filters"
+    },
+    "error": {
+      "title": "Couldn't load gateways",
+      "body": "Gateway data failed to load. Check your connection and retry.",
+      "retry": "Retry"
+    },
+    "toast": {
+      "updated": "Gateway updated",
+      "updateError": "Couldn't update gateway — please retry",
+      "enabled": "Gateway enabled",
+      "disabled": "Gateway disabled",
+      "copyOk": "JSON-RPC URL copied",
+      "copyError": "Couldn't copy to clipboard",
+      "endpointsSaved": "Gateway endpoints saved",
+      "endpointsError": "Couldn't save gateway endpoints — please retry",
+      "endpointCreated": "Endpoint \"{name}\" created",
+      "endpointCreateError": "Couldn't create endpoint — please retry",
+      "routingModeSaved": "Gateway routing mode saved",
+      "routingModeError": "Couldn't save gateway routing mode — please retry",
+      "routingSaved": "Gateway routing saved",
+      "routingError": "Couldn't save gateway routing — please retry"
+    },
+    "methodRoutes": {
+      "usesEndpoints": "{count} endpoints",
+      "form": {
+        "searchPlaceholder": "Select or search methods…",
+        "openMethods": "Open method list",
+        "loadingMethods": "Loading methods…",
+        "methodsError": "Couldn't load methods.",
+        "noMethods": "No methods match.",
+        "deprecated": "deprecated",
+        "endpointPoolEmpty": "No endpoints selected.",
+        "deleteRule": "Delete rule"
+      },
+      "deleteDialog": {
+        "title": "Delete this method rule?",
+        "body": "Requests for {methods} will fall back to the default route.",
+        "confirm": "Delete rule",
+        "confirming": "Deleting…"
+      },
+      "toast": {
+        "created": "Method routing rule added",
+        "createError": "Couldn't add rule — please retry",
+        "deleted": "Method routing rule deleted",
+        "deleteError": "Couldn't delete rule — please retry"
+      }
+    }
+  },
+  "apps": {
+    "metaTitle": "Apps",
+    "title": "Apps",
+    "subtitle": "Manage apps, access keys, and default gateways.",
+    "cta": {
+      "newApp": "Create new app"
+    },
+    "wizard": {
+      "metaTitle": "Create app",
+      "title": "Create app",
+      "subtitle": "Set up your app in three steps.",
+      "steps": {
+        "details": {
+          "short": "Project",
+          "title": "Create project",
+          "subtitle": "Name your app. Nothing is created until you finish."
+        },
+        "networks": {
+          "short": "Networks",
+          "title": "Select chains & networks",
+          "subtitle": "Choose which networks to enable. You can change these anytime."
+        },
+        "rpcAccess": {
+          "short": "RPC access"
+        }
+      },
+      "nav": {
+        "cancel": "Cancel",
+        "back": "Back",
+        "next": "Next",
+        "finish": "Create app",
+        "finishing": "Creating…",
+        "skipCreate": "Skip & create app",
+        "createConnect": "Create app & connect"
+      },
+      "networks": {
+        "selectAll": "Select all",
+        "clear": "Clear",
+        "selectedCount": "{count} of {total} networks selected",
+        "requireOne": "Select at least one network to continue.",
+        "applyError": "App created, but some networks couldn't be applied — adjust them on the Gateways page."
+      },
+      "rpcAccess": {
+        "title": "Connect a provider (optional)",
+        "subtitle": "Choose an existing provider, or create one without leaving this step. Matching endpoints are synchronized and connected automatically.",
+        "provider": {
+          "title": "Provider",
+          "subtitle": "The provider inventory stays linked to this App. Each sync automatically connects matching endpoints for the networks you selected.",
+          "createNew": "Create new",
+          "existingLabel": "Existing provider",
+          "existingHint": "Only enabled providers in this account are available.",
+          "selectPlaceholder": "Select a provider",
+          "loading": "Loading providers…",
+          "loadError": "Providers couldn't be loaded. Refresh the page or create a new provider.",
+          "emptyTitle": "No providers yet",
+          "empty": "This account has no enabled provider. Create one now and it will be selected automatically.",
+          "emptyCta": "Create a provider"
+        },
+        "footerHint": "Providers are account resources — creating one here keeps it available to every App. You can also skip this step and connect a Provider later."
+      },
+      "summary": {
+        "eyebrow": "App created",
+        "title": "{name} is ready",
+        "providerConnected": "The Provider is connected. Matching endpoints will be maintained automatically after every sync.",
+        "providerPending": "The App was created, but the Provider still needs attention.",
+        "skipped": "No upstream was added. JSON-RPC is limited to Accelerator cache hits, and HTTP API requires later Endpoint setup.",
+        "uncovered": "{count} selected network protocol routes still have no Endpoint.",
+        "complete": "All selected network protocol routes have an upstream Endpoint.",
+        "errorsTitle": "Some setup tasks need attention",
+        "retry": "Retry failed setup",
+        "openApp": "Open app",
+        "networks": "Networks",
+        "provider": "Provider",
+        "endpoint": "Endpoint",
+        "error": "{scope}: {message}",
+        "syncStatus": "Sync finished with status {status}.",
+        "invalidEndpoint": "The Endpoint draft is incomplete.",
+        "missingEndpoints": "{count} selected Endpoint(s) are no longer available."
+      }
+    },
+    "search": {
+      "placeholder": "Search app name",
+      "aria": "Search apps"
+    },
+    "detail": {
+      "metaTitle": "App gateways",
+      "overviewMetaTitle": "App overview",
+      "usageMetaTitle": "App usage",
+      "overview": {
+        "tabsAriaLabel": "App sections",
+        "tabs": {
+          "setup": "Quick Start",
+          "gateways": "Gateways"
+        },
+        "quickstart": {
+          "title": "Get started",
+          "subtitle": "Pick a network and protocol, then copy a first request for your client's auth method.",
+          "network": "Network",
+          "selectorLabel": "Select network",
+          "protocol": "Protocol",
+          "protocolLabel": "Select protocol",
+          "transport": {
+            "jsonrpc": "JSON-RPC",
+            "http_api": "HTTP API"
+          },
+          "method": "Method",
+          "endpointUrl": "Endpoint",
+          "unavailable": "Not available for this network",
+          "copy": "Copy",
+          "copied": "Copied",
+          "copyExample": "Copy request example",
+          "copyEndpoint": "Copy {name}",
+          "emptyGateways": "This app has no networks yet.",
+          "auth": {
+            "ariaLabel": "Authentication method",
+            "apiKey": {
+              "label": "API key",
+              "description": "Put the full API key in the URL's api_key placeholder. Both JSON-RPC and HTTP API endpoints support this.",
+              "exampleTitle": "API key example"
+            },
+            "httpBearer": {
+              "label": "HTTP Bearer",
+              "description": "Call the endpoint root path and send the full API key in the Authorization: Bearer header.",
+              "exampleTitle": "HTTP Bearer example"
+            }
+          }
+        },
+        "empty": {
+          "title": "Get started",
+          "body": "This app has no enabled gateways yet. Enable a network to get an endpoint you can call.",
+          "cta": "Set up gateways"
+        }
+      },
+      "pathKey": "API key",
+      "created": "Created",
+      "gatewaysTitle": "Gateways",
+      "emptyGateways": "This app has no gateways yet.",
+      "copyJsonRpc": "Copy JSON-RPC URL",
+      "networks": {
+        "searchPlaceholder": "Search networks",
+        "searchAria": "Search networks",
+        "chain": "Chain",
+        "allChains": "All chains",
+        "protocol": "Protocol",
+        "transport": {
+          "jsonrpc": "JSON-RPC",
+          "http_api": "HTTP API"
+        },
+        "noEndpoint": "Not available",
+        "status": "Status",
+        "sortBy": "Sort by",
+        "statusFilter": {
+          "all": "All status",
+          "enabled": "Enabled",
+          "disabled": "Disabled"
+        },
+        "sort": {
+          "createdDesc": "Newest",
+          "createdAsc": "Oldest"
+        },
+        "enableAll": "Enable all",
+        "disableAll": "Disable all",
+        "disableDialog": {
+          "title": "Disable all networks?",
+          "body": "This will disable {count, plural, one {# enabled gateway} other {# enabled gateways}} currently shown in this list. They will stop accepting traffic until enabled again.",
+          "confirm": "Disable all",
+          "confirming": "Disabling…",
+          "cancel": "Cancel"
+        },
+        "col": {
+          "network": "Network",
+          "url": "Endpoints",
+          "lastRequest": "Last request",
+          "created": "Created",
+          "status": "Status"
+        },
+        "bulkEnabled": "All networks enabled",
+        "bulkDisabled": "All networks disabled",
+        "bulkError": "Couldn't update some networks — please retry",
+        "filteredEmpty": "No networks match your filters.",
+        "clearFilters": "Clear filters",
+        "pathKey": {
+          "label": "API key",
+          "loading": "Loading key…",
+          "copied": "Copied",
+          "metadataError": "Couldn't load the API key status.",
+          "missing": "There is no active key.",
+          "reload": "Reload",
+          "rotate": "Go to settings and rotate key"
+        }
+      },
+      "metrics": {
+        "gatewayLabel": "Gateway",
+        "allGateways": "All gateways"
+      },
+      "notFound": {
+        "title": "App not found",
+        "body": "This app may have been deleted."
+      }
+    },
+    "settings": {
+      "metaTitle": "App settings",
+      "title": "App settings",
+      "subtitle": "Manage app details, access keys, and deletion.",
+      "details": {
+        "appId": "App ID",
+        "copy": "Copy",
+        "meta": "App created by {name} on {date}",
+        "save": "Save changes"
+      },
+      "keys": {
+        "title": "Access keys",
+        "subtitle": "Complete keys are always visible to authenticated dashboard users and remain encrypted at rest.",
+        "rotate": "Rotate key",
+        "copy": "Copy key",
+        "rotateAction": {
+          "title": "Rotate the active key",
+          "body": "Generate a new key while the current key remains usable during the configured grace period."
+        },
+        "revoke": "Revoke",
+        "notRevocable": "No action",
+        "cancel": "Cancel",
+        "empty": "No key metadata is available.",
+        "columns": {
+          "apiKey": "API key",
+          "state": "State",
+          "expiresAt": "Expires at",
+          "revokedAt": "Revoked at",
+          "createdAt": "Created at",
+          "actions": "Actions"
+        },
+        "states": {
+          "active": "Active",
+          "grace": "Grace period",
+          "revoked": "Revoked",
+          "expired": "Expired"
+        },
+        "rotateDialog": {
+          "title": "Rotate the access key?",
+          "body": "A new key will be generated and displayed in this list. The previous active key will enter the server-configured grace period.",
+          "confirm": "Generate new key",
+          "confirming": "Rotating…"
+        },
+        "revokeDialog": {
+          "title": "Revoke this key now?",
+          "body": "Key {prefix} will stop working immediately. Repeated revocation is safe, but clients using this key will lose access.",
+          "confirm": "Revoke now",
+          "confirming": "Revoking…"
+        },
+        "error": {
+          "title": "Couldn't load keys",
+          "body": "Keys are unavailable. Please try again.",
+          "retry": "Retry"
+        },
+        "toast": {
+          "rotated": "New key generated",
+          "rotateError": "Couldn't rotate the key — please retry",
+          "revoked": "Key revoked",
+          "revokeError": "Couldn't revoke the key — please retry"
+        }
+      },
+      "danger": {
+        "title": "Delete App",
+        "description": "After deletion, this app's gateways stop receiving traffic.",
+        "delete": "Delete"
+      }
+    },
+    "status": {
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "actions": {
+      "openMenu": "Open actions menu",
+      "rename": "Rename",
+      "enable": "Enable",
+      "disable": "Disable",
+      "delete": "Delete",
+      "copyPathKey": "Copy API key",
+      "copyUrl": "Copy gateway URL"
+    },
+    "dialog": {
+      "cancel": "Cancel",
+      "saving": "Saving...",
+      "delete": {
+        "title": "Delete this app?",
+        "body": "The app \"{name}\" and its gateways will stop accepting JSON-RPC traffic. This cannot be undone.",
+        "confirm": "Delete app"
+      }
+    },
+    "form": {
+      "name": "Name",
+      "namePlaceholder": "e.g. production-backend",
+      "enabled": "Enable app",
+      "enabledHint": "Disabled apps stop receiving traffic."
+    },
+    "table": {
+      "name": "Name",
+      "pathKey": "API key",
+      "status": "Status",
+      "gateways": "Gateways",
+      "sampleUrl": "Sample URL",
+      "chains": "Chains",
+      "created": "Created on",
+      "networks": "Networks",
+      "endpoints": "Endpoints",
+      "actions": "Actions",
+      "range": "{from} to {to} of {total} results",
+      "prev": "Prev",
+      "next": "Next"
+    },
+    "empty": {
+      "title": "No apps yet",
+      "body": "Create an app to get an access key and default gateways.",
+      "cta": "Create app"
+    },
+    "filteredEmpty": {
+      "title": "No matching apps",
+      "body": "Try a different search term.",
+      "cta": "Clear search"
+    },
+    "error": {
+      "title": "Couldn't load apps",
+      "body": "Check your connection and retry.",
+      "retry": "Retry"
+    },
+    "toast": {
+      "created": "App \"{name}\" created",
+      "createError": "Couldn't create app — please retry",
+      "updated": "App updated",
+      "updateError": "Couldn't update app — please retry",
+      "deleted": "App \"{name}\" deleted",
+      "deleteError": "Couldn't delete app — please retry",
+      "copyOk": "Copied to clipboard",
+      "copyError": "Couldn't copy to clipboard"
+    }
+  },
+  "wordmark": {
+    "name": "RPC Gateway",
+    "caption": "console"
+  },
+  "overview": {
+    "title": "Overview",
+    "subhead": "View JSON-RPC traffic, apps, and gateway resources.",
+    "resources": {
+      "ariaLabel": "Resources",
+      "title": "Resources",
+      "endpoints": "Active endpoints",
+      "providers": "Providers",
+      "apps": "Apps",
+      "error": {
+        "title": "Couldn't load stats",
+        "retry": "Retry"
+      }
+    },
+    "apps": {
+      "title": "Your apps",
+      "newApp": "Create new app",
+      "manageAll": "Manage all apps",
+      "empty": {
+        "title": "Create your first app",
+        "body": "Create an app to get an access key and connect to gateways.",
+        "cta": "Create app"
+      },
+      "error": {
+        "title": "Couldn't load apps",
+        "retry": "Retry"
+      }
+    },
+    "trend": {
+      "ariaLabel": "Usage trends",
+      "title": "Usage trends",
+      "subhead": "Track request success and network traffic over time.",
+      "dataThrough": "Data through",
+      "rangeAriaLabel": "Time range",
+      "ranges": {
+        "hourly": "Hourly",
+        "daily": "Daily",
+        "weekly": "Weekly",
+        "monthly": "Monthly"
+      },
+      "calls": {
+        "title": "Requests",
+        "subhead": "Successful and failed request trends.",
+        "success": "Success",
+        "failure": "Failure",
+        "empty": "No activity in this range yet."
+      },
+      "traffic": {
+        "title": "Network traffic",
+        "subhead": "Upload and download traffic trends.",
+        "upload": "Upload",
+        "download": "Download",
+        "empty": "No traffic in this range yet."
+      },
+      "error": {
+        "title": "Couldn't load usage trends",
+        "retry": "Retry"
+      }
+    }
+  },
+  "usage": {
+    "metaTitle": "Usage",
+    "title": "Usage",
+    "subtitle": "View calls, cache, traffic, and latency.",
+    "dataThrough": "Data through",
+    "filters": {
+      "toolbarAriaLabel": "Usage defaults",
+      "allAppsLabel": "All apps",
+      "defaultsLabel": "Default chart filters",
+      "applyToAll": "Apply to all",
+      "refresh": "Refresh",
+      "chainLabel": "Chain",
+      "networkLabel": "Network",
+      "allChains": "All chains",
+      "allNetworks": "All networks",
+      "searchPlaceholder": "Search chain or network",
+      "searchAria": "Search chain or network",
+      "noNetworkMatches": "No networks match.",
+      "rangeAriaLabel": "Time range",
+      "ranges": {
+        "hourly": "Hourly",
+        "daily": "Daily",
+        "weekly": "Weekly",
+        "monthly": "Monthly"
+      }
+    },
+    "kpi": {
+      "ariaLabel": "Usage summary",
+      "totalCalls": {
+        "label": "Total calls"
+      },
+      "successRate": {
+        "label": "Success rate"
+      },
+      "cacheHit": {
+        "label": "Cache acceleration rate"
+      },
+      "latency": {
+        "label": "Avg latency"
+      },
+      "traffic": {
+        "label": "Traffic"
+      },
+      "error": {
+        "title": "Couldn't load summary",
+        "retry": "Retry"
+      }
+    },
+    "overall": {
+      "title": "Requests over time",
+      "subhead": "Successful vs. failed requests across the range.",
+      "success": "Success",
+      "failure": "Failure",
+      "empty": "No request activity in this range yet."
+    },
+    "methods": {
+      "title": "By method",
+      "subhead": "View calls by RPC method.",
+      "empty": "No method activity in this range yet."
+    },
+    "network": {
+      "title": "By network",
+      "subhead": "View calls by chain and network.",
+      "empty": "No network activity in this range yet."
+    },
+    "cache": {
+      "title": "Cache hit rate",
+      "subhead": "Compare system cache hit rates by chain and network.",
+      "label": "Hit rate",
+      "empty": "No cache-eligible requests in this range yet."
+    },
+    "cacheByMethod": {
+      "title": "Cache hit rate by method",
+      "subhead": "Compare cache hit rates across cache-eligible RPC methods.",
+      "empty": "No cache-eligible method activity in this range yet."
+    },
+    "traffic": {
+      "title": "Network traffic",
+      "subhead": "Upload and download traffic trends.",
+      "upload": "Upload",
+      "download": "Download",
+      "empty": "No traffic in this range yet."
+    },
+    "latency": {
+      "title": "Average latency",
+      "subhead": "Compare end-to-end request latency by chain and network.",
+      "label": "Average latency",
+      "empty": "No latency data in this range yet."
+    },
+    "error": {
+      "title": "Couldn't load usage",
+      "retry": "Retry"
+    }
+  },
+  "admin": {
+    "accounts": {
+      "metaTitle": "Accounts",
+      "title": "Accounts",
+      "subtitle": "Create accounts and manage access status and archive.",
+      "cta": {
+        "newAccount": "New account"
+      },
+      "actions": {
+        "openMenu": "Open actions menu",
+        "viewDetails": "Details",
+        "hideDetails": "Hide",
+        "enable": "Enable",
+        "disable": "Disable",
+        "archive": "Archive"
+      },
+      "status": {
+        "unactivated": "Unactivated",
+        "active": "Active",
+        "disabled": "Disabled",
+        "archived": "Archived"
+      },
+      "filters": {
+        "title": "Filters",
+        "done": "Done",
+        "statusAll": "All statuses"
+      },
+      "search": {
+        "placeholder": "Search by email…",
+        "aria": "Search accounts by email"
+      },
+      "table": {
+        "email": "Email",
+        "role": "Role",
+        "status": "Status",
+        "created": "Created",
+        "columnsLabel": "Columns",
+        "range": "{from} to {to} of {total} results",
+        "prev": "Prev",
+        "next": "Next"
+      },
+      "detail": {
+        "title": "Account Detail",
+        "email": "Email",
+        "copyEmail": "Copy email",
+        "userId": "User ID",
+        "copyId": "Copy user ID",
+        "name": "Name",
+        "role": "Role",
+        "status": "Status",
+        "activity": "Activity",
+        "firstLogin": "First sign-in",
+        "lastLogin": "Last sign-in",
+        "lastLoginIp": "Last sign-in IP",
+        "gatewayCount": "Gateways",
+        "appCount": "Apps",
+        "userAgent": "Last user agent",
+        "created": "Created",
+        "modified": "Modified"
+      },
+      "form": {
+        "email": "Email",
+        "emailPlaceholder": "e.g. operator@example.com",
+        "emailHint": "Used to create the account and must be unique."
+      },
+      "dialog": {
+        "cancel": "Cancel",
+        "saving": "Saving…",
+        "creating": "Creating…",
+        "create": {
+          "title": "Create account",
+          "subtitle": "Enter an email to create a new account.",
+          "submit": "Create account"
+        },
+        "enable": {
+          "title": "Enable this account?",
+          "body": "\"{email}\" will regain platform access.",
+          "confirm": "Enable account"
+        },
+        "disable": {
+          "title": "Disable this account?",
+          "body": "Once disabled, \"{email}\" cannot sign in.",
+          "confirm": "Disable account"
+        },
+        "archive": {
+          "title": "Archive this account?",
+          "body": "\"{email}\" will be signed out, its email released, and the account removed from the list. This cannot be undone.",
+          "confirm": "Archive account"
+        }
+      },
+      "empty": {
+        "title": "No accounts yet",
+        "body": "Create an account and grant platform access.",
+        "cta": "Create your first account"
+      },
+      "filteredEmpty": {
+        "title": "No accounts match these filters",
+        "body": "No accounts match. Adjust the filters and try again.",
+        "cta": "Clear filters"
+      },
+      "error": {
+        "title": "Couldn't load accounts",
+        "body": "Account data failed to load. Check your connection and retry.",
+        "retry": "Retry"
+      },
+      "toast": {
+        "created": "Account \"{email}\" created",
+        "createError": "Couldn't create account — please retry",
+        "enabled": "Account enabled",
+        "disabled": "Account disabled",
+        "statusError": "Couldn't update account — please retry",
+        "archived": "Account \"{email}\" archived",
+        "archiveError": "Couldn't archive account — please retry",
+        "copyOk": "Copied to clipboard",
+        "copyError": "Couldn't copy to clipboard"
+      }
+    },
+    "endpoints": {
+      "actions": {
+        "openMenu": "Open actions menu",
+        "viewDetails": "Details",
+        "hideDetails": "Hide",
+        "toggleOn": "Enable",
+        "toggleOff": "Disable"
+      },
+      "filters": {
+        "stateAll": "All states",
+        "stateEnabled": "Enabled",
+        "stateDisabled": "Disabled",
+        "allChains": "All chains",
+        "allNetworks": "All networks"
+      },
+      "table": {
+        "name": "Name",
+        "chain": "Chain",
+        "network": "Network",
+        "state": "State",
+        "action": "Action",
+        "range": "{from} to {to} of {total} results",
+        "prev": "Prev",
+        "next": "Next"
+      },
+      "detail": {
+        "title": "Endpoint Detail",
+        "name": "Name",
+        "chain": "Chain",
+        "network": "Network",
+        "url": "URL",
+        "state": "State",
+        "created": "Created",
+        "connectionTitle": "Connection",
+        "authType": "Auth type",
+        "timeout": "Timeout (ms)"
+      },
+      "empty": {
+        "title": "No endpoints yet",
+        "body": "No manageable RPC endpoints yet.",
+        "cta": ""
+      },
+      "filteredEmpty": {
+        "title": "No endpoints match these filters",
+        "body": "No endpoints match. Adjust the filters and try again.",
+        "cta": "Clear filters"
+      },
+      "error": {
+        "title": "Couldn't load endpoints",
+        "body": "Endpoint data failed to load. Check your connection and retry.",
+        "retry": "Retry"
+      },
+      "toast": {
+        "enabled": "Endpoint enabled",
+        "disabled": "Endpoint disabled",
+        "updateError": "Couldn't update endpoint — please retry"
+      }
+    }
+  },
+  "nav": {
+    "workspace": "Workspace",
+    "resources": "Resources",
+    "overview": "Overview",
+    "apps": "Apps",
+    "backToApps": "All apps",
+    "appOverview": "Overview",
+    "gateways": "Gateways",
+    "appUsage": "App Usage",
+    "appSettings": "App settings",
+    "routes": "Routes",
+    "usage": "Usage",
+    "settings": "Settings",
+    "systemConfig": "System",
+    "settingsProfile": "Profile",
+    "settingsSecurity": "Security",
+    "settingsRpc": "Runtime & cache",
+    "settingsRateLimit": "Traffic protection",
+    "settingsChains": "Chain policies",
+    "accounts": "Accounts",
+    "docs": "Docs",
+    "status": "Status",
+    "providers": "Providers",
+    "endpoints": "Endpoints",
+    "nodes": "Nodes"
+  },
+  "userMenu": {
+    "accountSettings": "Settings",
+    "admin": "Admin",
+    "docs": "Docs",
+    "signOut": "Sign out"
+  },
+  "settings": {
+    "profile": {
+      "metaTitle": "Profile",
+      "title": "Profile",
+      "subtitle": "View account details.",
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "role_admin": "Admin",
+      "role_user": "User"
+    },
+    "security": {
+      "metaTitle": "Security",
+      "title": "Security",
+      "subtitle": "Manage sign-in methods and personal access tokens."
+    },
+    "password": {
+      "title": "Password",
+      "description": "Set a password for email sign-in.",
+      "old_label": "Old password",
+      "old_placeholder": "Leave blank when setting for the first time",
+      "new_label": "New password",
+      "new_placeholder": "At least 8 characters",
+      "confirm_label": "Confirm new password",
+      "confirm_placeholder": "Re-enter the new password",
+      "submit": "Save",
+      "saving": "Saving…",
+      "success": "Password updated.",
+      "error": "Could not update the password. Please try again.",
+      "error_old": "Old password is incorrect.",
+      "mismatch": "The passwords don't match.",
+      "too_short": "Password must be at least 8 characters."
+    },
+    "tokens": {
+      "title": "Personal access tokens",
+      "description": "Create scoped credentials for CLI tools and AI agents.",
+      "activeCount": "{active} of {max} active tokens",
+      "limitReached": "Revoke an active token or wait for one to expire before creating another.",
+      "create": "Create token",
+      "createTitle": "Create a personal access token",
+      "createDescription": "Choose only the permissions this client needs.",
+      "secretTitle": "Copy your token now",
+      "secretDescription": "This secret is shown once and cannot be recovered after you close this dialog.",
+      "name": "Token name",
+      "expiry": "Expires after",
+      "days": "{days} days",
+      "scopes": "Permissions",
+      "creating": "Creating…",
+      "copy": "Copy token",
+      "copied": "Token copied.",
+      "done": "Done",
+      "cancel": "Cancel",
+      "loading": "Loading tokens…",
+      "empty": "No active personal access tokens.",
+      "expires": "Expires",
+      "lastUsed": "Last used",
+      "revoke": "Revoke",
+      "revoking": "Revoking…",
+      "revoked": "Token revoked.",
+      "revokeTitle": "Revoke personal access token?",
+      "revokeDescription": "{name} will stop working immediately.",
+      "states": {
+        "active": "Active",
+        "expired": "Expired",
+        "revoked": "Revoked"
+      },
+      "errors": {
+        "load": "Could not load personal access tokens.",
+        "create": "Could not create the token.",
+        "revoke": "Could not revoke the token.",
+        "copy": "Could not copy the token."
+      }
+    },
+    "danger": {
+      "title": "Sign out",
+      "description": "Sign out on this device.",
+      "sign_out": "Sign out",
+      "signing_out": "Signing out…"
+    },
+    "configShared": {
+      "save": "Save",
+      "saveAll": "Save all",
+      "saving": "Saving…",
+      "reset": "Discard changes",
+      "discardConfirm": "Discard unsaved changes?",
+      "conflict": {
+        "body": "This configuration changed on the server. Your draft has been kept.",
+        "acceptRemote": "Use server version",
+        "reapply": "Reapply my changes"
+      },
+      "rangeError": "Enter a number between {min} and {max}.",
+      "riskConfirm": {
+        "title": "Review high-impact changes",
+        "description": "Confirm the new values and their operational impact before saving.",
+        "impact": "Impact",
+        "confirm": "Confirm and save",
+        "confirming": "Saving…",
+        "cancel": "Cancel"
+      },
+      "toast": {
+        "saved": "Config saved",
+        "pending": "Config saved and waiting for deployment convergence",
+        "error": "Couldn't save config — please retry"
+      },
+      "error": {
+        "title": "Couldn't load RPC config",
+        "body": "Check your connection and retry.",
+        "retry": "Retry"
+      }
+    }
+  },
+  "sidebar": {
+    "pin": "Pin sidebar",
+    "unpin": "Unpin sidebar",
+    "openNavigation": "Open navigation",
+    "navigationTitle": "Navigation",
+    "navigationDescription": "Dashboard navigation"
+  },
+  "endpoints": {
+    "metaTitle": "Endpoints",
+    "title": "Endpoint",
+    "subtitle": "Manage reusable RPC endpoint connections.",
+    "newEndpoint": "New endpoint",
+    "loading": "Loading endpoints…",
+    "loadError": "Couldn’t load endpoints.",
+    "retry": "Retry",
+    "none": "None",
+    "filters": {
+      "title": "Filters",
+      "description": "Filter by chain, network, protocol, state, or origin.",
+      "all": "All",
+      "apply": "Apply filters",
+      "clear": "Clear filters",
+      "done": "Done",
+      "allChains": "All chains",
+      "allNetworks": "All networks",
+      "allProtocols": "All protocols",
+      "allOrigins": "All origins",
+      "allStates": "All states",
+      "providerFilter": "Provider: {name}",
+      "clearProviderFilter": "Clear provider filter"
+    },
+    "fields": {
+      "name": "Name",
+      "chain": "Chain",
+      "network": "Network",
+      "protocol": "Protocol",
+      "state": "State",
+      "origin": "Origin",
+      "provider": "Provider",
+      "chainNetwork": "Chain / Network",
+      "url": "Connection URL",
+      "enabled": "Enabled",
+      "authType": "Authentication",
+      "secret": "Auth secret",
+      "headerName": "Name",
+      "headerValue": "Value",
+      "queryParam": "Query parameter",
+      "modified": "Last modified",
+      "enabledHint": "Disabled endpoints are skipped when routing."
+    },
+    "state": {
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "protocol": {
+      "jsonrpc": "JSON-RPC",
+      "http_api": "HTTP API"
+    },
+    "chain": {
+      "ethereum": "Ethereum",
+      "polygon": "Polygon",
+      "bsc": "BNB Smart Chain",
+      "arbitrum": "Arbitrum",
+      "optimism": "Optimism",
+      "base": "Base",
+      "solana": "Solana",
+      "bitcoin": "Bitcoin",
+      "litecoin": "Litecoin",
+      "tron": "TRON"
+    },
+    "network": {
+      "mainnet": "Mainnet",
+      "mainnet-beta": "Mainnet",
+      "sepolia": "Sepolia",
+      "amoy": "Amoy",
+      "testnet": "Testnet",
+      "devnet": "Devnet",
+      "nile": "Nile"
+    },
+    "origin": {
+      "manual": "Manual",
+      "provider": "Provider"
+    },
+    "auth": {
+      "none": "None",
+      "bearer": "Bearer token",
+      "header_api_key": "Header API key",
+      "query_api_key": "Query API key",
+      "path_api_key": "Path API key"
+    },
+    "actions": {
+      "edit": "Edit",
+      "audit": "Audit",
+      "enable": "Enable",
+      "disable": "Disable",
+      "delete": "Delete",
+      "openMenu": "Open endpoint actions",
+      "viewDetails": "Details",
+      "hideDetails": "Hide"
+    },
+    "empty": {
+      "title": "No endpoints yet",
+      "body": "Create a manual endpoint to store a static connection configuration.",
+      "filteredTitle": "No matching endpoints",
+      "filteredBody": "No endpoints match the active filters.",
+      "cta": "New endpoint",
+      "providerTitle": "No provider endpoints",
+      "providerBody": "Provider endpoints appear here after you connect and sync a provider."
+    },
+    "pagination": {
+      "summary": "{total} endpoints · page {page} of {maxPage}",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "form": {
+      "createTitle": "New endpoint",
+      "createDescription": "Secrets are encrypted at rest.",
+      "editTitle": "Edit endpoint",
+      "editDescription": "Saving requires the latest endpoint registry version.",
+      "conflict": "This endpoint changed after it was loaded.",
+      "reload": "Reload",
+      "providerManaged": "This endpoint is managed by a provider sync. Only its name and enabled state can be edited here."
+    },
+    "cancel": "Cancel",
+    "saving": "Saving…",
+    "save": "Save changes",
+    "create": "Create endpoint",
+    "delete": {
+      "title": "Delete endpoint",
+      "description": "Delete “{name}”? The registry record will be soft-deleted.",
+      "providerWarning": "This endpoint is managed by a provider sync and may be recreated on the next sync."
+    },
+    "bulk": {
+      "deleteSelectedCount": "Delete selected ({count})",
+      "selectAll": "Select shown endpoints",
+      "clearSelection": "Clear selection",
+      "selectEndpoint": "Select {name}",
+      "limit": "You can delete up to 50 endpoints at once.",
+      "dialog": {
+        "title": "Delete selected endpoints",
+        "description": "Delete {count} selected endpoints? Eligible registry records will be soft-deleted.",
+        "referenceWarning": "Endpoints used by active Gateway routes will be kept. Remove them from those routes, then retry deletion.",
+        "confirm": "Delete endpoints",
+        "deleting": "Deleting…"
+      },
+      "toast": {
+        "deleted": "Deleted {count} endpoints",
+        "partial": "Deleted {deleted} endpoints; {referenced} are still used by active routes",
+        "allReferenced": "No endpoints deleted; all {count} are still used by active routes",
+        "deleteError": "Couldn’t delete endpoints"
+      }
+    },
+    "audit": {
+      "title": "Audit · {name}",
+      "description": "Audit entries contain versions and field names only. URLs and secrets are never stored here.",
+      "loadError": "Couldn’t load audit events.",
+      "empty": "No audit events yet.",
+      "version": "Version {previous} → {next}",
+      "fields": "Changed fields: {fields}",
+      "noFields": "No registry fields changed.",
+      "action": {
+        "created": "Created",
+        "updated": "Updated",
+        "deleted": "Deleted"
+      }
+    },
+    "toast": {
+      "created": "Endpoint created",
+      "createError": "Couldn’t create endpoint",
+      "updated": "Endpoint updated",
+      "updateError": "Couldn’t update endpoint",
+      "deleted": "Endpoint deleted",
+      "deleteError": "Couldn’t delete endpoint",
+      "enabled": "Endpoint enabled",
+      "disabled": "Endpoint disabled"
+    },
+    "tabs": {
+      "endpoints": "Endpoints",
+      "sync": "Provider sync",
+      "manual": "Manual",
+      "provider": "Provider"
+    },
+    "tabsAriaLabel": "Endpoints views",
+    "cta": {
+      "newEndpoint": "New endpoint",
+      "manageProviders": "Manage providers"
+    },
+    "table": {
+      "name": "Name",
+      "chain": "Chain",
+      "network": "Network",
+      "protocol": "Protocol",
+      "origin": "Origin",
+      "state": "State",
+      "columnsLabel": "Columns",
+      "range": "{from} to {to} of {total} results",
+      "prev": "Prev",
+      "next": "Next",
+      "provider": "Provider"
+    },
+    "detail": {
+      "title": "Endpoint details",
+      "id": "Endpoint ID",
+      "chain": "Chain",
+      "network": "Network",
+      "protocol": "Protocol",
+      "origin": "Origin",
+      "enabled": "Enabled",
+      "yes": "Yes",
+      "no": "No",
+      "providerSection": "Provider",
+      "provider": "Provider",
+      "syncStatus": "Sync status",
+      "lastSeen": "Last seen",
+      "connection": "Connection",
+      "authType": "Authentication",
+      "authConfig": "Auth configuration",
+      "created": "Created",
+      "modified": "Modified"
+    },
+    "sync": {
+      "available": "Available",
+      "missing": "Missing"
+    },
+    "filteredEmpty": {
+      "title": "No matching endpoints",
+      "body": "No endpoints match the current filters.",
+      "cta": "Clear filters"
+    },
+    "error": {
+      "title": "Couldn't load endpoints",
+      "body": "Something went wrong loading your endpoints.",
+      "retry": "Try again"
+    }
+  },
+  "nodes": {
+    "metaTitle": "Nodes",
+    "title": "Nodes",
+    "subtitle": "Every RPC node your gateways route to.",
+    "tabs": {
+      "allNodes": "All nodes",
+      "sync": "Provider sync"
+    },
+    "tabsAriaLabel": "Nodes views",
+    "cta": {
+      "newNode": "Add node"
+    },
+    "actions": {
+      "openMenu": "Open node actions",
+      "viewDetails": "View details",
+      "hideDetails": "Hide details",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "filters": {
+      "allChains": "All chains",
+      "allNetworks": "All networks",
+      "allApiTypes": "All transports",
+      "title": "Filters",
+      "done": "Done"
+    },
+    "table": {
+      "name": "Name",
+      "chain": "Chain",
+      "network": "Network",
+      "apiType": "Transport",
+      "columnsLabel": "Columns",
+      "range": "{from} to {to} of {total} results",
+      "prev": "Prev",
+      "next": "Next"
+    },
+    "detail": {
+      "title": "Node details",
+      "id": "Node ID",
+      "chain": "Chain",
+      "network": "Network",
+      "apiType": "Transport",
+      "enabled": "Enabled",
+      "yes": "Yes",
+      "no": "No",
+      "connection": "Connection",
+      "timeout": "Timeout",
+      "timeoutValue": "{value} ms",
+      "authType": "Authentication",
+      "authConfig": "Auth configuration",
+      "methodSupport": "Method support",
+      "methodSupportUnknown": "No explicit method capability is configured.",
+      "routingReferences": "Routing references",
+      "noRoutingReferences": "This node is not used by a gateway or method route.",
+      "methodRouteReference": "{gateway} · {methods}",
+      "created": "Created",
+      "modified": "Modified",
+      "loadError": "Couldn't load node details."
+    },
+    "form": {
+      "name": "Name",
+      "url": "Endpoint URL",
+      "urlInvalid": "Enter a valid URL for the selected transport.",
+      "timeout": "Timeout (ms)",
+      "apiType": "Transport",
+      "authType": "Authentication",
+      "headerName": "Header name",
+      "queryParam": "Query parameter",
+      "secret": "Secret",
+      "secretHint": "Leave blank to keep the existing secret.",
+      "methodSupport": "EVM Debug support",
+      "methodSupportHint": "Controls whether debug RPC methods may route to this node.",
+      "enabled": "Enabled",
+      "enabledHint": "Disabled nodes are excluded from routing."
+    },
+    "methodSupport": {
+      "unknown": "Unknown",
+      "supported": "Supported",
+      "unsupported": "Unsupported"
+    },
+    "dialog": {
+      "cancel": "Cancel",
+      "saving": "Saving…",
+      "deleting": "Deleting…",
+      "edit": {
+        "title": "Edit node",
+        "subtitle": "Update the node's connection and routing capabilities.",
+        "submit": "Save changes",
+        "loadError": "Couldn't load the node for editing."
+      },
+      "delete": {
+        "title": "Delete this node?",
+        "body": "Delete “{name}” from your account. This cannot be undone.",
+        "confirm": "Delete node",
+        "blockedTitle": "This node is still in use",
+        "blockedBody": "Remove “{name}” from every gateway and method route before deleting it.",
+        "gatewayReferences": "Gateways",
+        "methodReferences": "Method routes",
+        "close": "Close"
+      }
+    },
+    "toast": {
+      "updated": "Node “{name}” updated",
+      "updateError": "Couldn't update the node",
+      "deleted": "Node “{name}” deleted",
+      "deleteError": "Couldn't delete the node"
+    },
+    "empty": {
+      "title": "No nodes yet",
+      "body": "Add a self-hosted node, or sync one from a provider to get started.",
+      "cta": "Add node"
+    },
+    "filteredEmpty": {
+      "title": "No matching nodes",
+      "body": "No nodes match the current filters.",
+      "cta": "Clear filters"
+    },
+    "error": {
+      "title": "Couldn't load nodes",
+      "body": "Something went wrong loading your nodes.",
+      "retry": "Try again"
+    }
+  },
+  "providers": {
+    "metaTitle": "Providers",
+    "title": "Providers",
+    "subtitle": "Connect providers and sync endpoint endpoints.",
+    "cta": {
+      "newProvider": "New provider"
+    },
+    "card": {
+      "neverSynced": "Never synced",
+      "tagsMore": "+{count}",
+      "meta": {
+        "type": "Type",
+        "project": "Project",
+        "organization": "Organization",
+        "region": "Region",
+        "tags": "Tags"
+      }
+    },
+    "table": {
+      "name": "Name",
+      "vendor": "Vendor",
+      "autoSync": "Auto-sync",
+      "lastSync": "Last sync",
+      "state": "State",
+      "action": "Action",
+      "range": "{from} to {to} of {total} results",
+      "prev": "Prev",
+      "next": "Next"
+    },
+    "filters": {
+      "vendor": "Vendor",
+      "allVendors": "All vendors",
+      "state": "State",
+      "stateAll": "All",
+      "stateEnabled": "Enabled",
+      "stateDisabled": "Disabled",
+      "autoSync": "Auto-sync",
+      "syncAll": "All",
+      "syncOn": "Sync on",
+      "syncOff": "Sync off",
+      "title": "Filters",
+      "done": "Done"
+    },
+    "vendor": {
+      "alchemy": "Alchemy",
+      "quicknode": "QuickNode",
+      "chainstack": "Chainstack",
+      "drpc": "dRPC",
+      "tenderly": "Tenderly"
+    },
+    "detail": {
+      "notFoundTitle": "Provider not found",
+      "notFoundBody": "This provider may have been deleted.",
+      "disableTitle": "Disable this provider?",
+      "disableBody": "Once disabled, \"{name}\" stops syncing endpoints. Synced endpoints are kept.",
+      "secretReplaceTitle": "Replace the stored secret?",
+      "secretReplaceBody": "Saving a new secret immediately replaces the old one. This cannot be undone.",
+      "secretReplaceConfirm": "Replace secret",
+      "sensitiveChangesTitle": "Save sensitive changes?",
+      "sensitiveChangesBody": "This replaces the stored secret and disables “{name}”. Scheduled endpoint sync will stop.",
+      "deleteTitle": "Delete provider",
+      "dangerBody": "Delete this provider and stop managing its synced endpoints.",
+      "dailyAutomatic": "Daily automatic sync",
+      "manualOnly": "Manual only",
+      "loading": "Loading provider…"
+    },
+    "actions": {
+      "openMenu": "Open actions menu",
+      "viewDetails": "Details",
+      "hideDetails": "Hide",
+      "syncNow": "Sync now",
+      "syncing": "Syncing…",
+      "editProvider": "Edit",
+      "deleteProvider": "Delete",
+      "toggleOn": "Toggle on",
+      "toggleOff": "Toggle off"
+    },
+    "toast": {
+      "created": "Provider “{name}” created",
+      "createError": "Could not create the provider",
+      "updated": "Provider updated",
+      "updateError": "Could not update the provider",
+      "deleted": "Provider “{name}” deleted",
+      "deleteError": "Could not delete the provider",
+      "enabled": "Provider enabled",
+      "disabled": "Provider disabled",
+      "syncStarted": "Syncing “{name}”…",
+      "syncError": "Sync failed"
+    },
+    "dialog": {
+      "cancel": "Cancel",
+      "creating": "Creating…",
+      "saving": "Saving…",
+      "create": {
+        "title": "New provider",
+        "subtitle": "Connect a provider and sync endpoints.",
+        "submit": "Create provider"
+      },
+      "edit": {
+        "title": "Edit provider",
+        "subtitle": "Edit credentials, automatic sync, and network scope.",
+        "submit": "Save changes"
+      },
+      "delete": {
+        "title": "Delete provider",
+        "body": "After deletion, “{name}” stops syncing. Every retained endpoint keeps its URL, authentication, and configuration.",
+        "deleteEndpoints": "Also delete unreferenced endpoints",
+        "deleteEndpointsHint": "Only endpoints unused by Gateway routes are deleted. Referenced endpoints are always retained and detached from this provider.",
+        "confirm": "Delete provider"
+      }
+    },
+    "form": {
+      "name": "Name",
+      "nameHint": "Used to identify this provider connection.",
+      "namePlaceholder": "my-alchemy",
+      "vendor": "Vendor",
+      "vendorHint": "Select the RPC provider to connect.",
+      "vendorLocked": "Vendor can’t be changed after creation.",
+      "secret": "API key / secret",
+      "secretHint": "Provider secret used to sync endpoints.",
+      "secretPlaceholder": "Paste the vendor API key",
+      "secretKeepHint": "The stored credential is shown directly and saved only when its value changes.",
+      "drpcSecretHint": "Paste a dRPC API key or a full https://lb.drpc.live network endpoint URL.",
+      "drpcSecretKeepHint": "Use a dRPC API key or a full https://lb.drpc.live network endpoint URL. The stored credential is saved only when its value changes.",
+      "drpcSecretPlaceholder": "Paste a dRPC API key or endpoint URL",
+      "autoSync": "Automatic sync",
+      "autoSyncHint": "Sync provider endpoints once per day at a platform-assigned UTC time.",
+      "systemCacheSource": "System cache source",
+      "systemCacheSourceHint": "Trust synced endpoints from this provider to publish SYSTEM tips and shared cache entries.",
+      "enabled": "Enabled",
+      "enabledHint": "When disabled, automatic sync stops.",
+      "networkFilter": "Network filter",
+      "networkFilterHint": "Choose which networks participate in sync.",
+      "networkFilterNone": "All networks",
+      "networkFilterOnly": "Only these",
+      "networkFilterIgnore": "Exclude these",
+      "chainNetwork": "Chain / Network",
+      "chainNetworkSearch": "Search chain or network…",
+      "openChainNetworks": "Open chain and network options",
+      "chainNetworkEmpty": "No matching chain or network."
+    },
+    "error": {
+      "title": "Couldn’t load providers",
+      "body": "Provider data failed to load. Check your connection and retry.",
+      "retry": "Retry"
+    },
+    "empty": {
+      "title": "No providers yet",
+      "body": "Connect a provider to sync endpoint endpoints.",
+      "cta": "New provider"
+    },
+    "filteredEmpty": {
+      "title": "No matching providers",
+      "body": "No providers match. Adjust the filters and try again.",
+      "cta": "Clear filters"
+    },
+    "sync": {
+      "title": "Sync result",
+      "subtitle": "Sync result for {name}.",
+      "statusLabel": "Status",
+      "created": "Created",
+      "updated": "Updated",
+      "restored": "Restored",
+      "archived": "Archived",
+      "skipped": "Skipped",
+      "deleted": "Removed",
+      "itemsTitle": "Details",
+      "colChain": "Chain",
+      "colNetwork": "Network",
+      "colAction": "Action",
+      "colError": "Error",
+      "noItems": "No endpoint changes were reported.",
+      "viewItems": "Show details",
+      "hideItems": "Hide details",
+      "close": "Close",
+      "running": "Syncing provider…",
+      "upToDate": "Already up to date — no changes were needed.",
+      "summary": {
+        "success": "Sync complete — endpoints are up to date.",
+        "partial": "Partly synced — some endpoints could not be processed.",
+        "failed": "Sync failed — no changes were applied."
+      }
+    }
+  }
+}

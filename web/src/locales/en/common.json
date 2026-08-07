@@ -1,0 +1,75 @@
+{
+  "loading": "Loading…",
+
+  "logout": "Sign out",
+  "logout_pending": "Signing out…",
+  "logout_success": "Signed out",
+  "logout_failed": "Couldn't sign out — please retry",
+
+  "auth_error_session_invalid": "Your session expired. Please sign in again.",
+  "auth_error_oauth_failed": "Google sign-in failed. Please try again.",
+  "auth_error_oauth_denied": "Google sign-in was cancelled.",
+  "auth_error_unknown": "Sign-in failed. Please try again.",
+
+  "errors": {
+    "title": "Couldn't load this",
+    "retry": "Retry",
+    "offline": "Can't reach the server. Check your connection and retry.",
+    "timeout": "The request timed out. Please retry.",
+    "server": "The service is temporarily unavailable. Please retry shortly.",
+    "unauthorized": "Your session expired. Please sign in again.",
+    "forbidden": "You don't have permission to do that.",
+    "notFound": "We couldn't find what you were looking for.",
+    "generic": "Something went wrong. Please retry."
+  },
+
+  "nav_product": "Product",
+  "nav_features": "Features",
+  "nav_docs": "Docs",
+  "nav_pricing": "Pricing",
+  "nav_status": "Status",
+  "nav_sign_in": "Sign in",
+  "nav_open_console": "Open console",
+
+  "brand_tagline": "Cockpit for the JSON-RPC mesh.",
+
+  "notFoundPage": {
+    "eyebrow": "Route not found",
+    "title": "Page not found",
+    "description": "This address does not match any active Gateway console page. The page may have been removed, renamed, or copied incorrectly.",
+    "primary": "Open dashboard",
+    "secondary": "Sign in",
+    "guidanceTitle": "Try a known console entry",
+    "guidanceDescription": "Use one of these routes instead of retrying the same address.",
+    "routeHint": "No active app route matched this URL.",
+    "bookmarkHint": "Update saved bookmarks to the dashboard route after opening the right page.",
+    "links": {
+      "apps": {
+        "label": "Apps",
+        "description": "Manage RPC apps and keys."
+      },
+      "providers": {
+        "label": "Providers",
+        "description": "Check upstream providers."
+      },
+      "endpoints": {
+        "label": "Endpoints",
+        "description": "Manage endpoint connections."
+      },
+      "settings": {
+        "label": "Settings",
+        "description": "Open account preferences."
+      }
+    }
+  },
+
+  "footer_tagline": "Auditable, observable, evolvable RPC entry for web3 apps.",
+  "footer_docs": "Docs",
+  "footer_pricing": "Pricing",
+  "footer_status": "Status",
+  "footer_changelog": "Changelog",
+  "footer_privacy": "Privacy",
+  "footer_terms": "Terms",
+  "footer_legal": "© 2026 Gateway. All rights reserved.",
+  "footer_status_label": "All systems operational"
+}

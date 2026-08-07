@@ -1,0 +1,96 @@
+name: rpc-gateway
+
+x-server-build: &server-build
+  context: ./server
+
+services:
+  api:
+    image: rpc-gateway-api:${IMAGE_TAG:-local}
+    build: *server-build
+    container_name: rpc-gateway-api
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    user: "10001:10001"
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001,mode=1770
+    env_file:
+      - ${API_ENV_FILE:?API_ENV_FILE is required}
+    environment:
+      APP_ENV: ${APP_ENV:-prod}
+      HOST: 0.0.0.0
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    networks:
+      - ingress
+      - internal
+
+  api-worker:
+    image: rpc-gateway-api:${IMAGE_TAG:-local}
+    build: *server-build
+    container_name: rpc-gateway-api-worker
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    user: "10001:10001"
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001,mode=1770
+    command:
+      - uv
+      - run
+      - --no-sync
+      - taskiq
+      - worker
+      - jobs.worker:broker
+      - --no-configure-logging
+    env_file:
+      - ${API_ENV_FILE:?API_ENV_FILE is required}
+    environment:
+      APP_ENV: ${APP_ENV:-prod}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    networks:
+      - internal
+
+  api-scheduler:
+    image: rpc-gateway-api:${IMAGE_TAG:-local}
+    build: *server-build
+    container_name: rpc-gateway-api-scheduler
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    user: "10001:10001"
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001,mode=1770
+    command:
+      - uv
+      - run
+      - --no-sync
+      - taskiq
+      - scheduler
+      - jobs.scheduler:scheduler
+    env_file:
+      - ${API_ENV_FILE:?API_ENV_FILE is required}
+    environment:
+      APP_ENV: ${APP_ENV:-prod}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    networks:
+      - internal
+
+networks:
+  ingress:
+    name: rpc-gateway_ingress
+    external: true
+  internal:
+    name: rpc-gateway_internal
+    external: true

@@ -1,0 +1,202 @@
+name: ${INTEGRATION_PROJECT_NAME:-rpc-gateway-integration}
+
+x-api-environment: &api-environment
+  APP_ENV: test
+  PROJECT_NAME: rpc-gateway-api
+  HOST: 0.0.0.0
+  PORT: "18173"
+  WORKERS: ${INTEGRATION_API_WORKERS:-2}
+  RELOAD: "false"
+  PUBLIC_RPC_API_BASE_URL: http://api:18173
+  PUBLIC_RPC_GATEWAY_BASE_DOMAIN: integration.test
+  ORM_URL: postgres://rpc_gateway:${INTEGRATION_POSTGRES_PASSWORD}@postgres:5432/rpc_gateway_integration
+  REDIS_URL: redis://redis:6379/0
+  APP_API_KEY_MASTER_KEY: ${INTEGRATION_APP_KEY}
+  ENDPOINT_KEYRING: '{"v1":"${INTEGRATION_ENDPOINT_KEY}"}'
+  ENDPOINT_ACTIVE_KEY_VERSION: v1
+  AUTH_SESSION_SECRET: ${INTEGRATION_SESSION_SECRET}
+  ADMIN_ALLOWED_EMAILS: '["admin@example.test"]'
+  CORS_ORIGINS: '["http://console.integration.test"]'
+  OUTBOUND_PRIVATE_NETWORK_CIDRS: '["${INTEGRATION_SUBNET}"]'
+  SYSTEM_JSONRPC_CACHE_ENABLED: "true"
+  SYSTEM_JSONRPC_CACHE_REDIS_TTL_MS: "1000"
+  PUBLIC_JSONRPC_RATE_LIMIT_POLICY_REFRESH_SECONDS: "1"
+  PUBLIC_HTTP_API_RATE_LIMIT_POLICY_REFRESH_SECONDS: "1"
+
+x-api-image: &api-image
+  image: rpc-gateway-api:${INTEGRATION_IMAGE_TAG:-gateway-integration}
+  build:
+    context: .
+    dockerfile: Dockerfile
+  volumes:
+    - ./scripts:/rpc-gateway-api/scripts:ro
+  networks:
+    - integration
+
+services:
+  postgres:
+    image: postgres:17.5-alpine
+    environment:
+      POSTGRES_USER: rpc_gateway
+      POSTGRES_PASSWORD: ${INTEGRATION_POSTGRES_PASSWORD}
+      POSTGRES_DB: rpc_gateway_integration
+    volumes:
+      - integration-postgres:/var/lib/postgresql/data
+      - ./scripts/gateway_flow_integration/init.sql:/docker-entrypoint-initdb.d/10-integration.sql:ro
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U rpc_gateway -d rpc_gateway_integration]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    networks:
+      - integration
+
+  redis:
+    image: redis:7.4.5-alpine
+    command: [redis-server, --save, "", --appendonly, "no"]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    networks:
+      - integration
+
+  runtime-redis:
+    image: redis:7.4.5-alpine
+    command: [redis-server, --save, "", --appendonly, "no"]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    networks:
+      - integration
+
+  cache-redis:
+    image: redis:7.4.5-alpine
+    command: [redis-server, --save, "", --appendonly, "no"]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    networks:
+      - integration
+
+  schema:
+    <<: *api-image
+    environment: *api-environment
+    command: [uv, run, --no-sync, python, scripts/create_schema.py]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  deploy:
+    <<: *api-image
+    environment: *api-environment
+    command: [sh, -c, 'uv run --no-sync python scripts/deploy.py >/dev/null']
+    depends_on:
+      schema:
+        condition: service_completed_successfully
+
+  mock:
+    <<: *api-image
+    environment:
+      INTEGRATION_RUN_TOKEN: ${INTEGRATION_RUN_TOKEN}
+    command: [uv, run, --no-sync, python, -m, scripts.gateway_flow_integration.mock_endpoint]
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import socket; socket.create_connection(('127.0.0.1', 18080), 1).close()
+      interval: 1s
+      timeout: 3s
+      retries: 30
+
+  api-a:
+    <<: *api-image
+    environment:
+      <<: *api-environment
+      WORKERS: ${INTEGRATION_API_A_WORKERS:-1}
+    command: [uv, run, --no-sync, app]
+    depends_on:
+      deploy:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import socket; socket.create_connection(('127.0.0.1', 18173), 1).close()
+      interval: 1s
+      timeout: 3s
+      retries: 60
+
+  api-b:
+    <<: *api-image
+    environment:
+      <<: *api-environment
+      WORKERS: ${INTEGRATION_API_B_WORKERS:-1}
+    command: [uv, run, --no-sync, app]
+    depends_on:
+      deploy:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import socket; socket.create_connection(('127.0.0.1', 18173), 1).close()
+      interval: 1s
+      timeout: 3s
+      retries: 60
+
+  runner:
+    <<: *api-image
+    environment:
+      <<: *api-environment
+      INTEGRATION_RUN_TOKEN: ${INTEGRATION_RUN_TOKEN}
+      INTEGRATION_PROFILE: ${INTEGRATION_PROFILE:-quick}
+      INTEGRATION_API_WORKERS: ${INTEGRATION_API_WORKERS:-2}
+      INTEGRATION_API_A_WORKERS: ${INTEGRATION_API_A_WORKERS:-1}
+      INTEGRATION_API_B_WORKERS: ${INTEGRATION_API_B_WORKERS:-1}
+      INTEGRATION_REPORT_FILE: /reports/report.json
+      INTEGRATION_API_URL: http://api-a:18173
+      INTEGRATION_PEER_API_URL: http://api-b:18173
+      INTEGRATION_MOCK_URL: http://mock:18080
+      INTEGRATION_POSTGRES_URL: postgres://rpc_gateway:${INTEGRATION_POSTGRES_PASSWORD}@postgres:5432/rpc_gateway_integration
+      INTEGRATION_CACHE_POSTGRES_URL: postgres://rpc_gateway:${INTEGRATION_POSTGRES_PASSWORD}@postgres:5432/rpc_gateway_cache_test
+      INTEGRATION_REDIS_URL: redis://redis:6379/0
+      RUNTIME_STATE_STRESS_REDIS_URL: redis://runtime-redis:6379/14
+      SYSTEM_JSONRPC_CACHE_STRESS_REDIS_URL: redis://cache-redis:6379/15
+      SYSTEM_JSONRPC_CACHE_STRESS_POSTGRES_URL: postgres://rpc_gateway:${INTEGRATION_POSTGRES_PASSWORD}@postgres:5432/rpc_gateway_cache_test
+    command: [uv, run, --no-sync, python, -m, scripts.gateway_flow_integration.runner]
+    volumes:
+      - ./scripts:/rpc-gateway-api/scripts:ro
+      - ${INTEGRATION_REPORT_DIR}:/reports
+    depends_on:
+      api-a:
+        condition: service_healthy
+      api-b:
+        condition: service_healthy
+      mock:
+        condition: service_healthy
+      runtime-redis:
+        condition: service_healthy
+      cache-redis:
+        condition: service_healthy
+
+volumes:
+  integration-postgres:
+
+networks:
+  integration:
+    ipam:
+      config:
+        - subnet: ${INTEGRATION_SUBNET}
