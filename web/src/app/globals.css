@@ -1,0 +1,601 @@
+/* biome-ignore-all lint/complexity/noImportantStyles: Required for prefers-reduced-motion overrides. */
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* =========================================================================
+ * Console design tokens — Apple-light, borderless
+ * Aligned with V09 "Section-Scoped Actions" direction.
+ * ========================================================================= */
+
+:root {
+  --page-bg: #f8f8f8;
+  --surface: #ffffff;
+
+  --brand: #35abfe;
+  --brand-hover: #3bb1fe;
+  --brand-soft: rgb(53 171 254 / 0.1);
+  --brand-sky: #35abfe;
+  --brand-sky-mid: #3bb1fe;
+  --brand-sky-highlight: #56befd;
+  --brand-sky-end: #52bdfd;
+
+  --ink-900: #0f172a;
+  --ink-700: #334155;
+  --ink-500: #64748b;
+  --ink-400: #94a3b8;
+  --ink-wash: rgb(15 23 42 / 0.04);
+  --stripe: rgb(15 23 42 / 0.022);
+  /* Solid hover fill for table rows. Opaque on purpose so the cell reads as
+   * one consistent block — alpha-based hover would mix with whatever sits
+   * underneath the cell (e.g. the outer gray strip). Derived to sit ONE shade
+   * lighter than the table frame: half-way between the frame grey and the white
+   * surface, so a hovered row is a gentle wash rather than dropping to the full
+   * frame colour. (var() resolves lazily, so the forward ref to --table-frame
+   * below is fine.) */
+  --row-hover: color-mix(in oklab, var(--table-frame), var(--surface) 50%);
+  /* Table background — DERIVED from the global page background by mixing in a
+   * touch of neutral gray (#ccc) so the table area reads slightly darker/flatter
+   * than the page and sets off the white content rows. Single source of truth:
+   * change --page-bg (or --table-shade) and the whole table surface follows —
+   * container, thead band, top-corner arcs, and the dimmed sibling rows all
+   * reference this one variable. oklab keeps the shade perceptually even. */
+  --table-shade: 8%;
+  --table-frame: color-mix(in oklab, var(--page-bg), #ccc var(--table-shade));
+
+  --positive: #16a34a;
+  --positive-soft: rgb(22 163 74 / 0.08);
+  --warning: #d97706;
+  --warning-soft: rgb(217 119 6 / 0.08);
+  --danger: #dc2626;
+  --danger-soft: rgb(220 38 38 / 0.08);
+
+  /* Chart palette — used by shadcn ChartContainer via --color-<seriesKey>.
+   * Distinct hues with comparable perceptual luminance; series count is
+   * unbounded so colors cycle past index 4. */
+  --chart-1: #35abfe;
+  --chart-2: #16a34a;
+  --chart-3: #d97706;
+  --chart-4: #a855f7;
+  --chart-5: #06b6d4;
+  --chart-6: #ec4899;
+  --chart-7: #52bdfd;
+  --chart-8: #facc15;
+}
+
+/* =========================================================================
+ * Tailwind v4 @theme — surface tokens as utilities.
+ * Also re-maps shadcn-shape tokens onto the console palette so primitives
+ * inherit the look without per-file overrides.
+ * ========================================================================= */
+@theme inline {
+  /* Console palette */
+  --color-page-bg: var(--page-bg);
+  --color-surface: var(--surface);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-sky: var(--brand-sky);
+  --color-brand-sky-mid: var(--brand-sky-mid);
+  --color-brand-sky-highlight: var(--brand-sky-highlight);
+  --color-brand-sky-end: var(--brand-sky-end);
+  --color-ink-900: var(--ink-900);
+  --color-ink-700: var(--ink-700);
+  --color-ink-500: var(--ink-500);
+  --color-ink-400: var(--ink-400);
+  --color-ink-wash: var(--ink-wash);
+  --color-stripe: var(--stripe);
+  --color-row-hover: var(--row-hover);
+  --color-table-frame: var(--table-frame);
+  --color-positive: var(--positive);
+  --color-positive-soft: var(--positive-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  /* shadcn-shape aliases — primitives reference these names by default.
+   * --primary is the CTA brand color; --accent is the SUBTLE interactive
+   * surface (menu hover, focus). They must be a contrasting pair. */
+  --color-background: var(--surface);
+  --color-foreground: var(--ink-900);
+  --color-primary: var(--brand);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--ink-wash);
+  --color-secondary-foreground: var(--ink-700);
+  --color-muted: var(--ink-wash);
+  --color-muted-foreground: var(--ink-500);
+  --color-accent: var(--ink-wash);
+  --color-accent-foreground: var(--ink-900);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--ink-900);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--ink-700);
+  --color-input: var(--ink-wash);
+  --color-ring: var(--brand);
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: #ffffff;
+  --color-border: transparent;
+
+  /* Fonts — self-hosted, all SIL OFL-1.1. GeistSans.variable sets
+   * --font-geist-sans on <html>; system fonts cover fallback rendering. */
+  --font-sans:
+    var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "SF Pro Display", "Segoe UI", system-ui, sans-serif;
+  --font-mono:
+    "Maple Mono", "SF Mono", "JetBrains Mono", ui-monospace, "Cascadia Mono",
+    Menlo, monospace;
+
+  /* Typography scale — Tailwind's default ladder. Body is 16px (`text-md` ==
+   * `text-base`); `text-2xs` is the only off-Tailwind tier, kept for micro
+   * labels. */
+  --text-2xs: 11px;
+  --text-2xs--line-height: 1.35;
+  --text-xs: 12px;
+  --text-xs--line-height: 1.33;
+  --text-sm: 14px;
+  --text-sm--line-height: 1.43;
+  --text-base: 16px;
+  --text-base--line-height: 1.5;
+  --text-md: 16px;
+  --text-md--line-height: 1.5;
+  --text-lg: 18px;
+  --text-lg--line-height: 1.55;
+  --text-xl: 20px;
+  --text-xl--line-height: 1.4;
+  --text-2xl: 24px;
+  --text-2xl--line-height: 1.33;
+  --text-3xl: 30px;
+  --text-3xl--line-height: 1.2;
+  --text-4xl: 36px;
+  --text-4xl--line-height: 1.1;
+
+  /* Radii — use Tailwind's native t-shirt scale (sm 4 / md 6 / lg 8 / xl 12 /
+   * 2xl 16 / 3xl 24 / full ∞). The only bespoke token is the data-table's
+   * inner white "pill": native 3xl frame (24px) minus the 4px gray inset
+   * (px-1 pb-1 on table-container), kept coupled so the pill always tracks the
+   * frame. */
+  --radius-table-pill: calc(
+    1.5rem -
+    4px
+  ); /* 20px = native --radius-3xl − 4px */
+
+  /* Shadows */
+  --shadow-sidebar: 4px 0 24px rgb(15 23 42 / 0.04);
+  --shadow-section: 0 2px 12px rgb(15 23 42 / 0.06);
+  --shadow-action: 0 2px 8px rgb(59 108 246 / 0.18);
+  --shadow-action-strong: 0 4px 14px rgb(59 108 246 / 0.28);
+  --shadow-card: var(--shadow-section);
+  /* One step above card — for surfaces that should read as more lifted
+     (e.g. the data-table card) without going full overlay. */
+  --shadow-elevated: 0 4px 20px rgb(15 23 42 / 0.08);
+  /* Modal / overlay drop — heavier than card so dialogs read as "above the page". */
+  --shadow-overlay:
+    0 24px 64px rgb(15 23 42 / 0.18), 0 8px 24px rgb(15 23 42 / 0.1);
+
+  /* Sizes — avoid arbitrary values in component classNames. Layout spacing uses
+   * Tailwind's native numeric scale directly (sidebar 256px = w-64, canvas
+   * 32px = p-8, section gutter 28px = gap-7); only the coupled data-table
+   * geometry below needs named tokens.
+   * max-w-* utilities in Tailwind v4 read the --container-* namespace (NOT
+   * --width-*), so these must be --container-* for max-w-prose-narrow /
+   * max-w-dialog to generate. */
+  --container-prose-narrow: 580px;
+  --container-dialog: 480px;
+
+  /* Data-table fixed geometry — a single row-height token drives the 10-row
+   * scroll viewport AND the 2-row expansion-drawer cap via calc(), so the
+   * "10 rows tall / drawer ≤ 2 rows" contract can never drift out of sync.
+   * --spacing-* exposes h-table-row / h-table-viewport / max-h-table-drawer etc. */
+  --spacing-table-row: 3rem;
+  --spacing-table-head: 2.75rem;
+  --spacing-table-viewport: calc(
+    var(--spacing-table-head) +
+    var(--spacing-table-row) *
+    10
+  );
+  --spacing-table-drawer: calc(var(--spacing-table-row) * 2);
+  /* Viewport height available to a dashboard detail page's scroll region:
+   * 100dvh minus the main content's top+bottom chrome (py-8 = 2rem each, plus
+   * the route wrapper's pt-2 = 0.5rem). Lets a page header + toolbar stay put
+   * while only the body scrolls. Desktop (md+) only; mobile flows naturally. */
+  --spacing-app-detail: calc(100dvh - 4.5rem);
+}
+
+/* =========================================================================
+ * Base
+ * ========================================================================= */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    background: var(--page-bg);
+    color: var(--ink-900);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    line-height: 1.5;
+  }
+  ::selection {
+    background: rgb(59 108 246 / 0.18);
+    color: var(--ink-900);
+  }
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  button {
+    font: inherit;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+}
+
+@layer base {
+  :where(button, [role="button"], a):disabled,
+  :where(button, [role="button"], a)[aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: 0.55;
+    filter: saturate(0.7);
+  }
+}
+
+/* =========================================================================
+ * Gateway list table — port of HeroUI's primary Table variant
+ * (https://github.com/heroui-inc/heroui packages/styles/components/table.css).
+ *
+ * Corner rounding lives in CSS instead of utility classes because picking the
+ * "first/last row in tbody" requires sibling-positional selectors that don't
+ * exist as plain Tailwind utilities. Tokens are pulled from @theme so the
+ * radii stay in lockstep with the rest of the design system.
+ * ========================================================================= */
+.ui-table {
+  /* tbody is the white "pill" sitting inside the outer gray frame. Rounding
+     the four corner cells gives the pill its rounded edges; the cut-out areas
+     fall through to the outer's bg-ink-wash, which is what makes the gray
+     frame visible around the pill. */
+  & tbody tr:first-child td:first-child {
+    border-top-left-radius: var(--radius-table-pill);
+  }
+  & tbody tr:first-child td:last-child {
+    border-top-right-radius: var(--radius-table-pill);
+  }
+  & tbody tr:last-child td:first-child {
+    border-bottom-left-radius: var(--radius-table-pill);
+  }
+  & tbody tr:last-child td:last-child {
+    border-bottom-right-radius: var(--radius-table-pill);
+  }
+  /* Last row of the pill: drop the bottom border so the body's bottom edge
+     stays clean against the gray frame below. Clip overflow so an expanded
+     drawer's inner panel is cut to the rounded bottom corners. */
+  & tbody tr:last-child td {
+    border-bottom-width: 0;
+    overflow: hidden;
+  }
+  /* Header is pinned while the body scrolls inside the fixed-height viewport.
+     It must paint an opaque frame-colored band so scrolled rows don't bleed
+     through underneath. `sticky` keeps it a positioned element, so the
+     column-separator ::after below still anchors to it. */
+  & thead th {
+    position: sticky;
+    top: 0;
+    /* Above the expanded row's z-index:1 float, so scrolled rows never cover
+       the pinned header. */
+    z-index: 2;
+    background: var(--table-frame);
+  }
+  & thead th:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 0;
+    height: 1rem;
+    width: 1px;
+    transform: translateY(-50%);
+    border-radius: 1px;
+    background: rgb(15 23 42 / 0.08);
+    pointer-events: none;
+  }
+  /* Table-wide divider switch (<Table dividers={false}>). Suppresses every
+     cell's bottom hairline, overriding the per-cell `divider` shadow. Higher
+     specificity than the single-class utility, so no !important needed. */
+  &[data-dividers="off"] tbody td {
+    box-shadow: none;
+  }
+}
+
+/* =========================================================================
+ * Two distinct row-detail designs:
+ *
+ *  1. INLINE ROW-DRAWER (TableRow `expanded` → data-state="open" + a
+ *     `TableExpandedRow`): the "spotlight" below — dim the rest to the frame
+ *     colour and float the open row + its drawer as one card.
+ *  2. SIDE SHEET (TableRow `active` → data-active="true"): detail lives in a
+ *     separate Sheet, so the row keeps its normal appearance — no dimming and
+ *     no grey wash. The Sheet itself signals which record is open, so the row
+ *     is intentionally left un-styled (only the hover wash still applies).
+ *
+ * Keying the spotlight on data-state="open" keeps it exclusive to the inline
+ * design; Sheet rows use data-active and are unaffected.
+ * ========================================================================= */
+.ui-table tbody td {
+  transition:
+    background-color 220ms ease,
+    opacity 220ms ease,
+    box-shadow 220ms ease;
+}
+
+/* Non-open rows (incl. filler rows, which carry no data-state) recede:
+   transparent background reveals the table-frame grey; opacity fades content.
+   Higher specificity than the group-hover:bg-row-hover utility, so it wins. */
+.ui-table tbody:has(> tr[data-state="open"])
+  tr:not([data-state="open"]):not([data-slot="table-expanded-row"])
+  td {
+  background-color: transparent;
+  opacity: 0.45;
+}
+
+/* Hover a dimmed row to hint it is still clickable (click toggles expansion). */
+.ui-table tbody:has(> tr[data-state="open"])
+  tr:not([data-state="open"]):not([data-slot="table-expanded-row"]):hover
+  td {
+  opacity: 0.7;
+}
+
+/* The open row + its drawer stay white and float above the dimmed siblings as
+   ONE card. A uniform per-cell box-shadow shows a seam on every column (equal
+   z-index + DOM order leaves each cell's left shadow unoccluded), so instead
+   the shadow is cast only outward from the group's outer edges: the open row
+   casts upward, the drawer row casts downward. A negative spread narrows the
+   horizontal bleed so adjacent cells merge into one continuous edge line
+   instead of per-column shadows. The shared inner edge (open-row bottom /
+   drawer top) gets no shadow, so the two rows read as one seamless block. */
+.ui-table tbody:has(> tr[data-state="open"]) tr[data-state="open"] td,
+.ui-table
+  tbody:has(> tr[data-state="open"])
+  tr[data-slot="table-expanded-row"]
+  td {
+  position: relative;
+  z-index: 1;
+}
+/* Open row: top-edge shadow only. spread == -blur zeroes the horizontal bleed
+   so no per-column seam appears between adjacent cells (the multi-cell row is
+   the only place a seam can form). */
+.ui-table tbody:has(> tr[data-state="open"]) tr[data-state="open"] td {
+  box-shadow: 0 -7px 14px -14px rgb(15 23 42 / 0.2);
+}
+/* Drawer row is a SINGLE full-width cell — no adjacent columns, so a normal
+   four-way shadow is safe and carries the group's main lift (bottom + sides). */
+.ui-table tbody:has(> tr[data-state="open"])
+  tr[data-slot="table-expanded-row"]
+  td {
+  box-shadow: 0 8px 20px -8px rgb(15 23 42 / 0.12);
+}
+
+/* Round all four outer corners so the floating group reads as one card: the
+   open row rounds its TOP corners (first/last cell), the drawer row (a single
+   full-width cell) rounds its BOTTOM corners. The shared inner edge stays
+   square so the two rows still join seamlessly. */
+.ui-table tbody:has(> tr[data-state="open"])
+  tr[data-state="open"]
+  td:first-child {
+  border-top-left-radius: var(--radius-2xl);
+}
+.ui-table
+  tbody:has(> tr[data-state="open"])
+  tr[data-state="open"]
+  td:last-child {
+  border-top-right-radius: var(--radius-2xl);
+}
+.ui-table
+  tbody:has(> tr[data-state="open"])
+  tr[data-slot="table-expanded-row"]
+  td {
+  border-bottom-left-radius: var(--radius-2xl);
+  border-bottom-right-radius: var(--radius-2xl);
+}
+
+/* Drawer content emerges: fade in + a slight downward slide on mount. */
+[data-slot="table-expanded-row"] > td > div {
+  animation: drawer-in 240ms ease;
+}
+@keyframes drawer-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* =========================================================================
+ * Table container — clip-path clips all compositor sub-layers (including
+ * position:sticky thead) post-compositing; overflow:hidden alone cannot
+ * clip sticky elements once they are promoted to a GPU compositor layer.
+ * Shadow lives on the outer shell div so clip-path does not swallow it.
+ * ========================================================================= */
+[data-slot="table-container"] {
+  clip-path: inset(0 round var(--radius-3xl));
+}
+
+/* =========================================================================
+ * Table top-corner arcs — frame-coloured wedges pinned at the header/body
+ * junction so the WHITE PILL reads as rounded at the top regardless of
+ * scroll position.
+ *
+ * Why not CSS tr:first-child rounding? That only rounds the first DOM row;
+ * after scrolling the first *visible* row is square. These wedges live in
+ * table-container (NOT in the scroll viewport), so they never scroll — they
+ * stay at the junction and "cut" a rounded corner out of the white area.
+ *
+ * Geometry: each wedge is radius-2xl square; a radial-gradient paints the
+ * concave corner notch (see the per-side rule below). At px-4 cell padding
+ * the solid gray is <0.5px tall where text begins, so no cell content is
+ * covered.
+ *
+ * Stacking: table-container is a stacking context (clip-path). The wedges
+ * are absolute + z-index 1, so they paint above the tbody rows; they sit
+ * below the header line so they never overlap header text.
+ * ========================================================================= */
+[data-slot="table-arc-left"],
+[data-slot="table-arc-right"] {
+  position: absolute;
+  top: var(--spacing-table-head);
+  z-index: 1;
+  height: var(--radius-table-pill);
+  width: var(--radius-table-pill);
+  pointer-events: none;
+}
+/* radial-gradient draws a CONCAVE corner notch: transparent inside the disk
+   (white pill shows through) and frame-colour outside it (the small corner
+   wedge). border-radius cannot make this shape — it rounds (cuts) the outer
+   corner, which would paint gray OVER the white pill instead. The circle is
+   centred on the INNER corner so the white edge is convex, matching the
+   tbody corner-cell rounding exactly. */
+[data-slot="table-arc-left"] {
+  left: 0.25rem;
+  background: radial-gradient(
+    circle at bottom right,
+    transparent var(--radius-table-pill),
+    var(--table-frame) var(--radius-table-pill)
+  );
+}
+[data-slot="table-arc-right"] {
+  right: 0.25rem;
+  background: radial-gradient(
+    circle at bottom left,
+    transparent var(--radius-table-pill),
+    var(--table-frame) var(--radius-table-pill)
+  );
+}
+
+/* =========================================================================
+ * Table scroll viewport — hide native scrollbar across all browsers
+ * ========================================================================= */
+[data-slot="table-scroll"],
+.no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* =========================================================================
+ * ChainIcon testnet mark — the chain logo CDN has one artwork per chain, so a
+ * mainnet and its testnet would otherwise be pixel-identical.
+ *
+ * Amber hazard tape laid diagonally over the disc. The metaphor is the point:
+ * a corner dot or a ring is an arbitrary mark you have to be told the meaning
+ * of, whereas striped tape reads as "cordoned off, not the real thing" without
+ * being taught. It is also a repeating texture rather than one small glyph,
+ * which is what lets it survive the size range here — callers run from
+ * size-3.5 combobox chips to size-7 drawer headers, and any legible glyph
+ * (letter, beaker, wordmark) turns to mush at 14px.
+ *
+ * The stripe period is fixed in px, not a percentage: a percentage would keep
+ * the stripe count constant and shrink each band to sub-pixel widths on the
+ * small end, where it would alias into a smear. Fixed 6px bands give roughly
+ * 3 stripes at 14px and 7 at 28px — denser on big icons, which is the right
+ * way round, since that is where there is room for the detail.
+ *
+ * Each amber band is edged with a hairline of `surface`, and that pairing is
+ * what makes it work across the registry rather than on the light chains
+ * only. Amber alone vanishes on the warm logos — it is yellow-on-yellow over
+ * BNB and orange-on-orange over BTC. A white or dark stripe alone fails at
+ * the other end: white disappears into Ethereum's pale disc, dark disappears
+ * into Solana's black one. Carrying both means every logo, whatever its hue,
+ * contrasts against one half of the stripe. Both are held at partial alpha so
+ * the logo reads through; those two percentages are the knobs to turn if the
+ * tape lands too heavy or too faint.
+ *
+ * Covers the icon's own box, so an overflow-hidden row can't clip it.
+ * ========================================================================= */
+[data-slot="chain-testnet-mark"] {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent 0 3px,
+    color-mix(in oklab, var(--surface) 62%, transparent) 3px 4px,
+    color-mix(in oklab, var(--warning) 65%, transparent) 4px 6px,
+    color-mix(in oklab, var(--surface) 62%, transparent) 6px 7px
+  );
+  pointer-events: none;
+}
+
+/* =========================================================================
+ * Sonner close button — replace the default floating bordered circle (which
+ * sticks out past the toast's top-left corner and, under richColors, picks up
+ * the type's colored fill + border) with a quiet ghost icon button seated
+ * inside the top-right corner. Mirrors the Sheet/Drawer close affordance:
+ * currentColor X, transparent until hovered, rounded-md hit target. The
+ * wrapper-prefixed selector clears sonner's positional rule; !important on the
+ * paint properties beats the equally-specific per-type richColors rules
+ * regardless of stylesheet injection order.
+ * ========================================================================= */
+[data-sonner-toaster]
+  [data-sonner-toast][data-styled="true"]
+  [data-close-button] {
+  left: unset;
+  right: 8px;
+  top: 8px;
+  height: 1.375rem;
+  width: 1.375rem;
+  transform: none;
+  border: 0 !important;
+  border-radius: var(--radius-md, 6px);
+  background: transparent !important;
+  color: currentColor !important;
+  opacity: 0.5;
+  transition:
+    opacity 120ms ease,
+    background-color 120ms ease;
+}
+[data-sonner-toaster] [data-sonner-toast] [data-close-button] > svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+[data-sonner-toaster]
+  [data-sonner-toast][data-styled="true"]:hover
+  [data-close-button] {
+  opacity: 0.75;
+}
+[data-sonner-toaster]
+  [data-sonner-toast][data-styled="true"]
+  [data-close-button]:hover {
+  opacity: 1;
+  background: color-mix(in oklab, currentColor 10%, transparent) !important;
+}
+[data-sonner-toaster]
+  [data-sonner-toast][data-styled="true"]
+  [data-close-button]:focus-visible {
+  outline: none;
+  opacity: 1;
+  box-shadow: 0 0 0 2px rgb(59 108 246 / 0.4);
+}
+
+/* =========================================================================
+ * Reduced motion
+ * ========================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

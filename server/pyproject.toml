@@ -1,0 +1,140 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rpc-gateway-api"
+version = "5.0.0"
+description = "RPC Gateway backend API service"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "AURTech" }]
+requires-python = ">=3.13"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: FastAPI",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "aiocache[redis]>=0.12.2",
+    "anyio>=4.12.1",
+    "fastapi>=0.129.0",
+    "fastlog-io>=0.3.5",
+    "httpcore>=1.0.9,<2.0.0",
+    "httpx>=0.28.1",
+    "msgspec>=0.21.1",
+    "nanoid>=2.0.0",
+    "orjson>=3.11.7",
+    "pydantic-settings>=2.13.0",
+    "redis>=7.2.0",
+    "taskiq>=0.12.1",
+    "taskiq-redis>=1.2.2",
+    "tortoise-orm[asyncpg]>=1.1.5",
+    "uvicorn[standard]>=0.41.0",
+    "zstandard>=0.25.0",
+    "pyrate-limiter>=4.0.2",
+    "cryptography>=46.0.0",
+    "argon2-cffi>=25.1.0",
+]
+
+[project.urls]
+Homepage = "https://rpc.aurpay.net"
+Documentation = "https://rpc.aurpay.net"
+Repository = "https://github.com/AURTech/rpc-gateway"
+Issues = "https://github.com/AURTech/rpc-gateway/issues"
+
+[project.scripts]
+app = "app.__main__:main"
+endpoint-rekey = "app.cli.endpoint_rekey:main"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8.0",
+    "pytest>=8.0",
+    "pytest-cov>=4.0",
+    "ty",
+    "basedpyright>=1.39.3",
+    "prek>=0.3.2",
+    "asgi-lifespan",
+    "coverage>=7.13.4",
+    "mutmut>=3.5.0",
+]
+
+[tool.ty.src]
+include = ["**/*.py"]
+exclude = ["migrations"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app", "jobs", "migrations"]
+
+[tool.ruff]
+line-length = 128
+target-version = "py313"
+src = ["app", "jobs", "migrations", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "UP", "B", "C4", "SIM"]
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+docstring-code-format = true
+line-ending = "auto"
+
+[tool.basedpyright]
+include = ["app", "jobs", "migrations"]
+exclude = ["**/__pycache__", ".venv"]
+pythonVersion = "3.13"
+typeCheckingMode = "standard"
+reportMissingTypeStubs = false
+reportIncompatibleVariableOverride = false
+reportUnknownMemberType = false
+reportUnknownArgumentType = false
+reportUnknownVariableType = false
+
+[tool.tortoise]
+tortoise_orm = "app.infra.db.TORTOISE_ORM"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Reason: tests/ has no __init__.py, so the default prepend import mode names modules by
+# basename and same-named files in different packages (tests/test_config.py and
+# tests/usage/test_config.py) abort collection of the whole suite.
+addopts = "-v --tb=short --import-mode=importlib"
+pythonpath = ["."]
+markers = ["slow: slow tests", "integration: integration tests"]
+
+[tool.coverage.run]
+source = ["app", "jobs"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/.venv/*",
+]
+branch = true
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.mutmut]
+paths_to_mutate = "app/"
+backup = false
+runner = "python -m pytest -x --tb=short"
+tests_dir = "tests/"

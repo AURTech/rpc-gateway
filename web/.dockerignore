@@ -1,0 +1,15 @@
+node_modules
+.next
+.open-next
+.git
+.gitignore
+.wrangler
+.dev.vars
+.env*
+!.env.example
+*.md
+LICENSE
+.vscode
+.cursor
+docker-compose.yml
+Dockerfile
