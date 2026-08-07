@@ -1,0 +1,45 @@
+# Workspace
+.DS_Store
+.env
+.env.*
+!.env.example
+.omx/
+.claude/
+.codex/
+.worktrees/
+docker-compose.local.yml
+docker-compose.local.yaml
+docker-compose.test.yml
+docker-compose.test.yaml
+docker-compose.*.local.yml
+docker-compose.*.local.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.db
+*.log
+.integration-reports/
+
+# Node / Next.js
+node_modules/
+.pnpm-store/
+.next/
+.open-next/
+out/
+coverage/
+test-results/
+playwright-report/
+*.tsbuildinfo
+
+# Editors
+.idea/
+*.code-workspace.bak

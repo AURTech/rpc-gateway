@@ -1,0 +1,1 @@
+CREATE DATABASE rpc_gateway_cache_test;

@@ -1,0 +1,695 @@
+from dataclasses import dataclass
+from typing import Final
+
+from app.model.meta import (
+    RpcMethodCatalog,
+    RpcMethodFamily,
+    RpcMethodItem,
+    RpcMethodProtocolGroup,
+    RpcMethodRisk,
+    RpcMethodSource,
+)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class _MethodSpec:
+    value: str
+    namespace: str
+    risk: RpcMethodRisk = RpcMethodRisk.READ
+    deprecated: bool = False
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class _ProtocolSpec:
+    protocol: RpcMethodFamily
+    label: str
+    sources: tuple[RpcMethodSource, ...]
+    methods: tuple[_MethodSpec, ...]
+
+
+NAMESPACE_LABELS: Final[dict[str, str]] = {
+    'account': 'Account',
+    'admin': 'Admin',
+    'block': 'Block',
+    'blockchain': 'Blockchain',
+    'control': 'Control',
+    'debug': 'Debug',
+    'engine': 'Engine',
+    'epoch': 'Epoch',
+    'eth': 'ETH',
+    'faucet': 'Faucet',
+    'fee': 'Fee',
+    'generating': 'Generating',
+    'inflation': 'Inflation',
+    'mining': 'Mining',
+    'net': 'Net',
+    'network': 'Network',
+    'node': 'Node',
+    'rawtransactions': 'Raw Transactions',
+    'signer': 'Signer',
+    'stake': 'Stake',
+    'supply': 'Supply',
+    'testing': 'Testing',
+    'token': 'Token',
+    'transaction': 'Transaction',
+    'txpool': 'Txpool',
+    'util': 'Util',
+    'vote': 'Vote',
+    'wallet': 'Wallet',
+    'web3': 'Web3',
+}
+
+
+EVM_READ_METHODS: Final[tuple[str, ...]] = (
+    'eth_blobBaseFee',
+    'eth_blockNumber',
+    'eth_call',
+    'eth_chainId',
+    'eth_config',
+    'eth_createAccessList',
+    'eth_estimateGas',
+    'eth_feeHistory',
+    'eth_gasPrice',
+    'eth_getBalance',
+    'eth_getBlockAccessList',
+    'eth_getBlockByHash',
+    'eth_getBlockByNumber',
+    'eth_getBlockReceipts',
+    'eth_getBlockTransactionCountByHash',
+    'eth_getBlockTransactionCountByNumber',
+    'eth_getCode',
+    'eth_getFilterChanges',
+    'eth_getFilterLogs',
+    'eth_getLogs',
+    'eth_getProof',
+    'eth_getStorageAt',
+    'eth_getStorageValues',
+    'eth_getTransactionByBlockHashAndIndex',
+    'eth_getTransactionByBlockNumberAndIndex',
+    'eth_getTransactionByHash',
+    'eth_getTransactionCount',
+    'eth_getTransactionReceipt',
+    'eth_maxPriorityFeePerGas',
+    'eth_newBlockFilter',
+    'eth_newFilter',
+    'eth_newPendingTransactionFilter',
+    'eth_simulateV1',
+    'eth_syncing',
+    'eth_uninstallFilter',
+    'net_listening',
+    'net_peerCount',
+    'net_version',
+    'web3_clientVersion',
+    'web3_sha3',
+)
+
+EVM_WRITE_METHODS: Final[tuple[str, ...]] = ('eth_sendRawTransaction',)
+
+EVM_SENSITIVE_METHODS: Final[tuple[str, ...]] = (
+    'admin_addPeer',
+    'admin_datadir',
+    'admin_nodeInfo',
+    'admin_peers',
+    'admin_removePeer',
+    'admin_startHTTP',
+    'admin_startWS',
+    'admin_stopHTTP',
+    'admin_stopWS',
+    'debug_accountRange',
+    'debug_backtraceAt',
+    'debug_blockProfile',
+    'debug_chaindbCompact',
+    'debug_chaindbProperty',
+    'debug_cpuProfile',
+    'debug_dbAncient',
+    'debug_dbAncients',
+    'debug_dumpBlock',
+    'debug_freeOSMemory',
+    'debug_freezeClient',
+    'debug_gcStats',
+    'debug_getAccessibleState',
+    'debug_getBadBlocks',
+    'debug_getModifiedAccountsByHash',
+    'debug_getModifiedAccountsByNumber',
+    'debug_getRawBlock',
+    'debug_getRawBlockAccessList',
+    'debug_getRawCode',
+    'debug_getRawHeader',
+    'debug_getRawReceipts',
+    'debug_getRawTransaction',
+    'debug_getRawTrieNodes',
+    'debug_goTrace',
+    'debug_intermediateRoots',
+    'debug_memStats',
+    'debug_mutexProfile',
+    'debug_preimage',
+    'debug_printBlock',
+    'debug_seedHash',
+    'debug_setBlockProfileRate',
+    'debug_setGCPercent',
+    'debug_setHead',
+    'debug_setMutexProfileFraction',
+    'debug_standardTraceBadBlockToFile',
+    'debug_standardTraceBlockToFile',
+    'debug_startCPUProfile',
+    'debug_startGoTrace',
+    'debug_stopCPUProfile',
+    'debug_stopGoTrace',
+    'debug_storageRangeAt',
+    'debug_traceBadBlock',
+    'debug_traceBlock',
+    'debug_traceBlockByHash',
+    'debug_traceBlockByNumber',
+    'debug_traceBlockFromFile',
+    'debug_traceCall',
+    'debug_traceChain',
+    'debug_traceTransaction',
+    'debug_verbosity',
+    'debug_vmodule',
+    'debug_writeBlockProfile',
+    'debug_writeMemProfile',
+    'debug_writeMutexProfile',
+    'engine_exchangeCapabilities',
+    'engine_exchangeTransitionConfigurationV1',
+    'engine_forkchoiceUpdatedV1',
+    'engine_forkchoiceUpdatedV2',
+    'engine_forkchoiceUpdatedV3',
+    'engine_forkchoiceUpdatedV4',
+    'engine_getBlobsV1',
+    'engine_getBlobsV2',
+    'engine_getBlobsV3',
+    'engine_getBlobsV4',
+    'engine_getPayloadBodiesByHashV1',
+    'engine_getPayloadBodiesByHashV2',
+    'engine_getPayloadBodiesByRangeV1',
+    'engine_getPayloadBodiesByRangeV2',
+    'engine_getPayloadV1',
+    'engine_getPayloadV2',
+    'engine_getPayloadV3',
+    'engine_getPayloadV4',
+    'engine_getPayloadV5',
+    'engine_getPayloadV6',
+    'engine_newPayloadV1',
+    'engine_newPayloadV2',
+    'engine_newPayloadV3',
+    'engine_newPayloadV4',
+    'engine_newPayloadV5',
+    'eth_accounts',
+    'eth_coinbase',
+    'eth_hashrate',
+    'eth_mining',
+    'eth_sendTransaction',
+    'eth_sign',
+    'eth_signTransaction',
+    'eth_submitHashrate',
+    'eth_submitWork',
+    'miner_setEtherbase',
+    'miner_setExtra',
+    'miner_setGasPrice',
+    'miner_start',
+    'miner_stop',
+    'personal_ecRecover',
+    'personal_importRawKey',
+    'personal_listAccounts',
+    'personal_lockAccount',
+    'personal_newAccount',
+    'personal_sendTransaction',
+    'personal_sign',
+    'personal_unlockAccount',
+    'testing_buildBlockV1',
+    'txpool_content',
+    'txpool_contentFrom',
+    'txpool_inspect',
+    'txpool_status',
+)
+
+EVM_DEPRECATED_METHODS: Final[frozenset[str]] = frozenset({'eth_protocolVersion'})
+
+SVM_NAMESPACE_METHODS: Final[dict[str, tuple[str, ...]]] = {
+    'account': (
+        'getAccountInfo',
+        'getBalance',
+        'getLargestAccounts',
+        'getMinimumBalanceForRentExemption',
+        'getMultipleAccounts',
+        'getProgramAccounts',
+    ),
+    'block': (
+        'getBlock',
+        'getBlockCommitment',
+        'getBlockHeight',
+        'getBlockProduction',
+        'getBlocks',
+        'getBlocksWithLimit',
+        'getBlockTime',
+        'getConfirmedBlock',
+        'getConfirmedBlocks',
+        'getConfirmedBlocksWithLimit',
+        'getFirstAvailableBlock',
+        'getGenesisHash',
+        'getLatestBlockhash',
+        'getRecentBlockhash',
+        'getSlot',
+        'getSlotLeader',
+        'getSlotLeaders',
+        'getSnapshotSlot',
+        'isBlockhashValid',
+    ),
+    'epoch': ('getEpochInfo', 'getEpochSchedule', 'getLeaderSchedule'),
+    'faucet': ('requestAirdrop',),
+    'fee': (
+        'getFeeCalculatorForBlockhash',
+        'getFeeForMessage',
+        'getFeeRateGovernor',
+        'getFees',
+        'getRecentPrioritizationFees',
+    ),
+    'inflation': ('getInflationGovernor', 'getInflationRate', 'getInflationReward'),
+    'network': ('getClusterNodes',),
+    'node': (
+        'getHealth',
+        'getHighestSnapshotSlot',
+        'getIdentity',
+        'getMaxRetransmitSlot',
+        'getMaxShredInsertSlot',
+        'getRecentPerformanceSamples',
+        'getVersion',
+        'minimumLedgerSlot',
+    ),
+    'stake': ('getStakeActivation', 'getStakeMinimumDelegation'),
+    'supply': ('getSupply',),
+    'token': (
+        'getTokenAccountBalance',
+        'getTokenAccountsByDelegate',
+        'getTokenAccountsByOwner',
+        'getTokenLargestAccounts',
+        'getTokenSupply',
+    ),
+    'transaction': (
+        'getConfirmedSignaturesForAddress2',
+        'getConfirmedTransaction',
+        'getSignatureConfirmation',
+        'getSignatureStatus',
+        'getSignatureStatuses',
+        'getSignaturesForAddress',
+        'getTransaction',
+        'getTransactionCount',
+        'sendTransaction',
+        'simulateTransaction',
+    ),
+    'vote': ('getVoteAccounts',),
+}
+
+SVM_WRITE_METHODS: Final[frozenset[str]] = frozenset({'requestAirdrop', 'sendTransaction'})
+SVM_DEPRECATED_METHODS: Final[frozenset[str]] = frozenset(
+    {
+        'getConfirmedBlock',
+        'getConfirmedBlocks',
+        'getConfirmedBlocksWithLimit',
+        'getConfirmedSignaturesForAddress2',
+        'getConfirmedTransaction',
+        'getFeeCalculatorForBlockhash',
+        'getFeeRateGovernor',
+        'getFees',
+        'getRecentBlockhash',
+        'getSignatureConfirmation',
+        'getSignatureStatus',
+        'getSnapshotSlot',
+    }
+)
+
+UTXO_NAMESPACE_METHODS: Final[dict[str, tuple[str, ...]]] = {
+    'blockchain': (
+        'dumptxoutset',
+        'getbestblockhash',
+        'getblock',
+        'getblockchaininfo',
+        'getblockcount',
+        'getblockfilter',
+        'getblockfrompeer',
+        'getblockhash',
+        'getblockheader',
+        'getblockstats',
+        'getchainstates',
+        'getchaintips',
+        'getchaintxstats',
+        'getdeploymentinfo',
+        'getdifficulty',
+        'getindexinfo',
+        'getmempoolancestors',
+        'getmempoolcluster',
+        'getmempooldescendants',
+        'getmempoolentry',
+        'getmempoolinfo',
+        'getprioritisedtransactions',
+        'getrawmempool',
+        'gettxout',
+        'gettxoutproof',
+        'gettxoutsetinfo',
+        'gettxspendingprevout',
+        'importmempool',
+        'loadtxoutset',
+        'preciousblock',
+        'prioritisetransaction',
+        'pruneblockchain',
+        'savemempool',
+        'scantxoutset',
+        'verifychain',
+        'verifytxoutproof',
+        'waitforblock',
+        'waitforblockheight',
+        'waitfornewblock',
+    ),
+    'control': ('getmemoryinfo', 'getrpcinfo', 'help', 'logging', 'stop', 'uptime'),
+    'mining': ('getblocktemplate', 'getmininginfo', 'getnetworkhashps', 'submitblock', 'submitheader'),
+    'network': (
+        'addnode',
+        'clearbanned',
+        'disconnectnode',
+        'getaddednodeinfo',
+        'getaddrmaninfo',
+        'getconnectioncount',
+        'getnettotals',
+        'getnetworkinfo',
+        'getnodeaddresses',
+        'getpeerinfo',
+        'getzmqnotifications',
+        'listbanned',
+        'ping',
+        'setban',
+        'setnetworkactive',
+    ),
+    'rawtransactions': (
+        'analyzepsbt',
+        'combinepsbt',
+        'combinerawtransaction',
+        'converttopsbt',
+        'createpsbt',
+        'createrawtransaction',
+        'decodepsbt',
+        'decoderawtransaction',
+        'decodescript',
+        'finalizepsbt',
+        'getrawtransaction',
+        'joinpsbts',
+        'sendrawtransaction',
+        'signrawtransactionwithkey',
+        'simulaterawtransaction',
+        'submitpackage',
+        'testmempoolaccept',
+        'utxoupdatepsbt',
+    ),
+    'signer': ('enumeratesigners',),
+    'util': (
+        'createmultisig',
+        'deriveaddresses',
+        'estimatesmartfee',
+        'getdescriptorinfo',
+        'signmessagewithprivkey',
+        'validateaddress',
+        'verifymessage',
+    ),
+    'wallet': (
+        'abandontransaction',
+        'abortprivatebroadcast',
+        'abortrescan',
+        'backupwallet',
+        'bumpfee',
+        'createwallet',
+        'createwalletdescriptor',
+        'descriptorprocesspsbt',
+        'encryptwallet',
+        'fundrawtransaction',
+        'getaddressesbylabel',
+        'getaddressinfo',
+        'getbalance',
+        'getbalances',
+        'getdescriptoractivity',
+        'gethdkeys',
+        'getnewaddress',
+        'getprivatebroadcastinfo',
+        'getrawchangeaddress',
+        'getreceivedbyaddress',
+        'getreceivedbylabel',
+        'gettransaction',
+        'getwalletinfo',
+        'importdescriptors',
+        'importprunedfunds',
+        'keypoolrefill',
+        'listaddressgroupings',
+        'listdescriptors',
+        'listlabels',
+        'listlockunspent',
+        'listreceivedbyaddress',
+        'listreceivedbylabel',
+        'listsinceblock',
+        'listtransactions',
+        'listunspent',
+        'listwalletdir',
+        'listwallets',
+        'loadwallet',
+        'lockunspent',
+        'migratewallet',
+        'psbtbumpfee',
+        'removeprunedfunds',
+        'rescanblockchain',
+        'restorewallet',
+        'scanblocks',
+        'send',
+        'sendall',
+        'sendmany',
+        'sendtoaddress',
+        'setlabel',
+        'setwalletflag',
+        'signmessage',
+        'signrawtransactionwithwallet',
+        'unloadwallet',
+        'walletcreatefundedpsbt',
+        'walletdisplayaddress',
+        'walletlock',
+        'walletpassphrase',
+        'walletpassphrasechange',
+        'walletprocesspsbt',
+    ),
+}
+
+UTXO_WRITE_METHODS: Final[frozenset[str]] = frozenset({'sendrawtransaction', 'submitblock', 'submitheader', 'submitpackage'})
+UTXO_READ_METHODS: Final[frozenset[str]] = frozenset(
+    {
+        'analyzepsbt',
+        'combinepsbt',
+        'combinerawtransaction',
+        'converttopsbt',
+        'createpsbt',
+        'createrawtransaction',
+        'decodepsbt',
+        'decoderawtransaction',
+        'decodescript',
+        'deriveaddresses',
+        'estimatesmartfee',
+        'finalizepsbt',
+        'getaddednodeinfo',
+        'getaddrmaninfo',
+        'getbestblockhash',
+        'getblock',
+        'getblockchaininfo',
+        'getblockcount',
+        'getblockfilter',
+        'getblockhash',
+        'getblockheader',
+        'getblockstats',
+        'getblocktemplate',
+        'getchainstates',
+        'getchaintips',
+        'getchaintxstats',
+        'getconnectioncount',
+        'getdeploymentinfo',
+        'getdescriptorinfo',
+        'getdifficulty',
+        'getindexinfo',
+        'getmemoryinfo',
+        'getmempoolancestors',
+        'getmempoolcluster',
+        'getmempooldescendants',
+        'getmempoolentry',
+        'getmempoolinfo',
+        'getmininginfo',
+        'getnettotals',
+        'getnetworkhashps',
+        'getnetworkinfo',
+        'getnodeaddresses',
+        'getpeerinfo',
+        'getprioritisedtransactions',
+        'getrawmempool',
+        'getrawtransaction',
+        'getrpcinfo',
+        'gettxout',
+        'gettxoutproof',
+        'gettxoutsetinfo',
+        'gettxspendingprevout',
+        'getzmqnotifications',
+        'help',
+        'joinpsbts',
+        'listbanned',
+        'ping',
+        'simulaterawtransaction',
+        'testmempoolaccept',
+        'uptime',
+        'utxoupdatepsbt',
+        'validateaddress',
+        'verifychain',
+        'verifymessage',
+        'verifytxoutproof',
+        'waitforblock',
+        'waitforblockheight',
+        'waitfornewblock',
+    }
+)
+
+TRON_READ_METHODS: Final[tuple[str, ...]] = (
+    'eth_accounts',
+    'eth_blockNumber',
+    'eth_call',
+    'eth_chainId',
+    'eth_coinbase',
+    'eth_estimateGas',
+    'eth_gasPrice',
+    'eth_getBalance',
+    'eth_getBlockByHash',
+    'eth_getBlockByNumber',
+    'eth_getBlockReceipts',
+    'eth_getBlockTransactionCountByHash',
+    'eth_getBlockTransactionCountByNumber',
+    'eth_getCode',
+    'eth_getFilterChanges',
+    'eth_getFilterLogs',
+    'eth_getLogs',
+    'eth_getStorageAt',
+    'eth_getTransactionByBlockHashAndIndex',
+    'eth_getTransactionByBlockNumberAndIndex',
+    'eth_getTransactionByHash',
+    'eth_getTransactionReceipt',
+    'eth_syncing',
+    'eth_uninstallFilter',
+    'net_listening',
+    'net_peerCount',
+    'net_version',
+    'web3_clientVersion',
+    'web3_sha3',
+)
+TRON_WRITE_METHODS: Final[tuple[str, ...]] = ('eth_sendRawTransaction',)
+TRON_DEPRECATED_METHODS: Final[frozenset[str]] = frozenset({'eth_getWork', 'eth_protocolVersion'})
+
+
+def _evm_specs(
+    values: tuple[str, ...], *, risk: RpcMethodRisk, deprecated: frozenset[str] | None = None
+) -> tuple[_MethodSpec, ...]:
+    deprecated_values = deprecated or frozenset()
+    return tuple(
+        _MethodSpec(value=value, namespace=value.split('_', 1)[0], risk=risk, deprecated=value in deprecated_values)
+        for value in values
+    )
+
+
+def _namespace_specs(
+    groups: dict[str, tuple[str, ...]],
+    *,
+    write_methods: frozenset[str] | None = None,
+    read_methods: frozenset[str] | None = None,
+    deprecated: frozenset[str] | None = None,
+) -> tuple[_MethodSpec, ...]:
+    writes = write_methods or frozenset()
+    reads = read_methods
+    deprecated_values = deprecated or frozenset()
+    methods: list[_MethodSpec] = []
+    for namespace, values in groups.items():
+        for value in values:
+            risk = RpcMethodRisk.WRITE if value in writes else RpcMethodRisk.READ
+            if reads is not None and value not in reads and value not in writes:
+                risk = RpcMethodRisk.SENSITIVE
+            methods.append(_MethodSpec(value=value, namespace=namespace, risk=risk, deprecated=value in deprecated_values))
+    return tuple(methods)
+
+
+def _source(label: str, url: str) -> RpcMethodSource:
+    return RpcMethodSource(label=label, url=url)
+
+
+def _group(
+    protocol: RpcMethodFamily,
+    label: str,
+    sources: tuple[RpcMethodSource, ...],
+    methods: tuple[_MethodSpec, ...],
+) -> _ProtocolSpec:
+    return _ProtocolSpec(
+        protocol=protocol,
+        label=label,
+        sources=sources,
+        methods=tuple(sorted(methods, key=lambda item: (item.namespace, item.value))),
+    )
+
+
+PROTOCOL_SPECS: Final[tuple[_ProtocolSpec, ...]] = (
+    _group(
+        RpcMethodFamily.EVM,
+        'EVM',
+        (
+            _source('Ethereum Execution APIs', 'https://ethereum.github.io/execution-apis/'),
+            _source('Geth RPC namespaces', 'https://geth.ethereum.org/docs/interacting-with-geth/rpc'),
+        ),
+        _evm_specs(EVM_READ_METHODS + tuple(EVM_DEPRECATED_METHODS), risk=RpcMethodRisk.READ, deprecated=EVM_DEPRECATED_METHODS)
+        + _evm_specs(EVM_WRITE_METHODS, risk=RpcMethodRisk.WRITE)
+        + _evm_specs(EVM_SENSITIVE_METHODS, risk=RpcMethodRisk.SENSITIVE),
+    ),
+    _group(
+        RpcMethodFamily.SVM,
+        'SVM',
+        (_source('Solana HTTP RPC', 'https://solana.com/docs/rpc/http'),),
+        _namespace_specs(SVM_NAMESPACE_METHODS, write_methods=SVM_WRITE_METHODS, deprecated=SVM_DEPRECATED_METHODS),
+    ),
+    _group(
+        RpcMethodFamily.UTXO,
+        'UTXO',
+        (_source('Bitcoin Core 31.0.0 RPC', 'https://bitcoincore.org/en/doc/31.0.0/rpc/'),),
+        _namespace_specs(UTXO_NAMESPACE_METHODS, write_methods=UTXO_WRITE_METHODS, read_methods=UTXO_READ_METHODS),
+    ),
+    _group(
+        RpcMethodFamily.TRON,
+        'TRON',
+        (_source('TRON JSON-RPC', 'https://tronprotocol.github.io/documentation-en/api/json-rpc/'),),
+        _evm_specs(
+            TRON_READ_METHODS + tuple(TRON_DEPRECATED_METHODS), risk=RpcMethodRisk.READ, deprecated=TRON_DEPRECATED_METHODS
+        )
+        + _evm_specs(TRON_WRITE_METHODS, risk=RpcMethodRisk.WRITE),
+    ),
+)
+
+
+class RpcMethodManager:
+    @staticmethod
+    async def list_methods(protocol: RpcMethodFamily | None = None) -> RpcMethodCatalog:
+        """Return the static RPC method catalog used by dashboard allowlist pickers."""
+        return RpcMethodCatalog(
+            items=[_to_group(spec) for spec in PROTOCOL_SPECS if protocol is None or spec.protocol is protocol]
+        )
+
+
+def _to_group(spec: _ProtocolSpec) -> RpcMethodProtocolGroup:
+    return RpcMethodProtocolGroup(
+        protocol=spec.protocol,
+        protocol_label=spec.label,
+        sources=list(spec.sources),
+        methods=[_to_item(method) for method in spec.methods],
+    )
+
+
+def _to_item(spec: _MethodSpec) -> RpcMethodItem:
+    return RpcMethodItem(
+        value=spec.value,
+        label=spec.value,
+        namespace=spec.namespace,
+        namespace_label=NAMESPACE_LABELS.get(spec.namespace, spec.namespace.replace('_', ' ').title()),
+        risk=spec.risk,
+        risk_label=spec.risk.label,
+        deprecated=spec.deprecated,
+    )
