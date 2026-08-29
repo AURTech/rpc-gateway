@@ -25,14 +25,11 @@ const badgeVariants = cva(
 function Badge({
   className,
   variant = "brand",
-  dot = false,
   asChild = false,
   children,
   ...props
 }: React.ComponentProps<"span"> &
   VariantProps<typeof badgeVariants> & {
-    /** Render a leading status dot tinted to match the badge text color. */
-    dot?: boolean;
     asChild?: boolean;
   }) {
   const Comp = asChild ? Slot.Root : "span";
@@ -44,13 +41,6 @@ function Badge({
       className={cn(badgeVariants({ variant }), className)}
       {...props}
     >
-      {dot ? (
-        <span
-          aria-hidden
-          data-slot="badge-dot"
-          className="size-1.5 shrink-0 rounded-full bg-current"
-        />
-      ) : null}
       {children}
     </Comp>
   );

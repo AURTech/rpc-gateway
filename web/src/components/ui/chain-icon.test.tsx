@@ -48,13 +48,13 @@ describe("ChainIcon", () => {
     expect(container.querySelector(MARK)).toBeNull();
   });
 
-  it("lays a mark over the logo on a testnet", () => {
+  it("wraps the logo with a mark on a testnet", () => {
     const { container } = render(
       <ChainIcon chain="ethereum" network="sepolia" />,
     );
 
-    // The logo keeps its own colour — the mark sits on top of it rather than
-    // the image being filtered, so the chain stays recognisable.
+    // The logo keeps its own colour, so the chain stays recognisable inside
+    // the testnet outline.
     const image = screen.getByAltText("Ethereum");
     expect(image.className).not.toContain("saturate");
     expect(container.querySelector(MARK)).toBeInTheDocument();

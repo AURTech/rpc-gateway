@@ -7,7 +7,6 @@ export const HTTP_API_STRATEGY_TYPES = [
   "load_balance",
 ] as const;
 
-const trustLevelSchema = z.enum(["unverified", "trusted", "authoritative"]);
 const retryPolicySchema = z.enum(["safe_only", "idempotent"]);
 
 const loadBalanceTargetSchema = z.object({
@@ -33,8 +32,6 @@ const strategySchema = z.discriminatedUnion("type", [
 const httpApiRouteSchema = z.object({
   id: z.string(),
   gateway_id: z.string(),
-  minimum_trust: trustLevelSchema,
-  max_latency_ms: z.number().nullable(),
   max_attempts: z.number().int(),
   retry_policy: retryPolicySchema,
   strategy: strategySchema,
@@ -59,8 +56,6 @@ export type HttpApiStrategyInput =
 
 export type ReplaceHttpApiRouteInput = {
   expected_version: number;
-  minimum_trust: HttpApiRoute["minimum_trust"];
-  max_latency_ms: number | null;
   max_attempts: number;
   retry_policy: HttpApiRoute["retry_policy"];
   strategy: HttpApiStrategyInput;

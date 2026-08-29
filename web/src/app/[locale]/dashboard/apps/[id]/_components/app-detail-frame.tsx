@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAppQuery } from "@/hooks/use-apps";
 
 /**
- * Shared chrome for the app's sub-pages (Overview, Gateways, Usage): loads the app,
+ * Shared chrome for the app's sub-pages (Overview, Usage, Settings): loads the app,
  * renders the loading/not-found states and the title header, then hands the
  * non-secret app detail to `children`.
  * Desktop keeps the bounded-viewport layout so headers stay put and only the
@@ -18,10 +18,12 @@ export function AppDetailFrame({
   appId,
   children,
   headerAction,
+  showHeader = true,
 }: {
   appId: string;
   children: (app: RpcAppDetail) => ReactNode;
   headerAction?: ReactNode;
+  showHeader?: boolean;
 }) {
   const t = useTranslations("dashboard.apps");
   const { data: app, isLoading, isError, refetch } = useAppQuery(appId);
@@ -29,10 +31,12 @@ export function AppDetailFrame({
   if (isLoading) {
     return (
       <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-3">
-          <Skeleton className="h-8 w-64" />
-          <Skeleton className="h-4 w-80" />
-        </div>
+        {showHeader ? (
+          <div className="flex flex-col gap-3">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-80" />
+          </div>
+        ) : null}
         <Skeleton className="h-64 w-full rounded-xl" />
       </div>
     );
@@ -63,17 +67,19 @@ export function AppDetailFrame({
 
   return (
     <div className="flex flex-col gap-5 md:h-app-detail md:min-h-0">
-      <header className="grid shrink-0 grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,auto)] lg:gap-x-6">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h1 className="truncate text-3xl font-bold tracking-tight text-ink-900">
-            {app.name}
-          </h1>
-          <code className="font-mono text-xs text-ink-400">{app.id}</code>
-        </div>
-        {headerAction ? (
-          <div className="min-w-0 lg:justify-self-end">{headerAction}</div>
-        ) : null}
-      </header>
+      {showHeader ? (
+        <header className="grid shrink-0 grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,auto)] lg:gap-x-6">
+          <div className="flex min-w-0 flex-col gap-1">
+            <h1 className="truncate text-3xl font-bold tracking-tight text-ink-900">
+              {app.name}
+            </h1>
+            <code className="font-mono text-xs text-ink-400">{app.id}</code>
+          </div>
+          {headerAction ? (
+            <div className="min-w-0 lg:justify-self-end">{headerAction}</div>
+          ) : null}
+        </header>
+      ) : null}
       {children(app)}
     </div>
   );

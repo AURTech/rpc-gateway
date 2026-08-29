@@ -41,6 +41,7 @@ export function useMethodRoutesQuery(gatewayId: string | null) {
     queryFn: () => listMethodRoutes(gatewayId as string),
     enabled: gatewayId !== null && gatewayId.length > 0,
     staleTime: 15_000,
+    meta: { skipGlobalErrorToast: true },
   });
 }
 
@@ -76,6 +77,16 @@ export function useCreateMethodRouteMutation() {
     }) => createMethodRoute(gatewayId, input),
     meta: { skipGlobalErrorToast: true },
     onSuccess: (route) => {
+      qc.setQueryData<JsonRpcMethodRouteList>(
+        routesKeys.methods(route.gateway_id),
+        (current) => {
+          const items = [
+            ...(current?.items.filter((item) => item.id !== route.id) ?? []),
+            route,
+          ];
+          return { total: items.length, items };
+        },
+      );
       qc.invalidateQueries({ queryKey: routesKeys.methods(route.gateway_id) });
     },
   });
@@ -95,6 +106,16 @@ export function useUpdateMethodRouteMutation() {
     }) => updateMethodRoute(gatewayId, routeId, input),
     meta: { skipGlobalErrorToast: true },
     onSuccess: (route) => {
+      qc.setQueryData<JsonRpcMethodRouteList>(
+        routesKeys.methods(route.gateway_id),
+        (current) => {
+          if (!current) return { total: 1, items: [route] };
+          const items = current.items.map((item) =>
+            item.id === route.id ? route : item,
+          );
+          return { ...current, items };
+        },
+      );
       qc.invalidateQueries({ queryKey: routesKeys.methods(route.gateway_id) });
     },
   });
@@ -114,6 +135,14 @@ export function useDeleteMethodRouteMutation() {
     }) => deleteMethodRoute(gatewayId, routeId, expectedVersion),
     meta: { skipGlobalErrorToast: true },
     onSuccess: (route) => {
+      qc.setQueryData<JsonRpcMethodRouteList>(
+        routesKeys.methods(route.gateway_id),
+        (current) => {
+          if (!current) return current;
+          const items = current.items.filter((item) => item.id !== route.id);
+          return { total: items.length, items };
+        },
+      );
       qc.invalidateQueries({ queryKey: routesKeys.methods(route.gateway_id) });
     },
   });

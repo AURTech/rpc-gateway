@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-import { PersonalAccessTokenCard } from "../_components/personal-access-token-card";
 import { SetPasswordCard } from "../_components/set-password-card";
 import { SettingsPageHeader } from "../_components/settings-page-header";
 
@@ -32,7 +31,6 @@ export default async function SettingsSecurityPage({
     <>
       <SettingsPageHeader title={t("title")} subtitle={t("subtitle")} />
       <SetPasswordCard />
-      <PersonalAccessTokenCard />
     </>
   );
 }

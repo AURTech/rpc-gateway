@@ -5,7 +5,7 @@ import { setRequestLocale } from "next-intl/server";
 
 import { GeistSans } from "@/app/fonts";
 import { Providers } from "@/app/providers";
-import { loadMessages } from "@/i18n/messages";
+import { messages } from "@/i18n/messages";
 import { routing } from "@/i18n/routing";
 
 export function generateStaticParams() {
@@ -26,7 +26,6 @@ export default async function LocaleLayout({
   }
 
   setRequestLocale(locale);
-  const messages = await loadMessages();
   const nonce = (await headers()).get("x-nonce") ?? undefined;
 
   return (

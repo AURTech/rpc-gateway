@@ -1,12 +1,16 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { providerSupportsNetwork } from "@/api/providers/capabilities";
+import {
+  providerNetworksForVendor,
+  providerSupportsNetwork,
+} from "@/api/providers/capabilities";
 import {
   RPC_PROVIDER_VENDORS,
   type RpcProviderNetworkPair,
   type RpcProviderVendor,
 } from "@/api/providers/client";
+import { ChainNetworkMultiSelect } from "@/components/patterns/chain-network-select";
 import { Field } from "@/components/patterns/form-field";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,10 +21,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import {
-  NetworkFilterField,
-  type NetworkFilterMode,
-} from "./network-filter-field";
 
 export const PROVIDER_NAME_MAX = 128;
 export const PROVIDER_SECRET_MAX = 4096;
@@ -31,7 +31,6 @@ export type ProviderFormValues = {
   secret: string;
   syncEnabled: boolean;
   enabled: boolean;
-  netMode: NetworkFilterMode;
   networks: RpcProviderNetworkPair[];
 };
 
@@ -41,7 +40,6 @@ export const INITIAL_PROVIDER_FORM: ProviderFormValues = {
   secret: "",
   syncEnabled: false,
   enabled: true,
-  netMode: "none",
   networks: [],
 };
 
@@ -50,62 +48,27 @@ type ProviderFormChange = <K extends keyof ProviderFormValues>(
   value: ProviderFormValues[K],
 ) => void;
 
-function SwitchField({
-  label,
-  hint,
-  checked,
-  onCheckedChange,
-  disabled,
-}: {
-  label: string;
-  hint: string;
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-  disabled: boolean;
-}) {
-  return (
-    <fieldset className="rounded-xl bg-ink-wash px-4 py-3.5">
-      <legend className="sr-only">{label}</legend>
-      <div className="flex items-center justify-between gap-4">
-        <span className="text-md font-semibold text-ink-900">{label}</span>
-        <Switch
-          checked={checked}
-          onCheckedChange={onCheckedChange}
-          disabled={disabled}
-          aria-label={label}
-        />
-      </div>
-      <p className="mt-1 text-sm text-ink-500">{hint}</p>
-    </fieldset>
-  );
-}
-
-/** Shared provider fields keep create and edit order and layout identical. */
+/** New-provider fields mirror Provider settings, with vendor selection added. */
 export function ProviderFormFields({
   values,
   onChange,
   busy,
-  vendorLocked = false,
-  secretHint,
   idPrefix,
-  showEnabled = true,
 }: {
   values: ProviderFormValues;
   onChange: ProviderFormChange;
   busy: boolean;
-  vendorLocked?: boolean;
-  secretHint?: string;
   idPrefix: string;
-  showEnabled?: boolean;
 }) {
   const t = useTranslations("dashboard.providers");
   const nameId = `${idPrefix}-name`;
   const vendorId = `${idPrefix}-vendor`;
   const secretId = `${idPrefix}-secret`;
+  const syncId = `${idPrefix}-sync`;
+  const networksId = `${idPrefix}-networks`;
+  const enabledId = `${idPrefix}-enabled`;
   const secretHelp =
-    values.vendor === "drpc"
-      ? t(secretHint ? "form.drpcSecretKeepHint" : "form.drpcSecretHint")
-      : (secretHint ?? t("form.secretHint"));
+    values.vendor === "drpc" ? t("form.drpcSecretHint") : t("form.secretHint");
   const secretPlaceholder =
     values.vendor === "drpc"
       ? t("form.drpcSecretPlaceholder")
@@ -113,106 +76,131 @@ export function ProviderFormFields({
 
   return (
     <>
-      <Field
-        label={t("form.name")}
-        htmlFor={nameId}
-        hint={t("form.nameHint")}
-        required
-      >
-        <Input
-          id={nameId}
-          type="text"
-          autoComplete="off"
-          maxLength={PROVIDER_NAME_MAX}
-          value={values.name}
-          onChange={(event) => onChange("name", event.target.value)}
-          placeholder={t("form.namePlaceholder")}
-          disabled={busy}
-        />
-      </Field>
+      <div className="max-w-xl">
+        <Field label={t("form.name")} htmlFor={nameId} required>
+          <Input
+            id={nameId}
+            type="text"
+            autoComplete="off"
+            maxLength={PROVIDER_NAME_MAX}
+            value={values.name}
+            onChange={(event) => onChange("name", event.target.value)}
+            disabled={busy}
+          />
+        </Field>
+      </div>
 
-      <Field
-        label={t("form.vendor")}
-        htmlFor={vendorId}
-        hint={t(vendorLocked ? "form.vendorLocked" : "form.vendorHint")}
-        required
-      >
-        <Select
-          value={values.vendor}
-          onValueChange={(value) => {
-            const vendor = value as RpcProviderVendor;
-            onChange("vendor", vendor);
-            onChange(
-              "networks",
-              values.networks.filter((pair) =>
-                providerSupportsNetwork(vendor, pair),
-              ),
-            );
-          }}
-          disabled={busy || vendorLocked}
+      <div className="max-w-xl">
+        <Field
+          label={t("form.vendor")}
+          htmlFor={vendorId}
+          hint={t("form.vendorHint")}
+          required
         >
-          <SelectTrigger id={vendorId} aria-label={t("form.vendor")}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {RPC_PROVIDER_VENDORS.map((vendor) => (
-              <SelectItem key={vendor} value={vendor}>
-                {t(`vendor.${vendor}`)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Field>
+          <Select
+            value={values.vendor}
+            onValueChange={(value) => {
+              const vendor = value as RpcProviderVendor;
+              onChange("vendor", vendor);
+              onChange(
+                "networks",
+                values.networks.filter((pair) =>
+                  providerSupportsNetwork(vendor, pair),
+                ),
+              );
+            }}
+            disabled={busy}
+          >
+            <SelectTrigger id={vendorId} aria-label={t("form.vendor")}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {RPC_PROVIDER_VENDORS.map((vendor) => (
+                <SelectItem key={vendor} value={vendor}>
+                  {t(`vendor.${vendor}`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+      </div>
 
-      <Field
-        label={t("form.secret")}
-        htmlFor={secretId}
-        hint={secretHelp}
-        required
-      >
-        <Input
-          id={secretId}
-          type="text"
-          autoComplete="off"
-          spellCheck={false}
-          maxLength={PROVIDER_SECRET_MAX}
-          value={values.secret}
-          onChange={(event) => onChange("secret", event.target.value)}
-          placeholder={secretPlaceholder}
+      <div className="max-w-xl">
+        <Field
+          label={t("form.secret")}
+          htmlFor={secretId}
+          hint={secretHelp}
+          required
+        >
+          <Input
+            id={secretId}
+            type="password"
+            autoComplete="new-password"
+            spellCheck={false}
+            maxLength={PROVIDER_SECRET_MAX}
+            value={values.secret}
+            onChange={(event) => onChange("secret", event.target.value)}
+            placeholder={secretPlaceholder}
+            disabled={busy}
+          />
+        </Field>
+      </div>
+
+      <div className="space-y-3">
+        <p className="text-sm font-semibold text-ink-900">
+          {t("form.networks")}
+        </p>
+        <ChainNetworkMultiSelect
+          options={providerNetworksForVendor(values.vendor)}
+          value={values.networks}
+          onChange={(networks) => onChange("networks", networks)}
           disabled={busy}
+          inputId={networksId}
         />
-      </Field>
+      </div>
 
-      <SwitchField
-        label={t("form.autoSync")}
-        hint={t("form.autoSyncHint")}
-        checked={values.syncEnabled}
-        onCheckedChange={(checked) => onChange("syncEnabled", checked)}
-        disabled={busy}
-      />
-
-      <NetworkFilterField
-        vendor={values.vendor}
-        mode={values.netMode}
-        onModeChange={(mode) => {
-          onChange("netMode", mode);
-          if (mode === "none") onChange("networks", []);
-        }}
-        networks={values.networks}
-        onNetworksChange={(networks) => onChange("networks", networks)}
-        busy={busy}
-        idPrefix={idPrefix}
-      />
-
-      {showEnabled ? (
-        <SwitchField
-          label={t("form.enabled")}
-          hint={t("form.enabledHint")}
-          checked={values.enabled}
-          onCheckedChange={(checked) => onChange("enabled", checked)}
-          disabled={busy}
-        />
-      ) : null}
+      <div className="divide-y divide-table-frame">
+        <div className="flex items-start justify-between gap-6 pb-4">
+          <span>
+            <span
+              id={`${syncId}-label`}
+              className="block text-sm font-semibold text-ink-900"
+            >
+              {t("form.autoSync")}
+            </span>
+            <span className="mt-1 block text-sm text-ink-500">
+              {t("form.autoSyncHint")}
+            </span>
+          </span>
+          <Switch
+            id={syncId}
+            aria-labelledby={`${syncId}-label`}
+            checked={values.syncEnabled}
+            onCheckedChange={(checked) => onChange("syncEnabled", checked)}
+            disabled={busy}
+          />
+        </div>
+        <div className="flex items-start justify-between gap-6 pt-4">
+          <span>
+            <span
+              id={`${enabledId}-label`}
+              className="block text-sm font-semibold text-ink-900"
+            >
+              {t("form.enabled")}
+            </span>
+            <span className="mt-1 block text-sm text-ink-500">
+              {t("form.enabledHint")}
+            </span>
+          </span>
+          <Switch
+            id={enabledId}
+            aria-labelledby={`${enabledId}-label`}
+            checked={values.enabled}
+            onCheckedChange={(checked) => onChange("enabled", checked)}
+            disabled={busy}
+          />
+        </div>
+      </div>
     </>
   );
 }

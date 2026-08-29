@@ -1,11 +1,12 @@
 "use client";
 
-import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { CheckIcon, ChevronRightIcon } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
 import type * as React from "react";
 import { createContext, useContext, useState } from "react";
 
+import { useMotionPreset } from "@/hooks/use-motion-preset";
 import { menuContentVariants, menuTransition } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
@@ -71,7 +72,7 @@ function DropdownMenuContent({
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
   const { open } = useContext(DropdownMenuContext);
-  const reduce = useReducedMotion();
+  const motionPreset = useMotionPreset();
   return (
     <DropdownMenuPrimitive.Portal forceMount>
       <AnimatePresence>
@@ -97,7 +98,7 @@ function DropdownMenuContent({
               initial="initial"
               animate="animate"
               exit="exit"
-              transition={reduce ? { duration: 0 } : menuTransition}
+              transition={motionPreset.transition(menuTransition)}
             >
               {children}
             </motion.div>
@@ -195,16 +196,11 @@ function DropdownMenuRadioItem({
     <DropdownMenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
       className={cn(
-        "relative flex cursor-default items-center gap-2 rounded-md py-1.5 pr-2 pl-8 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "relative flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[state=checked]:bg-accent data-[state=checked]:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       {...props}
     >
-      <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
-        <DropdownMenuPrimitive.ItemIndicator>
-          <CircleIcon className="size-2 fill-current" />
-        </DropdownMenuPrimitive.ItemIndicator>
-      </span>
       {children}
     </DropdownMenuPrimitive.RadioItem>
   );
@@ -316,7 +312,7 @@ function DropdownMenuSubContent({
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.SubContent>) {
   const { open } = useContext(DropdownMenuSubContext);
-  const reduce = useReducedMotion();
+  const motionPreset = useMotionPreset();
   return (
     <AnimatePresence>
       {open && (
@@ -335,7 +331,7 @@ function DropdownMenuSubContent({
             initial="initial"
             animate="animate"
             exit="exit"
-            transition={reduce ? { duration: 0 } : menuTransition}
+            transition={motionPreset.transition(menuTransition)}
           >
             {children}
           </motion.div>

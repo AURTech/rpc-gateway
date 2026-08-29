@@ -1,15 +1,43 @@
 import type { Metadata, Viewport } from "next";
 
-import { siteUrl } from "@/lib/site";
+import { siteDescription, siteName, siteTitle, siteUrl } from "@/lib/site";
 import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
+  applicationName: siteName,
   title: {
-    default: "Gateway · RPC control plane",
-    template: "%s · Gateway",
+    default: siteTitle,
+    template: `%s · ${siteName}`,
   },
-  description: "V2 control plane for apps, gateways, endpoints, and providers.",
+  description: siteDescription,
+  robots: {
+    index: false,
+    follow: false,
+    noarchive: true,
+    nocache: true,
+    noimageindex: true,
+    nosnippet: true,
+    googleBot: {
+      index: false,
+      follow: false,
+      noarchive: true,
+      noimageindex: true,
+      nosnippet: true,
+    },
+  },
+  openGraph: {
+    type: "website",
+    url: siteUrl,
+    siteName,
+    title: siteTitle,
+    description: siteDescription,
+  },
+  twitter: {
+    card: "summary",
+    title: siteTitle,
+    description: siteDescription,
+  },
   icons: {
     icon: [{ url: "/aurpay-logo.svg", type: "image/svg+xml" }],
     shortcut: "/aurpay-logo.svg",

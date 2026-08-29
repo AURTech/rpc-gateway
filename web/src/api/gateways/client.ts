@@ -6,7 +6,7 @@ import { RPC_CHAINS, RPC_NETWORKS } from "@/lib/rpc-chain";
 const rpcChainSchema = z.enum(RPC_CHAINS);
 const rpcNetworkSchema = z.enum(RPC_NETWORKS);
 
-const rpcGatewayTransportSchema = z.enum(["jsonrpc", "http_api"]);
+const rpcGatewayTransportSchema = z.enum(["jsonrpc", "http_api", "grpc"]);
 const rpcGatewayAccessPointSchema = z.object({
   transport: rpcGatewayTransportSchema,
   url: z.string().min(1),
@@ -50,7 +50,6 @@ const envelope = <T extends z.ZodType>(data: T) =>
 export type RpcChain = z.infer<typeof rpcChainSchema>;
 export type RpcNetwork = z.infer<typeof rpcNetworkSchema>;
 export type RpcGatewayTransport = z.infer<typeof rpcGatewayTransportSchema>;
-export type RpcGatewayAccessPoint = z.infer<typeof rpcGatewayAccessPointSchema>;
 export type RpcGatewayBase = z.infer<typeof rpcGatewayBaseSchema>;
 export type RpcGatewayDetail = z.infer<typeof rpcGatewayDetailSchema>;
 export type RpcGatewayList = z.infer<typeof rpcGatewayListSchema>;

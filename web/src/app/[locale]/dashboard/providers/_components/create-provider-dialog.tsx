@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { LoaderCircleIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -11,7 +12,14 @@ import {
   createProvider,
   type RpcProvider,
 } from "@/api/providers/client";
-import { FormDialog } from "@/components/patterns/form-dialog";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import {
   INITIAL_PROVIDER_FORM,
@@ -65,17 +73,13 @@ export function CreateProviderDialog({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit || mutation.isPending) return;
-    const hasNetworks = form.networks.length > 0;
     const input: CreateProviderInput = {
       name: trimmedName,
       vendor: form.vendor,
-      enabled: true,
+      enabled: form.enabled,
       sync_enabled: form.syncEnabled,
       credential: { secret: form.secret },
-      only_networks:
-        form.netMode === "only" && hasNetworks ? form.networks : undefined,
-      ignore_networks:
-        form.netMode === "ignore" && hasNetworks ? form.networks : undefined,
+      networks: form.networks.length > 0 ? form.networks : undefined,
     };
     mutation.mutate(input);
   };
@@ -89,26 +93,30 @@ export function CreateProviderDialog({
   const busy = mutation.isPending;
 
   return (
-    <FormDialog
-      open={open}
-      onOpenChange={handleOpenChange}
-      title={t("dialog.create.title")}
-      description={t("dialog.create.subtitle")}
-      onSubmit={handleSubmit}
-      submitLabel={t("dialog.create.submit")}
-      submittingLabel={t("dialog.creating")}
-      cancelLabel={t("dialog.cancel")}
-      submitting={busy}
-      canSubmit={canSubmit}
-      contentClassName="sm:max-w-dialog"
-    >
-      <ProviderFormFields
-        values={form}
-        onChange={set}
-        busy={busy}
-        idPrefix="prov-create"
-        showEnabled={false}
-      />
-    </FormDialog>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent
+        className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl"
+        closeLabel={t("dialog.create.close")}
+      >
+        <DialogHeader>
+          <DialogTitle>{t("dialog.create.title")}</DialogTitle>
+          <DialogDescription>{t("dialog.create.subtitle")}</DialogDescription>
+        </DialogHeader>
+        <form className="space-y-7" onSubmit={handleSubmit}>
+          <ProviderFormFields
+            values={form}
+            onChange={set}
+            busy={busy}
+            idPrefix="prov-create"
+          />
+          <div className="flex justify-end">
+            <Button type="submit" disabled={!canSubmit || busy}>
+              {busy ? <LoaderCircleIcon className="animate-spin" /> : null}
+              {t(busy ? "dialog.creating" : "dialog.create.submit")}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

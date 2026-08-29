@@ -1,5 +1,7 @@
 import type { ComponentType, ReactNode } from "react";
 import { useId } from "react";
+import { MotionList, MotionListItem } from "@/components/patterns/motion-list";
+import { AnimatedNumber } from "@/components/ui/animated-number";
 import { cn } from "@/lib/utils";
 
 type Tone = "brand" | "positive" | "neutral" | "danger";
@@ -23,6 +25,15 @@ type KpiSparkline = {
 export type KpiTileProps = {
   label: string;
   value: string;
+  /**
+   * Tween the number up to `to` instead of rendering `value` statically.
+   * The raw number and its formatter travel together so a frame of the tween
+   * can never be rendered unformatted.
+   *
+   * `value` stays required and is what renders on the server, under reduced
+   * motion, and whenever `count` is omitted.
+   */
+  count?: { to: number; format: (value: number) => string };
   unit?: string;
   delta?: KpiDelta;
   caption?: string;
@@ -40,7 +51,12 @@ export type KpiStripProps = {
 
 export function KpiStrip({ tiles, ariaLabel, className }: KpiStripProps) {
   return (
-    <section
+    // `as="section"` keeps the labelled region; MotionList absorbs the element
+    // rather than nesting, so the grid is unchanged. The tiles mount when their
+    // query resolves, so the stagger reads as "the numbers arrived" rather than
+    // repeating the route-level arrival.
+    <MotionList
+      as="section"
       aria-label={ariaLabel}
       className={
         className ?? "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
@@ -49,13 +65,14 @@ export function KpiStrip({ tiles, ariaLabel, className }: KpiStripProps) {
       {tiles.map((tile) => (
         <KpiTile key={tile.label} {...tile} />
       ))}
-    </section>
+    </MotionList>
   );
 }
 
 function KpiTile({
   label,
   value,
+  count,
   unit,
   delta,
   caption,
@@ -63,7 +80,7 @@ function KpiTile({
   icon: Icon,
 }: KpiTileProps) {
   return (
-    <article className="flex min-h-36 flex-col rounded-xl bg-surface px-5 pb-4 pt-4 shadow-section">
+    <MotionListItem className="flex min-h-30 flex-col rounded-xl bg-surface px-4 py-3 shadow-section">
       <div className="flex items-center gap-2">
         {Icon ? <Icon className="size-4 text-ink-400" /> : null}
         <span className="text-sm font-medium text-ink-500">{label}</span>
@@ -71,6 +88,7 @@ function KpiTile({
       {sparkline ? (
         <RichBody
           value={value}
+          count={count}
           unit={unit}
           delta={delta}
           caption={caption}
@@ -79,49 +97,58 @@ function KpiTile({
       ) : (
         <CompactBody
           value={value}
+          count={count}
           unit={unit}
           delta={delta}
           caption={caption}
         />
       )}
-    </article>
+    </MotionListItem>
   );
 }
 
 function CompactBody({
   value,
+  count,
   unit,
   delta,
   caption,
-}: Pick<KpiTileProps, "value" | "unit" | "delta" | "caption">) {
+}: Pick<KpiTileProps, "value" | "count" | "unit" | "delta" | "caption">) {
   return (
     <>
-      <div className="mt-auto flex items-center justify-between gap-2 pt-3">
-        <Value value={value} unit={unit} />
-        {delta ? (
-          <DeltaPill direction={delta.direction} semantic={delta.semantic}>
-            {delta.label}
-          </DeltaPill>
-        ) : null}
+      <div className="mt-auto pt-3">
+        <Value value={value} count={count} unit={unit} />
       </div>
-      {caption ? <p className="mt-2 text-xs text-ink-400">{caption}</p> : null}
+      {delta || caption ? (
+        <div className="mt-2 flex min-w-0 items-center gap-1.5">
+          {delta ? (
+            <DeltaPill direction={delta.direction} semantic={delta.semantic}>
+              {delta.label}
+            </DeltaPill>
+          ) : null}
+          {caption ? (
+            <p className="truncate text-xs text-ink-400">{caption}</p>
+          ) : null}
+        </div>
+      ) : null}
     </>
   );
 }
 
 function RichBody({
   value,
+  count,
   unit,
   delta,
   caption,
   sparkline,
-}: Pick<KpiTileProps, "value" | "unit" | "delta" | "caption"> & {
+}: Pick<KpiTileProps, "value" | "count" | "unit" | "delta" | "caption"> & {
   sparkline: KpiSparkline;
 }) {
   return (
     <div className="mt-auto flex items-end justify-between gap-3 pt-3">
       <div className="flex min-w-0 flex-col gap-1.5">
-        <Value value={value} unit={unit} />
+        <Value value={value} count={count} unit={unit} />
         {delta ? (
           <div className="flex items-center gap-1.5 text-xs">
             <TrendText direction={delta.direction} semantic={delta.semantic}>
@@ -145,11 +172,19 @@ function RichBody({
   );
 }
 
-function Value({ value, unit }: Pick<KpiTileProps, "value" | "unit">) {
+function Value({
+  value,
+  count,
+  unit,
+}: Pick<KpiTileProps, "value" | "count" | "unit">) {
   return (
-    <span className="flex items-baseline gap-1.5">
+    <span className="flex flex-nowrap items-baseline gap-1.5 whitespace-nowrap">
       <span className="text-3xl font-bold leading-none tracking-tight tabular-nums text-ink-900">
-        {value}
+        {count ? (
+          <AnimatedNumber value={count.to} format={count.format} />
+        ) : (
+          value
+        )}
       </span>
       {unit ? (
         <span className="text-md font-medium text-ink-500">{unit}</span>
@@ -280,6 +315,10 @@ function Sparkline({
         </linearGradient>
       </defs>
       <polyline points={area} fill={`url(#${gradientId})`} stroke="none" />
+      {/* Both stroked lines draw themselves on. `pathLength={1}` normalises the
+       * geometry so one dash covers the whole polyline regardless of its real
+       * length, which lets a single keyframe animate stroke-dashoffset 1 → 0.
+       * Pure CSS, so this file stays a server component. */}
       <polyline
         points={line}
         fill="none"
@@ -289,6 +328,9 @@ function Sparkline({
         strokeLinejoin="round"
         opacity="0.18"
         vectorEffect="non-scaling-stroke"
+        pathLength={1}
+        strokeDasharray={1}
+        className="animate-spark-draw"
       />
       <polyline
         points={line}
@@ -298,6 +340,9 @@ function Sparkline({
         strokeLinecap="round"
         strokeLinejoin="round"
         vectorEffect="non-scaling-stroke"
+        pathLength={1}
+        strokeDasharray={1}
+        className="animate-spark-draw"
       />
     </svg>
   );
