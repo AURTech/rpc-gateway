@@ -9,7 +9,7 @@ from app.clients.transport import (
 )
 from app.infra.outbound_policy import HTTP_OUTBOUND_SCHEMES, OutboundTargetError, OutboundTargetPolicy
 from app.model.blockchain import Chain, Network
-from app.model.endpoint import EndpointProtocol, EndpointTrustLevel
+from app.model.endpoint import EndpointProtocol
 from app.model.endpoint.access import (
     EndpointAccessFailure,
     EndpointAccessFailureCode,
@@ -34,7 +34,6 @@ def _to_descriptor(endpoint: Endpoint) -> EndpointDescriptor:
         network=Network(endpoint.network),
         protocol=EndpointProtocol(endpoint.protocol),
         enabled=endpoint.enabled,
-        trust_level=EndpointTrustLevel(endpoint.trust_level),
         version=endpoint.version,
     )
 

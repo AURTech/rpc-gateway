@@ -7,7 +7,7 @@ from app.core.resource_secret import (
     resource_cipher_info,
 )
 
-ProviderSecretConfigError = ResourceSecretConfigError
+ProviderCredentialConfigError = ResourceSecretConfigError
 
 
 def encrypt_provider_credential(secret: str) -> str:
@@ -20,7 +20,7 @@ def encrypt_provider_credential(secret: str) -> str:
 def decrypt_provider_credential(encrypted_credential: str) -> str:
     value = encrypted_credential.strip()
     if not value:
-        raise ProviderSecretConfigError('Provider credential is unavailable.')
+        raise ProviderCredentialConfigError('Provider credential is unavailable.')
     return decrypt_resource_secret(value, purpose='provider')
 
 

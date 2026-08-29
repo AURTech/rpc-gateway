@@ -67,7 +67,6 @@ class GatewayClient:
                 'protocol': protocol,
                 'url': url,
                 'enabled': True,
-                'trust_level': 'unverified',
                 'auth': {'type': 'none'},
             },
         )
@@ -106,8 +105,6 @@ class GatewayClient:
             headers=CSRF_HEADER,
             json={
                 'expected_version': route.version,
-                'minimum_trust': 'unverified',
-                'max_latency_ms': None,
                 'max_attempts': max_attempts,
                 'retry_policy': 'idempotent',
                 'strategy': {
@@ -135,8 +132,6 @@ class GatewayClient:
             headers=CSRF_HEADER,
             json={
                 'expected_version': route.version,
-                'minimum_trust': 'unverified',
-                'max_latency_ms': None,
                 'max_attempts': 2,
                 'retry_policy': 'idempotent',
                 'strategy': {
@@ -159,8 +154,6 @@ class GatewayClient:
             headers=CSRF_HEADER,
             json={
                 'methods': methods,
-                'minimum_trust': 'unverified',
-                'max_latency_ms': None,
                 'max_attempts': 1,
                 'retry_policy': 'idempotent',
                 'strategy': {'type': 'priority_failover', 'targets': [{'endpoint_id': endpoint_id}]},

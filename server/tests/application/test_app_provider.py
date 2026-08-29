@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from hashlib import sha256
 
 import pytest
 from app.clients.provider import DiscoveredEndpoint, ProviderDiscovery
@@ -140,7 +141,6 @@ async def test_provider_sync_updates_in_place_and_reconciles_app_targets(
                 protocol=EndpointProtocol.JSONRPC,
                 url='https://a.rpc.test/v1',
                 auth_type=EndpointAuthType.NONE,
-                label='Alchemy A',
             )
         ],
         [
@@ -151,7 +151,6 @@ async def test_provider_sync_updates_in_place_and_reconciles_app_targets(
                 protocol=EndpointProtocol.JSONRPC,
                 url='https://a.rpc.test/v2',
                 auth_type=EndpointAuthType.NONE,
-                label='Alchemy A',
             ),
             DiscoveredEndpoint(
                 external_id='alchemy:b',
@@ -160,7 +159,6 @@ async def test_provider_sync_updates_in_place_and_reconciles_app_targets(
                 protocol=EndpointProtocol.JSONRPC,
                 url='https://b.rpc.test',
                 auth_type=EndpointAuthType.NONE,
-                label='Alchemy B',
             ),
         ],
         [
@@ -171,7 +169,6 @@ async def test_provider_sync_updates_in_place_and_reconciles_app_targets(
                 protocol=EndpointProtocol.JSONRPC,
                 url='https://b.rpc.test',
                 auth_type=EndpointAuthType.NONE,
-                label='Alchemy B',
             )
         ],
     ]
@@ -192,7 +189,11 @@ async def test_provider_sync_updates_in_place_and_reconciles_app_targets(
     second = await manager.sync_provider(account.id, provider.id)
     binding_a = await ProviderEndpointBinding.get(external_id='alchemy:a')
     endpoint_a = await Endpoint.get(id=binding_a.endpoint_id)
+    binding_b = await ProviderEndpointBinding.get(external_id='alchemy:b')
+    endpoint_b = await Endpoint.get(id=binding_b.endpoint_id)
     assert binding_a.endpoint_id == endpoint_a_id
+    assert endpoint_a.name == 'Alchemy · ethereum-mainnet'
+    assert endpoint_b.name == f'Alchemy · ethereum-mainnet · {sha256(b"alchemy:b").hexdigest()[:8]}'
     assert decrypt_endpoint_url(endpoint_a.encrypted_url) == 'https://a.rpc.test/v2'
     assert second.updated == 1
     assert second.created == 1

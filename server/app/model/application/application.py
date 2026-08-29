@@ -101,6 +101,7 @@ class AppList(BaseModel):
 class AppListParams(CreatedAtListParams):
     search: str | None = Field(default=None, min_length=1, max_length=320)
     enabled: bool | None = None
+    provider_id: str | None = Field(default=None, min_length=1, max_length=64)
     sort: ListSort = 'DESC'
 
 

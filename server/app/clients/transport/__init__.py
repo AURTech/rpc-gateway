@@ -9,6 +9,7 @@ from app.clients.transport.http import (
     HttpTransportResponseError,
     HttpTransportResponseTooLargeError,
     HttpTransportTimeoutError,
+    apply_http_auth,
     inject_path_api_key,
 )
 
@@ -23,5 +24,6 @@ __all__ = [
     'HttpTransportResponseTooLargeError',
     'HttpTransportTimeoutError',
     'PATH_API_KEY_PLACEHOLDER',
+    'apply_http_auth',
     'inject_path_api_key',
 ]

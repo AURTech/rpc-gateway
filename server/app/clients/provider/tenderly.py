@@ -9,7 +9,8 @@ from app.clients.provider.base import (
 )
 from app.clients.provider.http import get_json
 from app.clients.provider.networks import EVM_NETWORK_BY_CHAIN_ID
-from app.clients.transport import HttpTransport
+from app.clients.provider.probe import validate_evm_provider_credential
+from app.clients.transport import HttpAuth, HttpTransport
 from app.model.endpoint import EndpointAuthType
 from app.model.provider import ProviderVendor
 from app.model.provider.capability import provider_transports
@@ -28,7 +29,13 @@ class TenderlyProviderAdapter:
         config: ProviderDiscoveryConfig,
         check_account_active: AccountActiveCheck,
     ) -> ProviderDiscovery:
-        await check_account_active()
+        await validate_evm_provider_credential(
+            self._transport,
+            'https://mainnet.gateway.tenderly.co',
+            HttpAuth(type=EndpointAuthType.PATH_API_KEY, secret=config.credential),
+            check_account_active,
+            expected_chain_id=1,
+        )
         payload = await get_json(self._transport, TENDERLY_NETWORKS_URL)
         networks = self._parse_networks(payload)
         if not networks:
@@ -41,7 +48,6 @@ class TenderlyProviderAdapter:
                 url=f'https://{slug}.gateway.tenderly.co',
                 auth_type=EndpointAuthType.PATH_API_KEY,
                 auth_secret=config.credential,
-                label=f'{config.name}-{chain.value}-{network.value}',
             )
             for chain_id, slug in sorted(networks.items())
             if (pair := EVM_NETWORK_BY_CHAIN_ID.get(chain_id)) is not None
