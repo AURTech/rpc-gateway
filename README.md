@@ -43,7 +43,7 @@ Connect applications through one stable endpoint per network and manage upstream
 
 ### Prerequisites
 
-Install Python 3.13 with [uv](https://docs.astral.sh/uv/) and Node 20.19+ with pnpm. Start PostgreSQL and Valkey.
+Install Python 3.13 with [uv](https://docs.astral.sh/uv/) and Node 20.19+ with pnpm. Start PostgreSQL and Redis.
 
 ### Backend
 
