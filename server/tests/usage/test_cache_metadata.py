@@ -3,7 +3,9 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from app.model.blockchain import Chain, Network
 from app.model.public import JsonRpcCall
-from app.model.system_jsonrpc_cache import CacheEntry, CacheFlightLease, CacheKey, CachePolicy, CacheTier
+from app.model.system_cache import CacheEntry, CacheFlightLease, CacheKey, CachePolicy, CacheTier
+from app.model.transport import Transport
+from app.services.system_cache import SystemCacheManager
 from app.services.system_jsonrpc_cache import SystemJsonRpcCacheManager
 
 
@@ -48,17 +50,22 @@ class _Flight:
 
 
 def _manager(entry: CacheEntry | None, policy: CachePolicy) -> SystemJsonRpcCacheManager:
+    core = SystemCacheManager(_Store(entry), _Flight(), flight_wait_seconds=1)
     return SystemJsonRpcCacheManager(
-        _Store(entry),
+        core,
         _Policies(policy),
-        _Flight(),
-        flight_wait_seconds=1,
     )
 
 
 @pytest.mark.anyio
 async def test_lookup_exposes_cache_eligibility_and_hit() -> None:
-    key = CacheKey(chain=Chain.ETHEREUM, network=Network.MAINNET, method='eth_chainId', digest='digest')
+    key = CacheKey(
+        transport=Transport.JSONRPC,
+        chain=Chain.ETHEREUM,
+        network=Network.MAINNET,
+        operation='eth_chainId',
+        digest='digest',
+    )
     policy = CachePolicy(
         key=key,
         tier=CacheTier.REDIS_TTL,

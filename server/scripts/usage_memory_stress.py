@@ -5,9 +5,8 @@ import secrets
 import time
 from datetime import UTC, datetime
 
-from app.core.usage import DEFAULT_USAGE_STREAM_MAX_LENGTH
 from app.model.blockchain import Chain, Network
-from app.model.usage import GatewayUsageEvent
+from app.model.usage import DEFAULT_USAGE_STREAM_MAX_LENGTH, GatewayUsageEvent
 from redis.asyncio import Redis
 
 DEFAULT_MEMORY_LIMIT_MB = 500
