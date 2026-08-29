@@ -15,7 +15,7 @@ app/                        # Main application package
 ├── model/                  # Pydantic contracts and immutable internal models
 ├── orm/                    # Tortoise ORM models, fields, and mixins
 ├── clients/                # External HTTP and RPC clients
-├── infra/                  # PostgreSQL, Valkey, cache, and TaskIQ adapters
+├── infra/                  # PostgreSQL, Redis, cache, and TaskIQ adapters
 ├── core/                   # Configuration, lifecycle, responses, and context
 ├── util/                   # Cross-domain pure utilities
 ├── cli/                    # Standalone CLI entry points
@@ -36,13 +36,13 @@ graph TD
     Data["ORM / Infra"]
     Clients["External Clients"]
     DB[("PostgreSQL")]
-    VK[("Valkey")]
+    RD[("Redis")]
     EXT[("External RPC / OAuth")]
 
     Client --> API --> Service
     Service --> Data --> DB
     Service --> Clients --> EXT
-    Data --> VK
+    Data --> RD
 ```
 
 Global rules:
