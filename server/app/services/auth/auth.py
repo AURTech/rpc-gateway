@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Literal
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import httpx
@@ -7,7 +8,7 @@ from fastlog import log
 from tortoise.backends.base.client import BaseDBAsyncClient
 from tortoise.exceptions import IntegrityError
 
-from app.clients.auth import GoogleProfile, fetch_google_profile
+from app.clients.auth import AurPayProfile, GoogleProfile, fetch_aurpay_profile, fetch_google_profile
 from app.core.errors import AuthenticationError, ForbiddenError, RateLimitError
 from app.infra.db import in_tx
 from app.model.account import AccountRole, AccountStatus
@@ -41,7 +42,6 @@ class _LoginValues:
     last_login_at: datetime
     last_login_ip: str | None
     last_login_user_agent: str | None
-    status: AccountStatus | None = None
     first_login_at: datetime | None = None
 
 
@@ -53,8 +53,6 @@ def _login_update(values: _LoginValues) -> dict[str, object]:
         'last_login_ip': values.last_login_ip,
         'last_login_user_agent': values.last_login_user_agent,
     }
-    if values.status is not None:
-        update['status'] = values.status
     if values.first_login_at is not None:
         update['first_login_at'] = values.first_login_at
     return update
@@ -87,6 +85,24 @@ class AuthManager:
             }
         )
         return f'https://accounts.google.com/o/oauth2/v2/auth?{query}'
+
+    @staticmethod
+    def build_aurpay_login_url(login_state: OAuthLoginState, prompt: Literal['login', 'select_account'] | None = None) -> str:
+        settings = get_auth_settings()
+        params = {
+            'client_id': settings.aurpay_client_id,
+            'redirect_uri': settings.aurpay_redirect_uri,
+            'response_type': 'code',
+            'scope': 'openid profile email',
+            'state': login_state.state,
+            'nonce': login_state.nonce,
+            'code_challenge': login_state.code_challenge,
+            'code_challenge_method': 'S256',
+        }
+        if prompt is not None:
+            params['prompt'] = prompt
+        query = urlencode(params)
+        return f'{settings.aurpay_issuer}/oauth2/authorize?{query}'
 
     @staticmethod
     def build_auth_callback_url(error: str | None = None, frontend_auth_callback_url: str | None = None) -> str:
@@ -148,6 +164,133 @@ class AuthManager:
             return await self._login_admin(profile, email, client_ip, user_agent)
         return await self._login_user(profile, email, client_ip, user_agent)
 
+    async def login_with_aurpay(
+        self,
+        code: str,
+        code_verifier: str,
+        nonce: str,
+        *,
+        client_ip: str | None,
+        user_agent: str | None,
+    ) -> AuthenticatedLogin:
+        """Authenticate an AurPay OIDC callback and issue an application session.
+
+        Raises:
+            ForbiddenError: token exchange or validation fails, the local account is missing, or the AurPay identity does not
+                match the account binding.
+
+        Side effects:
+            Exchanges and validates the OIDC tokens before opening a database transaction. Login then locks the account,
+            updates login fields, binds the AurPay identity, and creates a session.
+        """
+        settings = get_auth_settings()
+        try:
+            profile = await fetch_aurpay_profile(
+                self._http_client,
+                code,
+                code_verifier,
+                nonce,
+                issuer=settings.aurpay_issuer,
+                client_id=settings.aurpay_client_id,
+                client_secret=settings.aurpay_client_secret,
+                redirect_uri=settings.aurpay_redirect_uri,
+            )
+        except (httpx.HTTPError, KeyError, ValueError) as exc:
+            log.warning('AurPay OIDC exchange failed')
+            raise ForbiddenError('AurPay login failed.') from exc
+
+        email = normalize_email(profile.email)
+        if email in settings.admin_allowed_emails:
+            return await self._login_aurpay_admin(profile, email, client_ip, user_agent)
+        return await self._login_aurpay_user(profile, email, client_ip, user_agent)
+
+    async def _login_aurpay_admin(
+        self,
+        profile: AurPayProfile,
+        email: str,
+        ip: str | None,
+        user_agent: str | None,
+    ) -> AuthenticatedLogin:
+        auth = await self._get_aurpay_auth(profile.sub)
+        admin = auth.account if auth else await Account.filter(email=email, deleted_at=None).first()
+        now = datetime_util.now_utc()
+        values = _LoginValues(
+            name=profile.name,
+            avatar_url=None,
+            last_login_at=now,
+            last_login_ip=ip,
+            last_login_user_agent=user_agent,
+        )
+        created = False
+        if admin is None:
+            admin, created = await self._create_aurpay_admin(email, values)
+        async with in_tx() as connection:
+            locked_admin = await self._lock_admin_account(admin.id, using_db=connection)
+            if locked_admin is None or locked_admin.deleted_at or locked_admin.email != email:
+                account_id = locked_admin.id if locked_admin is not None else admin.id
+                log.warning(f'AurPay identity email mismatch | Account:{account_id}')
+                raise ForbiddenError('AurPay account is not allowed.')
+            self._check_admin_status(locked_admin)
+            await self._check_aurpay_binding(locked_admin.id, profile.sub, using_db=connection)
+            await self._update_aurpay_login(locked_admin, values, AccountRole.ADMIN, using_db=connection)
+            await self._bind_aurpay_auth(locked_admin.id, profile.sub, using_db=connection)
+            session = await issue_admin_session(locked_admin.id, using_db=connection)
+            admin = locked_admin
+        log.info(f'AurPay admin login succeeded | Admin:{admin.id} | Created:{created}')
+        return AuthenticatedLogin(
+            result=LoginResult(identity_type=IdentityType.ADMIN, id=admin.id, email=admin.email, expires_at=session.expires_at),
+            session=session,
+        )
+
+    async def _login_aurpay_user(
+        self,
+        profile: AurPayProfile,
+        email: str,
+        ip: str | None,
+        user_agent: str | None,
+    ) -> AuthenticatedLogin:
+        now = datetime_util.now_utc()
+        values = _LoginValues(
+            name=profile.name,
+            avatar_url=None,
+            last_login_at=now,
+            last_login_ip=ip,
+            last_login_user_agent=user_agent,
+        )
+        auth = await self._get_aurpay_auth(profile.sub)
+        account = auth.account if auth else await Account.filter(email=email, deleted_at=None).first()
+        created = False
+        if account is None:
+            account, created = await self._create_aurpay_user(email, values)
+        async with in_tx() as connection:
+            locked_account = await Account.select_for_update(using_db=connection).get_or_none(id=account.id)
+            if locked_account is None or locked_account.deleted_at or AccountRole(locked_account.role) is not AccountRole.USER:
+                account_id = locked_account.id if locked_account is not None else account.id
+                log.warning(f'AurPay identity is not bound to a user account | Account:{account_id}')
+                raise ForbiddenError('AurPay account is not allowed.')
+            if locked_account.status in {AccountStatus.DISABLED, AccountStatus.ARCHIVED}:
+                log.warning(
+                    f'Account is not allowed to login | Account:{locked_account.id} | Status:{locked_account.status.value}'
+                )
+                raise ForbiddenError('Account is not allowed to login.')
+            await self._check_aurpay_binding(locked_account.id, profile.sub, using_db=connection)
+            first_login = locked_account.first_login_at is None
+            values.first_login_at = now if first_login else None
+            await self._update_aurpay_login(locked_account, values, AccountRole.USER, using_db=connection)
+            await self._bind_aurpay_auth(locked_account.id, profile.sub, using_db=connection)
+            session = await issue_user_session(locked_account.id, using_db=connection)
+            account = locked_account
+        if created or first_login:
+            log.bind(send_msg=True).info(f'New user | Account:{account.id} | Login:AurPay')
+        else:
+            log.info(f'AurPay account login succeeded | Account:{account.id}')
+        return AuthenticatedLogin(
+            result=LoginResult(
+                identity_type=IdentityType.USER, id=account.id, email=account.email, expires_at=session.expires_at
+            ),
+            session=session,
+        )
+
     async def _login_admin(
         self,
         profile: GoogleProfile,
@@ -161,7 +304,6 @@ class AuthManager:
         values = _LoginValues(
             name=profile.name,
             avatar_url=profile.avatar_url,
-            status=AccountStatus.ACTIVE,
             last_login_at=now,
             last_login_ip=ip,
             last_login_user_agent=user_agent,
@@ -211,7 +353,6 @@ class AuthManager:
         values = _LoginValues(
             name=profile.name,
             avatar_url=profile.avatar_url,
-            status=AccountStatus.ACTIVE,
             last_login_at=now,
             last_login_ip=ip,
             last_login_user_agent=user_agent,
@@ -249,8 +390,8 @@ class AuthManager:
             if existing_auth is not None and existing_auth.identifier != profile.sub:
                 log.warning(f'Google identity mismatch | Account:{account.id}')
                 raise ForbiddenError('Google account is not allowed.')
-            was_unactivated = account.status == AccountStatus.UNACTIVATED
-            values.first_login_at = now if account.first_login_at is None else None
+            first_login = account.first_login_at is None
+            values.first_login_at = now if first_login else None
             await self._update_user_login(
                 account,
                 values,
@@ -258,7 +399,10 @@ class AuthManager:
             )
             await self._bind_user_google_auth(account.id, profile.sub, using_db=connection)
             session = await issue_user_session(account.id, using_db=connection)
-        log.info(f'Account login succeeded | Account:{account.id} | Activated:{was_unactivated}')
+        if first_login:
+            log.bind(send_msg=True).info(f'New user | Account:{account.id} | Login:Google')
+        else:
+            log.info(f'Account login succeeded | Account:{account.id}')
         return AuthenticatedLogin(
             result=LoginResult(
                 identity_type=IdentityType.USER, id=account.id, email=account.email, expires_at=session.expires_at
@@ -307,7 +451,6 @@ class AuthManager:
             self._check_admin_status(account)
             now = datetime_util.now_utc()
             account.role = AccountRole.ADMIN
-            account.status = AccountStatus.ACTIVE
             account.last_login_at = now
             account.last_login_ip = ip
             account.last_login_user_agent = user_agent
@@ -315,7 +458,6 @@ class AuthManager:
                 using_db=connection,
                 update_fields=(
                     'role',
-                    'status',
                     'last_login_at',
                     'last_login_ip',
                     'last_login_user_agent',
@@ -344,15 +486,27 @@ class AuthManager:
                 log.warning(f'Account is not allowed to login | Account:{account.id} | Status:{account.status.value}')
                 raise ForbiddenError('Account is not allowed to login.')
             now = datetime_util.now_utc()
+            first_login = account.first_login_at is None
+            if first_login:
+                account.first_login_at = now
             account.last_login_at = now
             account.last_login_ip = ip
             account.last_login_user_agent = user_agent
             await account.save(
                 using_db=connection,
-                update_fields=('last_login_at', 'last_login_ip', 'last_login_user_agent', 'modified_at'),
+                update_fields=(
+                    'first_login_at',
+                    'last_login_at',
+                    'last_login_ip',
+                    'last_login_user_agent',
+                    'modified_at',
+                ),
             )
             session = await issue_user_session(account.id, using_db=connection)
-        log.info(f'Password account login succeeded | Account:{account.id}')
+        if first_login:
+            log.bind(send_msg=True).info(f'New user | Account:{account.id} | Login:Password')
+        else:
+            log.info(f'Password account login succeeded | Account:{account.id}')
         return AuthenticatedLogin(
             result=LoginResult(
                 identity_type=IdentityType.USER, id=account.id, email=account.email, expires_at=session.expires_at
@@ -366,8 +520,6 @@ class AuthManager:
         params: SetPasswordParams,
         *,
         identity_type: IdentityType,
-        ip: str | None,
-        user_agent: str | None,
     ) -> IssuedSession:
         """Set or change the password of the authenticated account.
 
@@ -530,6 +682,50 @@ class AuthManager:
             return admin, False
 
     @staticmethod
+    async def _create_aurpay_admin(email: str, values: _LoginValues) -> tuple[Account, bool]:
+        try:
+            return (
+                await Account.create(
+                    email=email,
+                    role=AccountRole.ADMIN,
+                    status=AccountStatus.ACTIVE,
+                    name=values.name,
+                    avatar_url=values.avatar_url,
+                    last_login_at=values.last_login_at,
+                    last_login_ip=values.last_login_ip,
+                    last_login_user_agent=values.last_login_user_agent,
+                ),
+                True,
+            )
+        except IntegrityError as exc:
+            admin = await Account.filter(email=email, deleted_at=None).first()
+            if admin is None:
+                raise ForbiddenError('AurPay account is not allowed.') from exc
+            return admin, False
+
+    @staticmethod
+    async def _create_aurpay_user(email: str, values: _LoginValues) -> tuple[Account, bool]:
+        try:
+            return (
+                await Account.create(
+                    email=email,
+                    role=AccountRole.USER,
+                    status=AccountStatus.ACTIVE,
+                    name=values.name,
+                    avatar_url=values.avatar_url,
+                    last_login_at=values.last_login_at,
+                    last_login_ip=values.last_login_ip,
+                    last_login_user_agent=values.last_login_user_agent,
+                ),
+                True,
+            )
+        except IntegrityError as exc:
+            account = await Account.filter(email=email, deleted_at=None).first()
+            if account is None:
+                raise ForbiddenError('AurPay account is not allowed.') from exc
+            return account, False
+
+    @staticmethod
     async def _lock_admin_account(
         account_id: str,
         *,
@@ -561,6 +757,76 @@ class AuthManager:
             .prefetch_related('account')
             .first()
         )
+
+    @staticmethod
+    async def _get_aurpay_auth(aurpay_sub: str) -> Auth | None:
+        return (
+            await Auth.filter(provider=AuthProvider.AURPAY, identifier=aurpay_sub, deleted_at=None)
+            .prefetch_related('account')
+            .first()
+        )
+
+    @staticmethod
+    async def _check_aurpay_binding(
+        account_id: str,
+        aurpay_sub: str,
+        *,
+        using_db: BaseDBAsyncClient,
+    ) -> None:
+        bound_auth = await (
+            Auth.filter(provider=AuthProvider.AURPAY, identifier=aurpay_sub, deleted_at=None).using_db(using_db).first()
+        )
+        if bound_auth is not None and bound_auth.account_id != account_id:
+            log.warning(f'AurPay identity mismatch | Account:{account_id}')
+            raise ForbiddenError('AurPay account is not allowed.')
+        existing_auth = await (
+            Auth.filter(account_id=account_id, provider=AuthProvider.AURPAY, deleted_at=None).using_db(using_db).first()
+        )
+        if existing_auth is not None and existing_auth.identifier != aurpay_sub:
+            log.warning(f'AurPay identity mismatch | Account:{account_id}')
+            raise ForbiddenError('AurPay account is not allowed.')
+
+    @staticmethod
+    async def _update_aurpay_login(
+        account: Account,
+        values: _LoginValues,
+        role: AccountRole,
+        *,
+        using_db: BaseDBAsyncClient,
+    ) -> None:
+        update = _login_update(values)
+        update['role'] = role
+        try:
+            updated = await Account.filter(id=account.id, deleted_at=None).using_db(using_db).update(**update)
+        except IntegrityError as exc:
+            raise ForbiddenError('AurPay account is not allowed.') from exc
+        if not updated:
+            raise ForbiddenError('AurPay account is not allowed.')
+        account.update_from_dict(update)
+
+    @staticmethod
+    async def _bind_aurpay_auth(
+        account_id: str,
+        aurpay_sub: str,
+        *,
+        using_db: BaseDBAsyncClient,
+    ) -> None:
+        existing_auth = await (
+            Auth.filter(account_id=account_id, provider=AuthProvider.AURPAY, deleted_at=None).using_db(using_db).first()
+        )
+        if existing_auth is not None:
+            if existing_auth.identifier != aurpay_sub:
+                raise ForbiddenError('AurPay account is not allowed.')
+            return
+        try:
+            await Auth.create(
+                using_db=using_db,
+                account_id=account_id,
+                provider=AuthProvider.AURPAY,
+                identifier=aurpay_sub,
+            )
+        except IntegrityError as exc:
+            raise ForbiddenError('AurPay account is not allowed.') from exc
 
     @staticmethod
     async def _bind_admin_google_auth(

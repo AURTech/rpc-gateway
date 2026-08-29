@@ -1,7 +1,8 @@
 import hashlib
+from typing import Annotated
 from urllib.parse import urlsplit, urlunsplit
 
-from fastapi import Depends, Request, Response, status
+from fastapi import Depends, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
 from pyrate_limiter import Duration, Rate
 
@@ -18,6 +19,7 @@ from app.core.errors import APIError
 from app.middleware.limiter import RedisRateLimiter
 from app.model.account.account import normalize_email
 from app.model.auth import (
+    AurPayLoginParams,
     AuthIdentity,
     LoginResult,
     LogoutResult,
@@ -157,6 +159,64 @@ async def google_callback(
     return response
 
 
+@router.get(
+    '/aurpay/login',
+    response_model=None,
+    response_class=RedirectResponse,
+    status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+    responses={status.HTTP_307_TEMPORARY_REDIRECT: {'description': 'Temporary Redirect'}},
+)
+async def aurpay_login(request: Request, params: Annotated[AurPayLoginParams, Query()]) -> RedirectResponse:
+    """Redirect the browser to AurPay OIDC."""
+    login_state = build_oauth_login_state(_frontend_callback_url(request))
+    response = RedirectResponse(
+        AuthManager.build_aurpay_login_url(login_state, prompt=params.prompt),
+        status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+    )
+    set_oauth_state_cookie(response, login_state.cookie_value)
+    return response
+
+
+@router.get(
+    '/aurpay/callback',
+    response_model=None,
+    response_class=RedirectResponse,
+    status_code=status.HTTP_303_SEE_OTHER,
+    responses={status.HTTP_303_SEE_OTHER: {'description': 'See Other'}},
+)
+async def aurpay_callback(
+    request: Request,
+    auth_manager: AuthManagerDep,
+    rpc_gateway_oauth_state: OAuthStateCookieValue = None,
+    code: str | None = None,
+    error: str | None = None,
+    state: str | None = None,
+) -> RedirectResponse:
+    """Handle the AurPay OIDC callback and set the session cookie."""
+    oauth_state = parse_oauth_state_cookie(state, rpc_gateway_oauth_state)
+    if oauth_state is None or not oauth_state.nonce:
+        return _auth_callback_redirect(error='Invalid login state.')
+    if error:
+        return _auth_callback_redirect(oauth_state.frontend_callback_url, error=f'AurPay login failed: {error}')
+    if not code:
+        return _auth_callback_redirect(oauth_state.frontend_callback_url, error='AurPay login code is missing.')
+
+    try:
+        login = await auth_manager.login_with_aurpay(
+            code,
+            oauth_state.code_verifier,
+            oauth_state.nonce,
+            client_ip=context.client_ip(request),
+            user_agent=request.headers.get('user-agent'),
+        )
+    except APIError as exc:
+        return _auth_callback_redirect(oauth_state.frontend_callback_url, error=exc.msg)
+
+    response = _auth_callback_redirect(oauth_state.frontend_callback_url)
+    set_session_cookie(response, login.session.cookie_value)
+    return response
+
+
 @router.post('/login', response_model=LoginResult, dependencies=[Depends(password_login_rate_limit)])
 async def password_login(
     request: Request,
@@ -201,8 +261,6 @@ async def set_password(
         identity.id,
         params,
         identity_type=identity.identity_type,
-        ip=context.client_ip(request),
-        user_agent=request.headers.get('user-agent'),
     )
     set_session_cookie(response, session.cookie_value)
     return PasswordResult(updated=True)

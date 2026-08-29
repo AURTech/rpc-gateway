@@ -1,11 +1,12 @@
 import asyncio
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 from urllib.parse import parse_qs, urlsplit
 
 import httpx
 import pytest
 from app.api.v2.auth.auth import _frontend_callback_url
 from app.api.v2.auth.cookie import set_session_cookie
+from app.clients.auth import AurPayProfile
 from app.core.config import Config
 from app.model.account import AccountRole, AccountStatus, ArchiveAccountsParams, UpdateAccountStatusParams
 from app.orm.account.account import Account
@@ -36,6 +37,16 @@ pytestmark = pytest.mark.usefixtures('auth_env', 'fake_google')
 class LogRecord(TypedDict):
     level: str
     message: str
+    extra: NotRequired[dict[str, object]]
+
+
+class BoundCapturingLog:
+    def __init__(self, records: list[LogRecord], extra: dict[str, object]) -> None:
+        self._records = records
+        self._extra = extra
+
+    def info(self, message: str) -> None:
+        self._records.append({'level': 'info', 'message': message, 'extra': self._extra})
 
 
 class CapturingLog:
@@ -47,6 +58,9 @@ class CapturingLog:
 
     def warning(self, message: str) -> None:
         self.records.append({'level': 'warning', 'message': message})
+
+    def bind(self, **extra: object) -> BoundCapturingLog:
+        return BoundCapturingLog(self.records, extra)
 
 
 def assert_log_has_no_sensitive_auth_values(log: CapturingLog) -> None:
@@ -105,7 +119,7 @@ def test_auth_settings_reads_values_from_config_env_file(tmp_path, monkeypatch: 
                 'GOOGLE_OAUTH_CLIENT_ID=env-client',
                 'GOOGLE_OAUTH_CLIENT_SECRET=env-secret',
                 'GOOGLE_OAUTH_REDIRECT_URI=https://dash.example.com/v2/auth/google/callback',
-                'FRONTEND_AUTH_CALLBACK_URL=https://dash.example.com/en/auth/callback',
+                'FRONTEND_AUTH_CALLBACK_URL=https://dash.example.com/zh/auth/callback',
                 'CORS_ORIGINS=["https://dash.example.com"]',
                 'ADMIN_ALLOWED_EMAILS=["Admin@Example.com","other@example.com"]',
                 'AUTH_SESSION_SECRET=env-session-secret-value-32-bytes',
@@ -122,7 +136,7 @@ def test_auth_settings_reads_values_from_config_env_file(tmp_path, monkeypatch: 
     assert settings.google_client_id == 'env-client'
     assert settings.google_client_secret == 'env-secret'
     assert settings.google_redirect_uri == 'https://dash.example.com/v2/auth/google/callback'
-    assert settings.frontend_auth_callback_url == 'https://dash.example.com/en/auth/callback'
+    assert settings.frontend_auth_callback_url == 'https://dash.example.com/zh/auth/callback'
     assert settings.admin_allowed_emails == frozenset({'admin@example.com', 'other@example.com'})
     assert settings.session_secret == 'env-session-secret-value-32-bytes'
     assert settings.cookie_samesite == 'lax'
@@ -148,7 +162,7 @@ def test_auth_session_cookie_uses_configured_cross_site_policy(monkeypatch: pyte
 
 
 def test_oauth_state_cookie_preserves_frontend_callback_url() -> None:
-    callback_url = 'http://127.0.0.1:19341/en/auth/callback'
+    callback_url = 'http://127.0.0.1:19341/zh/auth/callback'
 
     login_state = build_oauth_login_state(callback_url)
     parsed = parse_oauth_state_cookie(login_state.state, login_state.cookie_value)
@@ -159,7 +173,7 @@ def test_oauth_state_cookie_preserves_frontend_callback_url() -> None:
 
 
 def test_oauth_state_cookie_rejects_malformed_callback_url() -> None:
-    login_state = build_oauth_login_state('http://127.0.0.1:19341/en/auth/callback')
+    login_state = build_oauth_login_state('http://127.0.0.1:19341/zh/auth/callback')
     parts = login_state.cookie_value.split('.')
     parts[2] = '!!!!'
 
@@ -171,12 +185,12 @@ def test_google_login_uses_allowed_referer_callback_url(auth_env: dict[str, obje
     request = build_auth_request(
         {
             'host': 'gateway-entry.test',
-            'referer': 'http://127.0.0.1:19341/en/login',
+            'referer': 'http://127.0.0.1:19341/zh/login',
         },
         client_host='203.0.113.10',
     )
 
-    assert _frontend_callback_url(request) == 'http://127.0.0.1:19341/en/auth/callback'
+    assert _frontend_callback_url(request) == 'http://127.0.0.1:19341/zh/auth/callback'
 
 
 def test_google_login_rejects_unlisted_referer_callback_url(auth_env: dict[str, object]) -> None:
@@ -184,12 +198,12 @@ def test_google_login_rejects_unlisted_referer_callback_url(auth_env: dict[str, 
     request = build_auth_request(
         {
             'host': 'gateway-entry.test',
-            'referer': 'https://evil.example/en/login',
+            'referer': 'https://evil.example/zh/login',
         },
         client_host='203.0.113.10',
     )
 
-    assert _frontend_callback_url(request) == 'http://web.test/en/auth/callback'
+    assert _frontend_callback_url(request) == 'http://web.test/zh/auth/callback'
 
 
 async def _create_password_user(
@@ -222,6 +236,71 @@ async def test_password_login_issues_user_session(client: AsyncClient) -> None:
     me = assert_ok_response(await client.get('/v2/auth/me'))['data']
     assert me['identity_type'] == 'user'
     assert me['email'] == 'member@example.com'
+
+
+@pytest.mark.anyio
+async def test_first_password_login_marks_new_user_message_for_grafana(
+    client: AsyncClient,
+    auth_log: CapturingLog,
+) -> None:
+    account = await _create_password_user('member@example.com', 'member-pass-123')
+
+    first = await client.post('/v2/auth/login', json={'email': account.email, 'password': 'member-pass-123'})
+    second = await client.post('/v2/auth/login', json={'email': account.email, 'password': 'member-pass-123'})
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    await account.refresh_from_db()
+    assert account.first_login_at is not None
+    notifications = [record for record in auth_log.records if record.get('extra') == {'send_msg': True}]
+    assert notifications == [
+        {
+            'level': 'info',
+            'message': f'New user | Account:{account.id} | Login:Password',
+            'extra': {'send_msg': True},
+        }
+    ]
+    assert_log_has_no_sensitive_auth_values(auth_log)
+
+
+@pytest.mark.anyio
+async def test_new_aurpay_registration_marks_new_user_message_for_grafana(
+    client: AsyncClient,
+    app: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+    auth_log: CapturingLog,
+) -> None:
+    _ = client
+
+    async def fetch_profile(*_args: object, **_kwargs: object) -> AurPayProfile:
+        return AurPayProfile(sub='aurpay-sub', email='member@example.com', name='Member Account')
+
+    monkeypatch.setattr(auth_service, 'fetch_aurpay_profile', fetch_profile)
+    first = await app.state.auth_manager.login_with_aurpay(
+        'code',
+        'verifier',
+        'nonce',
+        client_ip='203.0.113.10',
+        user_agent='pytest',
+    )
+    await app.state.auth_manager.login_with_aurpay(
+        'code',
+        'verifier',
+        'nonce',
+        client_ip='203.0.113.10',
+        user_agent='pytest',
+    )
+
+    account = await Account.get(id=first.result.id)
+    notifications = [record for record in auth_log.records if record.get('extra') == {'send_msg': True}]
+    assert notifications == [
+        {
+            'level': 'info',
+            'message': f'New user | Account:{account.id} | Login:AurPay',
+            'extra': {'send_msg': True},
+        }
+    ]
+    assert_log_has_no_sensitive_auth_values(auth_log)
 
 
 @pytest.mark.anyio
@@ -747,6 +826,81 @@ async def test_google_login_redirects_to_provider(client: AsyncClient) -> None:
 
 
 @pytest.mark.anyio
+async def test_aurpay_login_redirects_to_provider(client: AsyncClient, auth_env: dict[str, object]) -> None:
+    auth_env.update(
+        {
+            'AURPAY_OIDC_ISSUER': 'https://login.aurpay.test',
+            'AURPAY_OIDC_CLIENT_ID': 'aurpay-client-id',
+            'AURPAY_OIDC_REDIRECT_URI': 'http://test/v2/auth/aurpay/callback',
+        }
+    )
+
+    response = await client.get('/v2/auth/aurpay/login', follow_redirects=False)
+
+    assert response.status_code == 307
+    location = response.headers['location']
+    query = parse_qs(urlsplit(location).query)
+    state = query['state'][0]
+    assert location.startswith('https://login.aurpay.test/oauth2/authorize?')
+    assert query['client_id'] == ['aurpay-client-id']
+    assert query['redirect_uri'] == ['http://test/v2/auth/aurpay/callback']
+    assert query['nonce'][0]
+    assert query['code_challenge_method'] == ['S256']
+    assert query['code_challenge'][0]
+    assert 'code_verifier' not in query
+    assert 'prompt' not in query
+    assert response.cookies.get(OAUTH_STATE_COOKIE_NAME)
+    assert response.cookies[OAUTH_STATE_COOKIE_NAME].startswith(f'{state}.')
+
+
+@pytest.mark.anyio
+async def test_aurpay_login_can_force_reauthentication(client: AsyncClient, auth_env: dict[str, object]) -> None:
+    auth_env.update(
+        {
+            'AURPAY_OIDC_ISSUER': 'https://login.aurpay.test',
+            'AURPAY_OIDC_CLIENT_ID': 'aurpay-client-id',
+            'AURPAY_OIDC_REDIRECT_URI': 'http://test/v2/auth/aurpay/callback',
+        }
+    )
+
+    response = await client.get('/v2/auth/aurpay/login', params={'prompt': 'login'}, follow_redirects=False)
+
+    assert response.status_code == 307
+    query = parse_qs(urlsplit(response.headers['location']).query)
+    assert query['prompt'] == ['login']
+    assert query['nonce'][0]
+    assert query['code_challenge'][0]
+    assert response.cookies.get(OAUTH_STATE_COOKIE_NAME)
+
+
+@pytest.mark.anyio
+async def test_aurpay_login_can_select_account(client: AsyncClient, auth_env: dict[str, object]) -> None:
+    auth_env.update(
+        {
+            'AURPAY_OIDC_ISSUER': 'https://login.aurpay.test',
+            'AURPAY_OIDC_CLIENT_ID': 'aurpay-client-id',
+            'AURPAY_OIDC_REDIRECT_URI': 'http://test/v2/auth/aurpay/callback',
+        }
+    )
+
+    response = await client.get('/v2/auth/aurpay/login', params={'prompt': 'select_account'}, follow_redirects=False)
+
+    assert response.status_code == 307
+    query = parse_qs(urlsplit(response.headers['location']).query)
+    assert query['prompt'] == ['select_account']
+    assert query['nonce'][0]
+    assert query['code_challenge'][0]
+    assert response.cookies.get(OAUTH_STATE_COOKIE_NAME)
+
+
+@pytest.mark.anyio
+async def test_aurpay_login_rejects_unsupported_prompt(client: AsyncClient) -> None:
+    response = await client.get('/v2/auth/aurpay/login', params={'prompt': 'consent'}, follow_redirects=False)
+
+    assert response.status_code == 422
+
+
+@pytest.mark.anyio
 async def test_prod_google_login_state_cookie_uses_secure_flag(
     client: AsyncClient,
     auth_env: dict[str, object],
@@ -765,7 +919,7 @@ async def test_google_callback_rejects_missing_state(client: AsyncClient) -> Non
     response = await client.get('/v2/auth/google/callback', params={'code': 'code:admin@example.com:admin-sub:Admin'})
 
     assert response.status_code == 303
-    assert response.headers['location'] == 'http://web.test/en/auth/callback?error=Invalid+login+state.'
+    assert response.headers['location'] == 'http://web.test/zh/auth/callback?error=Invalid+login+state.'
     assert response.cookies.get('rpc_gateway_session') is None
 
 
@@ -779,7 +933,7 @@ async def test_google_callback_rejects_mismatched_state(client: AsyncClient) -> 
     )
 
     assert response.status_code == 303
-    assert response.headers['location'] == 'http://web.test/en/auth/callback?error=Invalid+login+state.'
+    assert response.headers['location'] == 'http://web.test/zh/auth/callback?error=Invalid+login+state.'
     assert response.cookies.get('rpc_gateway_session') is None
     assert response.cookies.get(OAUTH_STATE_COOKIE_NAME) is None
 
@@ -796,7 +950,7 @@ async def test_google_callback_rejects_tampered_state_cookie(client: AsyncClient
     )
 
     assert response.status_code == 303
-    assert response.headers['location'] == 'http://web.test/en/auth/callback?error=Invalid+login+state.'
+    assert response.headers['location'] == 'http://web.test/zh/auth/callback?error=Invalid+login+state.'
     assert response.cookies.get('rpc_gateway_session') is None
     assert response.cookies.get(OAUTH_STATE_COOKIE_NAME) is None
 
@@ -850,7 +1004,7 @@ async def test_disable_waits_for_google_login_and_revokes_session(
 
     assert disable_blocked
     assert login_response.status_code == 303
-    assert login_response.headers['location'] == 'http://web.test/en/auth/callback'
+    assert login_response.headers['location'] == 'http://web.test/zh/auth/callback'
     await account.refresh_from_db()
     assert account.status == AccountStatus.DISABLED
     assert await AuthSession.filter(account_id=account.id, revoked_at=None).count() == 0
@@ -901,7 +1055,7 @@ async def test_archive_waits_for_google_binding_and_removes_it(
 
     assert archive_blocked
     assert login_response.status_code == 303
-    assert login_response.headers['location'] == 'http://web.test/en/auth/callback'
+    assert login_response.headers['location'] == 'http://web.test/zh/auth/callback'
     await account.refresh_from_db()
     assert account.status == AccountStatus.ARCHIVED
     assert account.deleted_at is not None
@@ -922,7 +1076,7 @@ async def test_prod_login_cookie_uses_secure_flag_from_config(
     )
 
     assert response.status_code == 303, response.text
-    assert response.headers['location'] == 'http://web.test/en/auth/callback'
+    assert response.headers['location'] == 'http://web.test/zh/auth/callback'
     assert 'secure' in response.headers['set-cookie'].lower()
     admin = await Account.get(email='admin@example.com')
     assert admin.role == AccountRole.ADMIN
@@ -1093,8 +1247,8 @@ async def test_concurrent_first_admin_google_logins_reuse_created_account(
         release_create.set()
         first_response, second_response = await asyncio.gather(first_task, second_task)
 
-    assert first_response.headers['location'] == 'http://web.test/en/auth/callback'
-    assert second_response.headers['location'] == 'http://web.test/en/auth/callback'
+    assert first_response.headers['location'] == 'http://web.test/zh/auth/callback'
+    assert second_response.headers['location'] == 'http://web.test/zh/auth/callback'
     admin = await Account.get(email='admin@example.com')
     assert admin.role == AccountRole.ADMIN
     assert admin.status == AccountStatus.ACTIVE
@@ -1120,7 +1274,7 @@ async def test_google_exchange_failure_returns_auth_error(
     response = await client.get('/v2/auth/google/callback', params={'code': 'expired-code', 'state': state})
 
     assert response.status_code == 303
-    assert response.headers['location'] == 'http://web.test/en/auth/callback?error=Google+login+failed.'
+    assert response.headers['location'] == 'http://web.test/zh/auth/callback?error=Google+login+failed.'
     assert auth_log.records[-1] == {
         'level': 'warning',
         'message': 'Google OAuth exchange failed',
@@ -1134,7 +1288,7 @@ async def test_google_callback_redirects_provider_error_to_frontend(client: Asyn
     response = await client.get('/v2/auth/google/callback', params={'error': 'access_denied', 'state': state})
 
     assert response.status_code == 303
-    assert response.headers['location'] == 'http://web.test/en/auth/callback?error=Google+login+failed%3A+access_denied'
+    assert response.headers['location'] == 'http://web.test/zh/auth/callback?error=Google+login+failed%3A+access_denied'
 
 
 @pytest.mark.anyio
@@ -1143,7 +1297,7 @@ async def test_google_callback_redirects_missing_code_to_frontend(client: AsyncC
     response = await client.get('/v2/auth/google/callback', params={'state': state})
 
     assert response.status_code == 303
-    assert response.headers['location'] == 'http://web.test/en/auth/callback?error=Google+login+code+is+missing.'
+    assert response.headers['location'] == 'http://web.test/zh/auth/callback?error=Google+login+code+is+missing.'
 
 
 @pytest.mark.anyio
@@ -1166,7 +1320,9 @@ async def test_user_first_google_login_activates_local_record(client: AsyncClien
     assert data['identity_type'] == 'user'
     assert data['email'] == 'member@example.com'
     assert auth_log.records[-1]['level'] == 'info'
-    assert auth_log.records[-1]['message'] == f'Account login succeeded | Account:{user.id} | Activated:True'
+    assert auth_log.records[-1]['message'] == f'New user | Account:{user.id} | Login:Google'
+    notification = next(record for record in auth_log.records if record.get('extra') == {'send_msg': True})
+    assert notification['message'] == f'New user | Account:{user.id} | Login:Google'
     assert_log_has_no_sensitive_auth_values(auth_log)
 
 
@@ -1178,7 +1334,7 @@ async def test_unknown_google_email_is_rejected(client: AsyncClient, auth_log: C
     )
 
     assert response.status_code == 303, response.text
-    assert response.headers['location'] == 'http://web.test/en/auth/callback?error=Google+account+is+not+allowed.'
+    assert response.headers['location'] == 'http://web.test/zh/auth/callback?error=Google+account+is+not+allowed.'
     assert auth_log.records[-1] == {
         'level': 'warning',
         'message': 'Local account not found',
@@ -1197,7 +1353,7 @@ async def test_bound_user_rejects_same_email_with_different_google_sub(client: A
     )
 
     assert response.status_code == 303, response.text
-    assert response.headers['location'] == 'http://web.test/en/auth/callback?error=Google+account+is+not+allowed.'
+    assert response.headers['location'] == 'http://web.test/zh/auth/callback?error=Google+account+is+not+allowed.'
     assert auth_log.records[-1]['level'] == 'warning'
     assert auth_log.records[-1]['message'].startswith('Google identity mismatch | ')
     assert 'Account:' in auth_log.records[-1]['message']
@@ -1219,7 +1375,7 @@ async def test_bound_admin_rejects_same_email_with_different_google_sub(client: 
     )
 
     assert response.status_code == 303, response.text
-    assert response.headers['location'] == 'http://web.test/en/auth/callback?error=Google+account+is+not+allowed.'
+    assert response.headers['location'] == 'http://web.test/zh/auth/callback?error=Google+account+is+not+allowed.'
     assert auth_log.records[-1]['level'] == 'warning'
     assert auth_log.records[-1]['message'].startswith('Google identity mismatch | ')
     assert 'Admin:' in auth_log.records[-1]['message']

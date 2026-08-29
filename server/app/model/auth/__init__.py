@@ -1,4 +1,5 @@
 from app.model.auth.auth import (
+    AurPayLoginParams,
     AuthIdentity,
     AuthProvider,
     IdentityType,
@@ -21,6 +22,7 @@ from app.model.auth.token import (
 )
 
 __all__ = [
+    'AurPayLoginParams',
     'AuthIdentity',
     'AuthProvider',
     'LoginResult',

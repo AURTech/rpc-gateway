@@ -28,7 +28,7 @@ from app.orm.gateway import Gateway
 class AccountManager:
     @staticmethod
     async def create_account(params: CreateAccountParams, actor_id: str | None = None) -> AccountBase:
-        """Create an unactivated user-role account.
+        """Create a user-role account that has not signed in yet.
 
         Raises:
             BadRequestError: account email already exists.
@@ -101,11 +101,10 @@ class AccountManager:
         params: UpdateAccountStatusParams,
         actor_id: str | None = None,
     ) -> AccountBase:
-        """Update one active or disabled user-role account status.
+        """Update one user-role account status to active or disabled.
 
         Raises:
-            BadRequestError: archived account cannot be updated.
-            NotfoundError: account does not exist.
+            NotfoundError: account does not exist, or is already archived.
 
         Side effects:
             Revokes sessions when disabling an account.

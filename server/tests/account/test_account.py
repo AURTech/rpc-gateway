@@ -62,8 +62,9 @@ async def test_admin_can_create_and_manage_accounts(client: AsyncClient, account
     assert data['email'] == 'new.account@example.com'
     assert data['role'] == 'user'
     assert data['role_label'] == 'User'
-    assert data['status'] == 'unactivated'
-    assert data['status_label'] == 'Unactivated'
+    assert data['status'] == 'active'
+    assert data['status_label'] == 'Active'
+    assert data['activated'] is False
     account_id = data['id']
     await Account.filter(id=account_id).update(
         first_login_at=datetime(2024, 1, 1, tzinfo=UTC),
@@ -79,6 +80,7 @@ async def test_admin_can_create_and_manage_accounts(client: AsyncClient, account
     assert data['data']['total'] == 1
     assert data['data']['max_page'] == 1
     assert data['data']['items'][0]['email'] == 'new.account@example.com'
+    assert data['data']['items'][0]['activated'] is True
     assert USER_DETAIL_ONLY_FIELDS.isdisjoint(data['data']['items'][0])
 
     response = await client.get(f'/v2/accounts/{account_id}')
@@ -117,7 +119,7 @@ async def test_admin_can_create_and_manage_accounts(client: AsyncClient, account
 
     assert account_log.records[0]['message'].startswith('Account ')
     assert ' created | Actor:' in account_log.records[0]['message']
-    assert 'Status:unactivated->disabled' in account_log.records[1]['message']
+    assert 'Status:active->disabled' in account_log.records[1]['message']
     assert 'RevokedSessions:0' in account_log.records[1]['message']
     assert account_log.records[2]['message'].startswith('Account status updated | ')
     assert account_log.records[3]['message'].startswith('Account ')
