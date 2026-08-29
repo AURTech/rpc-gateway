@@ -1,24 +1,13 @@
 # Supply-chain hardening: refuse versions published less than 7 days ago, so a
 # compromised release that gets caught and unpublished within hours never lands.
 minimumReleaseAge: 10080
-minimumReleaseAgeExclude:
-  # Security fix published eight hours inside the current seven-day cutoff.
-  - nanoid@3.3.17
-# Pin transitive dependencies to advisory-patched versions when their parents have
-# not released updated constraints. picomatch is scoped to the 4.0.x line so the
-# separate picomatch@2 subtree used by other tools is left untouched.
+# Pin build-time transitive deps to advisory-patched versions. All three are only
+# exercised at build time (not on the runtime request path); overriding just keeps
+# `pnpm audit --prod` clean. picomatch is scoped to the 4.0.x line so the separate
+# picomatch@2 subtree used by other tools is left untouched.
 overrides:
-  'body-parser@<2.3.0': 2.3.0
-  'brace-expansion@>=2 <2.1.4': 2.1.4
-  'minimatch@>=10 <10.2.3': 10.2.3
-  'nanoid@>=3 <3.3.17': 3.3.17
-  'path-to-regexp@>=8 <8.4.2': 8.4.2
   'picomatch@>=4.0.0 <4.0.4': '>=4.0.4'
-  'qs@>=6 <6.15.2': 6.15.2
-  'sharp@<0.35.0': 0.35.0
-  'undici@>=7 <7.29.0': 7.29.0
-  'yaml@>=2 <2.8.3': 2.8.3
-  postcss: 8.5.23
+  postcss: '>=8.5.10'
   '@babel/core': '>=7.29.1 <8'
 allowBuilds:
   '@parcel/watcher': true

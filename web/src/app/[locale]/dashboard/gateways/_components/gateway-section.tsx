@@ -3,10 +3,10 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Compact sub-group inside a section body: a gray frame with a concise
- * header (bold title, optional description, optional trailing action) and a
- * white inset body — reuses the app's "white pill in a gray frame" table
- * styling so grouped settings read consistently across sections.
+ * GitLab-style sub-group inside a section body: a gray frame with a compact
+ * header (bold title, optional description, optional trailing action). Most
+ * groups use a white inset body; callers whose children already own their
+ * surfaces can omit it to avoid an extra visual layer.
  */
 export function GatewaySectionGroup({
   title,
@@ -14,6 +14,7 @@ export function GatewaySectionGroup({
   action,
   children,
   bodyClassName,
+  insetBody = true,
 }: {
   title: ReactNode;
   description?: ReactNode;
@@ -21,6 +22,8 @@ export function GatewaySectionGroup({
   children: ReactNode;
   /** Override the white body's padding (e.g. flush lists). */
   bodyClassName?: string;
+  /** Render children directly when they already provide their own surfaces. */
+  insetBody?: boolean;
 }) {
   return (
     <section
@@ -38,14 +41,18 @@ export function GatewaySectionGroup({
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
       </header>
-      <div
-        className={cn(
-          "mx-1 mb-1 rounded-table-pill bg-surface p-4",
-          bodyClassName,
-        )}
-      >
-        {children}
-      </div>
+      {insetBody ? (
+        <div
+          className={cn(
+            "mx-1 mb-1 rounded-table-pill bg-surface p-4",
+            bodyClassName,
+          )}
+        >
+          {children}
+        </div>
+      ) : (
+        children
+      )}
     </section>
   );
 }

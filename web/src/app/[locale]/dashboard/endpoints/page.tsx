@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 
-import { EndpointsView } from "./_components/endpoints-view";
+import { EndpointManagementWorkspace } from "./_components/endpoint-management-workspace";
 
 export async function generateMetadata({
   params,
@@ -16,17 +16,12 @@ export async function generateMetadata({
 export default async function EndpointsPage({
   searchParams,
 }: {
-  params: Promise<{ locale: string }>;
-  searchParams: Promise<{ tab?: string; provider?: string }>;
+  searchParams: Promise<{ workspace?: string }>;
 }) {
-  const { tab, provider } = await searchParams;
-  // A `?provider=` deep link (from the provider drawer) is only meaningful on
-  // the provider-synced tab, so it selects that tab regardless of `?tab=`.
-  const initialTab = provider || tab === "provider" ? "provider" : "manual";
+  const { workspace } = await searchParams;
   return (
-    <EndpointsView
-      initialTab={initialTab}
-      initialProviderId={provider ?? null}
+    <EndpointManagementWorkspace
+      initialView={workspace === "providers" ? "providers" : "registry"}
     />
   );
 }

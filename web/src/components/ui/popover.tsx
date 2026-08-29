@@ -1,10 +1,11 @@
 "use client";
 
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { Popover as PopoverPrimitive } from "radix-ui";
 import type * as React from "react";
 import { createContext, useContext, useState } from "react";
 
+import { useMotionPreset } from "@/hooks/use-motion-preset";
 import { menuContentVariants, menuTransition } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
@@ -64,7 +65,7 @@ function PopoverContent({
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
   const { open } = useContext(PopoverContext);
-  const reduce = useReducedMotion();
+  const motionPreset = useMotionPreset();
   return (
     <PopoverPrimitive.Portal forceMount>
       <AnimatePresence>
@@ -91,7 +92,7 @@ function PopoverContent({
               initial="initial"
               animate="animate"
               exit="exit"
-              transition={reduce ? { duration: 0 } : menuTransition}
+              transition={motionPreset.transition(menuTransition)}
             >
               {children}
             </motion.div>

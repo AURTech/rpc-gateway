@@ -22,6 +22,11 @@ const nextConfig: NextConfig = {
         source: "/:path*",
         headers: [
           ...FIXED_SECURITY_HEADERS,
+          {
+            key: "X-Robots-Tag",
+            value:
+              "noindex, nofollow, noarchive, nocache, noimageindex, nosnippet",
+          },
           ...(process.env.NODE_ENV === "production" ? [HSTS_HEADER] : []),
         ],
       },

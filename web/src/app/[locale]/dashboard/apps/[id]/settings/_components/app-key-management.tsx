@@ -1,6 +1,11 @@
 "use client";
 
-import { CopyIcon, RotateCwIcon, ShieldOffIcon } from "lucide-react";
+import {
+  CalendarClockIcon,
+  CopyIcon,
+  RotateCwIcon,
+  ShieldOffIcon,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -11,6 +16,15 @@ import { ConfirmDialog } from "@/components/patterns/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Time } from "@/components/ui/time";
 import {
   useAppKeysQuery,
@@ -38,15 +52,22 @@ function shortResourceId(id: string): string {
 }
 
 function KeyListSkeleton() {
-  return (
-    <div className="flex flex-col divide-y divide-ink-wash" aria-busy="true">
-      {["first", "second"].map((key) => (
-        <div key={key} className="p-4">
-          <Skeleton className="h-28 w-full rounded-xl" />
-        </div>
-      ))}
-    </div>
-  );
+  return ["first", "second"].map((key) => (
+    <TableRow key={key} aria-hidden>
+      <TableCell>
+        <Skeleton className="h-5 w-full max-w-md" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-5 w-16" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-5 w-28" />
+      </TableCell>
+      <TableCell align="right">
+        <Skeleton className="ml-auto h-8 w-24" />
+      </TableCell>
+    </TableRow>
+  ));
 }
 
 export function AppKeyManagement({ appId }: { appId: string }) {
@@ -93,174 +114,161 @@ export function AppKeyManagement({ appId }: { appId: string }) {
 
   return (
     <>
-      <section
-        data-slot="app-key-management"
-        aria-labelledby="app-access-keys-title"
-        className="overflow-hidden rounded-3xl bg-table-frame"
-      >
-        <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
-          <div className="min-w-0 flex-1 basis-52">
-            <h2
-              id="app-access-keys-title"
-              className="text-sm font-semibold text-ink-900"
-            >
-              {t("title")}
-            </h2>
-            <p className="mt-0.5 text-2xs leading-snug text-ink-500">
-              {t("subtitle")}
-            </p>
-          </div>
-          <div className="shrink-0">
-            <Button
-              type="button"
-              variant="soft"
-              size="sm"
-              onClick={() => setRotateOpen(true)}
-              disabled={rotateMutation.isPending}
-              className="rounded-xl"
-            >
-              <RotateCwIcon className="size-4" aria-hidden />
-              {t("rotate")}
-            </Button>
-          </div>
+      <div className="flex w-full flex-col gap-7">
+        <header className="flex flex-col gap-1.5">
+          <h1 className="text-3xl font-bold tracking-tight text-ink-900">
+            {t("title")}
+          </h1>
+          <p className="max-w-prose-narrow text-md text-ink-600">
+            {t("subtitle")}
+          </p>
         </header>
 
-        <div className="mx-1 mb-1 overflow-hidden rounded-table-pill bg-surface">
-          {query.isPending ? <KeyListSkeleton /> : null}
+        <section data-slot="app-key-management">
+          <Table
+            compact
+            dividers
+            aria-label={t("title")}
+            className="min-w-176 table-fixed"
+            containerClassName="shadow-section"
+          >
+            <TableCaption>{t("title")}</TableCaption>
+            <colgroup>
+              <col />
+              <col className="w-32" />
+              <col className="w-44" />
+              <col className="w-32" />
+            </colgroup>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("columns.apiKey")}</TableHead>
+                <TableHead>{t("columns.state")}</TableHead>
+                <TableHead>{t("columns.createdAt")}</TableHead>
+                <TableHead align="right">{t("columns.actions")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {query.isPending ? <KeyListSkeleton /> : null}
 
-          {query.isError ? (
-            <div role="alert" className="m-4 rounded-lg bg-danger-soft p-4">
-              <p className="font-medium text-danger">{t("error.title")}</p>
-              <p className="mt-1 text-sm text-danger">{t("error.body")}</p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => query.refetch()}
-                className="mt-3"
-              >
-                {t("error.retry")}
-              </Button>
-            </div>
-          ) : null}
+              {query.isError ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="h-36">
+                    <div role="alert" className="mx-auto max-w-md text-center">
+                      <p className="font-medium text-danger">
+                        {t("error.title")}
+                      </p>
+                      <p className="mt-1 text-sm text-danger">
+                        {t("error.body")}
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => query.refetch()}
+                        className="mt-3"
+                      >
+                        {t("error.retry")}
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : null}
 
-          {query.data && query.data.items.length === 0 ? (
-            <p className="px-4 py-8 text-center text-sm text-ink-500">
-              {t("empty")}
-            </p>
-          ) : null}
+              {query.data && query.data.items.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={4}
+                    className="h-36 text-center text-ink-500"
+                  >
+                    {t("empty")}
+                  </TableCell>
+                </TableRow>
+              ) : null}
 
-          {query.data && query.data.items.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table
-                aria-label={t("title")}
-                className="w-full min-w-240 table-fixed border-collapse"
-              >
-                <colgroup>
-                  <col />
-                  <col className="w-32" />
-                  <col className="w-36" />
-                  <col className="w-36" />
-                  <col className="w-36" />
-                  <col className="w-28" />
-                </colgroup>
-                <thead className="border-b border-ink-wash">
-                  <tr>
-                    <th className="px-4 py-4 text-left text-sm font-semibold text-ink-900">
-                      {t("columns.apiKey")}
-                    </th>
-                    <th className="px-4 py-4 text-left text-sm font-semibold text-ink-900">
-                      {t("columns.state")}
-                    </th>
-                    <th className="px-4 py-4 text-left text-sm font-semibold text-ink-900">
-                      {t("columns.expiresAt")}
-                    </th>
-                    <th className="px-4 py-4 text-left text-sm font-semibold text-ink-900">
-                      {t("columns.revokedAt")}
-                    </th>
-                    <th className="px-4 py-4 text-left text-sm font-semibold text-ink-900">
-                      {t("columns.createdAt")}
-                    </th>
-                    <th className="px-4 py-4 text-right text-sm font-semibold text-ink-900">
-                      {t("columns.actions")}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-ink-wash">
-                  {query.data.items.map((key) => {
-                    const revocable =
-                      key.state === "active" || key.state === "grace";
-
-                    return (
-                      <tr key={key.id}>
-                        <td className="min-w-0 px-4 py-4 align-top">
-                          <div className="flex min-w-0 items-start gap-2">
-                            <code className="min-w-0 flex-1 break-all font-mono text-sm text-ink-700">
-                              {key.api_key}
-                            </code>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={t("copy")}
-                              title={t("copy")}
-                              onClick={() => copyKey(key.api_key)}
-                              className="shrink-0"
-                            >
-                              <CopyIcon className="size-3.5" aria-hidden />
-                            </Button>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 align-top">
-                          <Badge variant={STATE_VARIANT[key.state]} dot>
-                            {t(`states.${key.state}`)}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-4 align-top text-sm text-ink-600">
-                          {key.expires_at ? (
-                            <Time value={key.expires_at} />
-                          ) : (
-                            "—"
-                          )}
-                        </td>
-                        <td className="px-4 py-4 align-top text-sm text-ink-600">
-                          {key.revoked_at ? (
-                            <Time value={key.revoked_at} />
-                          ) : (
-                            "—"
-                          )}
-                        </td>
-                        <td className="px-4 py-4 align-top text-sm text-ink-600">
-                          <Time value={key.created_at} />
-                        </td>
-                        <td className="px-4 py-4 text-right align-top">
-                          {revocable ? (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setRevokeKey(key)}
-                              disabled={revokeMutation.isPending}
-                              className="text-danger hover:bg-danger-soft hover:text-danger"
-                            >
-                              <ShieldOffIcon className="size-3.5" aria-hidden />
-                              {t("revoke")}
-                            </Button>
-                          ) : (
-                            <span className="text-sm text-ink-400">
-                              {t("notRevocable")}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
-        </div>
-      </section>
+              {query.data?.items.map((key) => {
+                return (
+                  <TableRow key={key.id}>
+                    <TableCell className="min-w-0 overflow-hidden py-3 align-middle">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <code
+                          className="min-w-0 flex-1 truncate whitespace-nowrap font-mono text-xs leading-5 text-ink-700"
+                          title={key.api_key}
+                        >
+                          {key.api_key}
+                        </code>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={t("copy")}
+                          title={t("copy")}
+                          onClick={() => copyKey(key.api_key)}
+                          className="shrink-0"
+                        >
+                          <CopyIcon className="size-3.5" aria-hidden />
+                        </Button>
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-3 align-middle">
+                      <Badge
+                        variant={STATE_VARIANT[key.state]}
+                        className="text-ink-700"
+                      >
+                        {t(`states.${key.state}`)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap py-3 align-middle">
+                      <div className="inline-flex items-center gap-1.5 rounded-md bg-ink-wash px-2 py-1 text-ink-500">
+                        <CalendarClockIcon
+                          className="size-3.5 shrink-0"
+                          aria-hidden
+                        />
+                        <Time
+                          value={key.created_at}
+                          className="font-mono text-xs font-medium tracking-tight text-ink-700"
+                        />
+                      </div>
+                    </TableCell>
+                    <TableCell align="right" className="py-3 align-middle">
+                      {key.state === "active" ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setRotateOpen(true)}
+                          disabled={rotateMutation.isPending}
+                          className="text-danger hover:bg-danger-soft hover:text-danger"
+                        >
+                          <RotateCwIcon className="size-3.5" aria-hidden />
+                          {t("rotate")}
+                        </Button>
+                      ) : null}
+                      {key.state === "grace" ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setRevokeKey(key)}
+                          disabled={revokeMutation.isPending}
+                          className="text-danger hover:bg-danger-soft hover:text-danger"
+                        >
+                          <ShieldOffIcon className="size-3.5" aria-hidden />
+                          {t("revoke")}
+                        </Button>
+                      ) : null}
+                      {key.state === "revoked" || key.state === "expired" ? (
+                        <span className="text-sm text-ink-500">
+                          {t("notRevocable")}
+                        </span>
+                      ) : null}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </section>
+      </div>
 
       <ConfirmDialog
         open={rotateOpen}
@@ -273,7 +281,7 @@ export function AppKeyManagement({ appId }: { appId: string }) {
         confirmingLabel={t("rotateDialog.confirming")}
         cancelLabel={t("cancel")}
         confirming={rotateMutation.isPending}
-        destructive={false}
+        destructive
         contentClassName="sm:max-w-dialog"
       />
 

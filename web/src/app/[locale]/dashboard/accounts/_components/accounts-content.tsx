@@ -14,7 +14,7 @@ import {
 } from "@/components/patterns/filter-drawer";
 import { ResponsiveListView } from "@/components/patterns/responsive-list-view";
 import { TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ColumnsToggle, HeaderFilter } from "@/components/ui/table-toolbar";
+import { HeaderFilter, TableColumnsHead } from "@/components/ui/table-toolbar";
 import {
   useAccountsInfiniteQuery,
   useAccountsQuery,
@@ -37,9 +37,12 @@ const ALL_ACCOUNT_COLUMNS: readonly AccountColumnKey[] = [
   "created",
 ];
 
-type StatusFilter = "all" | AccountStatus;
+// `invited` is not a stored status: it is an active account that has never
+// completed its own first sign-in.
+type StatusFilter = "all" | "invited" | AccountStatus;
 const STATUS_FILTER_OPTIONS: readonly StatusFilter[] = [
   "all",
+  "invited",
   ...ACCOUNT_STATUSES,
 ];
 
@@ -59,7 +62,20 @@ export function AccountsContent() {
   const baseFilters: Omit<ListAccountsParams, "page"> = useMemo(
     () => ({
       size: ACCOUNT_PAGE_SIZE,
-      status: statusFilter === "all" ? undefined : statusFilter,
+      status:
+        statusFilter === "invited"
+          ? "active"
+          : statusFilter === "all"
+            ? undefined
+            : statusFilter,
+      // `active` must exclude invited accounts, otherwise the badge and the
+      // filter disagree: an invited row reads "Invited" but is stored `active`.
+      activated:
+        statusFilter === "invited"
+          ? false
+          : statusFilter === "active"
+            ? true
+            : undefined,
     }),
     [statusFilter],
   );
@@ -101,7 +117,7 @@ export function AccountsContent() {
 
   const statusLabels: Record<StatusFilter, string> = {
     all: t("filters.statusAll"),
-    unactivated: t("status.unactivated"),
+    invited: t("status.invited"),
     active: t("status.active"),
     disabled: t("status.disabled"),
     archived: t("status.archived"),
@@ -139,15 +155,13 @@ export function AccountsContent() {
         {table.isColumnVisible("created") ? (
           <TableHead>{t("table.created")}</TableHead>
         ) : null}
-        <TableHead align="right">
-          <ColumnsToggle
-            label={t("table.columnsLabel")}
-            columns={ALL_ACCOUNT_COLUMNS}
-            labels={columnLabels}
-            value={table.visibleColumns}
-            onValueChange={table.setVisibleColumns}
-          />
-        </TableHead>
+        <TableColumnsHead
+          label={t("table.columnsLabel")}
+          columns={ALL_ACCOUNT_COLUMNS}
+          labels={columnLabels}
+          value={table.visibleColumns}
+          onValueChange={table.setVisibleColumns}
+        />
       </TableRow>
     </TableHeader>
   );
@@ -159,11 +173,13 @@ export function AccountsContent() {
         getKey={(account) => account.id}
         isLoading={listIsLoading}
         isError={listIsError}
+        isRefreshing={isDesktop && desktopQuery.isPlaceholderData}
         table={table}
         tableHeader={tableHeader}
-        renderRow={(account) => (
+        renderRow={(account, enterIndex) => (
           <AccountRow
             key={account.id}
+            enterIndex={enterIndex}
             account={account}
             visibleColumns={table.visibleColumns}
             selected={detail.isSelected(account.id)}

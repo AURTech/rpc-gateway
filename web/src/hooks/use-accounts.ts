@@ -1,4 +1,5 @@
 import {
+  keepPreviousData,
   type QueryKey,
   useInfiniteQuery,
   useMutation,
@@ -49,6 +50,7 @@ export function useAccountsQuery(
   return useQuery<AccountList>({
     queryKey: accountsKeys.list(params) as unknown as QueryKey,
     queryFn: () => listAccounts(params),
+    placeholderData: keepPreviousData,
     staleTime: 15_000,
     enabled: options?.enabled,
   });

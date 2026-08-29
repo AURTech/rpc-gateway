@@ -8,10 +8,17 @@ import { isApiError } from "@/api/client";
 import { ConfirmDialog } from "@/components/patterns/confirm-dialog";
 import { useUpdateAccountStatusMutation } from "@/hooks/use-accounts";
 
+const TOAST_KEY = {
+  enable: "toast.enabled",
+  disable: "toast.disabled",
+  revoke: "toast.revoked",
+} as const;
+
 /**
  * Enable / disable confirmation. `activate` picks the target status: `active`
  * (enable) vs `disabled` (suspend, treated as destructive). Disabling revokes
- * the account's sessions server-side.
+ * the account's sessions server-side; disabling an account that has never
+ * signed in is phrased as revoking its pending invite.
  */
 export function StatusConfirmDialog({
   account,
@@ -32,12 +39,16 @@ export function StatusConfirmDialog({
     onOpenChange(next);
   };
 
+  // An account that never signed in is still an open invite, so disabling it
+  // is presented as revoking that invite.
+  const key = activate ? "enable" : account.activated ? "disable" : "revoke";
+
   const handleConfirm = () => {
     mutation.mutate(
       { id: account.id, input: { status: activate ? "active" : "disabled" } },
       {
         onSuccess: () => {
-          toast.success(t(activate ? "toast.enabled" : "toast.disabled"));
+          toast.success(t(TOAST_KEY[key]));
           onOpenChange(false);
         },
         onError: (err) => {
@@ -48,8 +59,6 @@ export function StatusConfirmDialog({
       },
     );
   };
-
-  const key = activate ? "enable" : "disable";
 
   return (
     <ConfirmDialog
