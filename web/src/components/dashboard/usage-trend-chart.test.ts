@@ -289,6 +289,97 @@ describe("breakdown adapters", () => {
   });
 });
 
+describe("chain colours", () => {
+  // Chain-keyed series pin the chain's own token instead of taking a PALETTE
+  // slot, so a chain keeps one colour across every chart and however many
+  // series happen to be plotted beside it.
+  const chainNetworks = networkUsage([
+    {
+      chain: "ethereum",
+      chain_label: "Ethereum",
+      network: "mainnet",
+      network_label: "Mainnet",
+      points: [
+        networkPoint("2026-01-01T00:00:00Z", {
+          total_requests: 6,
+          avg_duration_ms: 12,
+          cache_eligible_requests: 6,
+          cache_hit_requests: 3,
+          cache_hit_rate: 0.5,
+        }),
+      ],
+    },
+    {
+      chain: "ethereum",
+      chain_label: "Ethereum",
+      network: "sepolia",
+      network_label: "Sepolia",
+      points: [
+        networkPoint("2026-01-01T00:00:00Z", {
+          total_requests: 4,
+          avg_duration_ms: 20,
+          cache_eligible_requests: 4,
+          cache_hit_requests: 1,
+          cache_hit_rate: 0.25,
+        }),
+      ],
+    },
+    {
+      chain: "polygon",
+      chain_label: "Polygon",
+      network: "mainnet",
+      network_label: "Mainnet",
+      points: [
+        networkPoint("2026-01-01T00:00:00Z", {
+          total_requests: 2,
+          avg_duration_ms: 30,
+          cache_eligible_requests: 2,
+          cache_hit_requests: 2,
+          cache_hit_rate: 1,
+        }),
+      ],
+    },
+  ]);
+  const expected = [
+    "var(--chain-ethereum)",
+    "var(--chain-ethereum-testnet)",
+    "var(--chain-polygon)",
+  ];
+
+  it("colours every network-keyed chart by chain", () => {
+    expect(networkSeries(chainNetworks).map((item) => item.color)).toEqual(
+      expected,
+    );
+    expect(cacheSeries(chainNetworks).map((item) => item.color)).toEqual(
+      expected,
+    );
+    expect(latencySeries(chainNetworks).map((item) => item.color)).toEqual(
+      expected,
+    );
+  });
+
+  it("leaves method-keyed series on the rotating palette", () => {
+    // Methods have no identity colour to carry, so they keep cycling PALETTE.
+    const data = methodUsage([
+      {
+        method: "eth_call",
+        points: [
+          {
+            bucket_start: "2026-01-01T00:00:00Z",
+            total_requests: 5,
+            cache_eligible_requests: 4,
+            cache_hit_requests: 3,
+            cache_hit_rate: 0.75,
+          },
+        ],
+      },
+    ]);
+
+    expect(methodSeries(data)[0].color).toBeUndefined();
+    expect(cacheByMethodSeries(data)[0].color).toBeUndefined();
+  });
+});
+
 describe("duration units", () => {
   it("switches from milliseconds to seconds at one second", () => {
     expect(splitDuration(999.9)).toEqual({ value: 999.9, unit: "ms" });

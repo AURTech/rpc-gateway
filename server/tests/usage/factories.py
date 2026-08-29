@@ -8,12 +8,21 @@ from app.orm.usage import GatewayUsageHourly, GatewayUsageMethodHourly
 from app.util.datetime import floor_utc_hour
 
 
-def make_event(event_id: str, method: str = 'eth_call', *, successful: bool = True) -> GatewayUsageEvent:
+def make_event(
+    event_id: str,
+    method: str = 'eth_call',
+    *,
+    successful: bool = True,
+    route_id: str | None = None,
+    attempted_endpoint_ids: tuple[str, ...] = (),
+) -> GatewayUsageEvent:
     return GatewayUsageEvent(
         event_id=event_id,
         account_id='account-1',
         app_id='app-1',
         gateway_id='gateway-1',
+        route_id=route_id,
+        attempted_endpoint_ids=attempted_endpoint_ids,
         chain=Chain.ETHEREUM,
         network=Network.MAINNET,
         method=method,
