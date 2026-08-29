@@ -1,13 +1,12 @@
-import hashlib
 from collections.abc import Mapping
 from types import MappingProxyType
 from typing import Final
 
-import orjson
-
 from app.model.blockchain import CHAIN_CATALOG, Chain, Network, Protocol
 from app.model.public import JsonRpcCall
-from app.model.system_jsonrpc_cache import CacheKey, CachePolicy, CacheTier
+from app.model.system_cache import CacheKey, CachePolicy, CacheTier
+from app.model.transport import Transport
+from app.services.system_cache.key import build_cache_key
 
 _EVM_RETENTION_METHODS: Final[frozenset[str]] = frozenset({'eth_getBlockByNumber', 'debug_traceBlockByNumber'})
 _REDIS_TTL_METHODS: Final[Mapping[Protocol, frozenset[str]]] = MappingProxyType(
@@ -21,15 +20,12 @@ _REDIS_TTL_METHODS: Final[Mapping[Protocol, frozenset[str]]] = MappingProxyType(
 
 
 def _cache_key(*, chain: Chain, network: Network, method: str, identity: object) -> CacheKey:
-    canonical = orjson.dumps(
-        {'method': method, 'identity': identity},
-        option=orjson.OPT_SORT_KEYS,
-    )
-    return CacheKey(
+    return build_cache_key(
+        transport=Transport.JSONRPC,
         chain=chain,
         network=network,
-        method=method,
-        digest=hashlib.blake2b(canonical, digest_size=20).hexdigest(),
+        operation=method,
+        identity=identity,
     )
 
 
@@ -51,7 +47,8 @@ def _evm_retention_height(call: JsonRpcCall) -> int | None:
         return None
     if call.method == 'eth_getBlockByNumber':
         return height if len(call.params) == 2 and call.params[1] is False else None
-    return height if len(call.params) == 2 and call.params[1] == {'tracer': 'callTracer'} else None
+    trace_config = {'tracer': 'callTracer', 'tracerConfig': {'withLog': True}}
+    return height if len(call.params) == 2 and call.params[1] == trace_config else None
 
 
 def _svm_retention_slot(call: JsonRpcCall) -> int | None:
