@@ -35,6 +35,12 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  CHART_DRAW_EASING,
+  CHART_DRAW_MS,
+  CHART_SERIES_STAGGER_MS,
+} from "@/lib/motion";
+import { chainAccent } from "@/lib/rpc-chain";
 import { cn } from "@/lib/utils";
 
 export const PALETTE = [
@@ -62,7 +68,9 @@ export type Series = {
   points: SeriesPoint[];
   // Optional explicit colour (a CSS custom-property ref like `var(--positive)`).
   // Falls back to the rotating PALETTE when omitted. Used by the success/failure
-  // chart to pin semantic green/red instead of arbitrary palette slots.
+  // chart to pin semantic green/red instead of arbitrary palette slots, and by
+  // every chain-keyed adapter to pin the chain's own `--chain-*` token — a chain
+  // must not change colour between charts or as the series count shifts.
   color?: string;
 };
 
@@ -163,6 +171,7 @@ export function networkSeries(data: RpcUsageByNetwork | undefined): Series[] {
   return data.items.map((item) => ({
     key: sanitizeKey(`${item.chain}_${item.network}`),
     label: `${item.chain_label} · ${item.network_label}`,
+    color: chainAccent(item.chain, item.network),
     points: item.points.map((p) => ({
       bucket_start: p.bucket_start,
       value: p.total_requests,
@@ -182,6 +191,7 @@ export function cacheSeries(data: RpcUsageByNetwork | undefined): Series[] {
     .map((item) => ({
       key: sanitizeKey(`${item.chain}_${item.network}`),
       label: `${item.chain_label} · ${item.network_label}`,
+      color: chainAccent(item.chain, item.network),
       points: item.points.map((p) => ({
         bucket_start: p.bucket_start,
         value: p.cache_hit_rate,
@@ -234,6 +244,7 @@ export function latencySeries(data: RpcUsageByNetwork | undefined): Series[] {
     .map((item) => ({
       key: sanitizeKey(`${item.chain}_${item.network}`),
       label: `${item.chain_label} · ${item.network_label}`,
+      color: chainAccent(item.chain, item.network),
       points: item.points.map((p) => ({
         bucket_start: p.bucket_start,
         value: p.avg_duration_ms,
@@ -717,7 +728,7 @@ function TrendChart({
         {xAxis}
         {yAxis}
         {tooltip}
-        {series.map((s) => (
+        {series.map((s, i) => (
           <Line
             key={s.key}
             dataKey={s.key}
@@ -725,6 +736,9 @@ function TrendChart({
             stroke={`var(--color-${s.key})`}
             strokeWidth={2}
             dot={pointMarkers}
+            animationDuration={CHART_DRAW_MS}
+            animationEasing={CHART_DRAW_EASING}
+            animationBegin={i * CHART_SERIES_STAGGER_MS}
           />
         ))}
       </LineChart>
@@ -736,13 +750,16 @@ function TrendChart({
         {xAxis}
         {yAxis}
         {tooltip}
-        {series.map((s) => (
+        {series.map((s, i) => (
           <Bar
             key={s.key}
             dataKey={s.key}
             stackId="stack"
             fill={`var(--color-${s.key})`}
             maxBarSize={28}
+            animationDuration={CHART_DRAW_MS}
+            animationEasing={CHART_DRAW_EASING}
+            animationBegin={i * CHART_SERIES_STAGGER_MS}
           />
         ))}
       </BarChart>
@@ -777,7 +794,7 @@ function TrendChart({
         {xAxis}
         {yAxis}
         {tooltip}
-        {series.map((s) => (
+        {series.map((s, i) => (
           <Area
             key={s.key}
             dataKey={s.key}
@@ -786,6 +803,9 @@ function TrendChart({
             fill={`url(#${gradientId}-${s.key})`}
             stackId={stacked ? "stack" : undefined}
             dot={pointMarkers}
+            animationDuration={CHART_DRAW_MS}
+            animationEasing={CHART_DRAW_EASING}
+            animationBegin={i * CHART_SERIES_STAGGER_MS}
           />
         ))}
       </AreaChart>
