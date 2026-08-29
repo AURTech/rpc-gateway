@@ -68,10 +68,7 @@ function AccountDetailBody({ account }: { account: AccountBase }) {
           <span className="text-md text-ink-700">{account.role_label}</span>
         </DetailRow>
         <DetailRow label={t("detail.status")}>
-          <AccountStatusPill
-            status={account.status}
-            label={account.status_label}
-          />
+          <AccountStatusPill account={account} />
         </DetailRow>
         {detail ? (
           <>

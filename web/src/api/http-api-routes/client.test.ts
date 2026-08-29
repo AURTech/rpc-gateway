@@ -9,8 +9,6 @@ const fetchMock = stubFetch();
 const route = {
   id: "http-route-1",
   gateway_id: "gateway-1",
-  minimum_trust: "unverified",
-  max_latency_ms: null,
   max_attempts: 3,
   retry_policy: "safe_only",
   strategy: {
@@ -36,8 +34,6 @@ describe("HTTP API route client", () => {
     fetchMock.mockResolvedValueOnce(okResponse(route));
     const input = {
       expected_version: 1,
-      minimum_trust: "unverified" as const,
-      max_latency_ms: null,
       max_attempts: 3,
       retry_policy: "safe_only" as const,
       strategy: {

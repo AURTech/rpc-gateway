@@ -8,12 +8,18 @@ import type { UpdateRpcAppParams } from "@/api/apps/client";
 import { isApiError } from "@/api/client";
 import { Field } from "@/components/patterns/form-field";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { useAppQuery, useUpdateAppMutation } from "@/hooks/use-apps";
 import { copyToClipboard } from "@/lib/clipboard";
-import { AppKeyManagement } from "./app-key-management";
 import { DeleteAppDialog } from "./delete-app-dialog";
 
 const APP_DETAILS_FORM_ID = "app-settings-details-form";
@@ -23,8 +29,8 @@ function apiErrorMessage(error: unknown, fallback: string): string {
 }
 
 /**
- * Per-app settings page: editable app details, non-secret key lifecycle
- * management, and an isolated destructive delete action.
+ * Per-app general settings page: editable app details and an isolated
+ * destructive delete action. Access-key lifecycle has its own settings route.
  */
 export function AppSettingsContent({ appId }: { appId: string }) {
   const t = useTranslations("dashboard.apps");
@@ -115,112 +121,121 @@ export function AppSettingsContent({ appId }: { appId: string }) {
         </p>
       </header>
 
-      {/* App settings share one content surface. Identity fields stay grouped
-       * above access keys; state and deletion share a separate block below. */}
       <div
         data-slot="app-settings-content-area"
-        className="flex flex-col gap-8 rounded-2xl bg-surface p-5 shadow-section md:p-6"
+        className="flex flex-col gap-7"
       >
-        <form
-          id={APP_DETAILS_FORM_ID}
-          className="flex flex-col gap-6"
-          onSubmit={save}
-        >
-          <div className="grid gap-6 md:grid-cols-2">
-            <Field
-              label={t("form.name")}
-              htmlFor="app-name"
-              labelClassName="text-sm font-medium"
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">
+              {t("settings.details.title")}
+            </CardTitle>
+            <CardDescription>
+              {t("settings.details.description")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form
+              id={APP_DETAILS_FORM_ID}
+              className="flex flex-col gap-6"
+              onSubmit={save}
             >
-              <Input
-                id="app-name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder={t("form.namePlaceholder")}
-                maxLength={128}
-                disabled={mutation.isPending}
-                className="rounded-xl"
-              />
-            </Field>
-
-            <Field
-              label={t("settings.details.appId")}
-              labelClassName="text-sm font-medium"
-            >
-              <div className="flex h-12 items-center gap-2 rounded-xl bg-ink-wash pr-1 pl-3">
-                <code className="min-w-0 flex-1 truncate font-mono text-md tabular-nums text-ink-700">
-                  {app.id}
-                </code>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleCopy(app.id)}
+              <div className="grid gap-6 md:grid-cols-2">
+                <Field
+                  label={t("form.name")}
+                  htmlFor="app-name"
+                  hint={t("settings.details.nameHint")}
+                  labelClassName="text-sm font-medium"
                 >
-                  <CopyIcon className="size-3.5" aria-hidden />
-                  {t("settings.details.copy")}
-                </Button>
+                  <Input
+                    id="app-name"
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder={t("form.namePlaceholder")}
+                    maxLength={128}
+                    disabled={mutation.isPending}
+                    className="rounded-xl"
+                  />
+                </Field>
+
+                <Field
+                  label={t("settings.details.appId")}
+                  hint={t("settings.details.appIdHint")}
+                  labelClassName="text-sm font-medium"
+                >
+                  <div className="flex h-12 items-center gap-2 rounded-xl bg-ink-wash pr-1 pl-3">
+                    <code className="min-w-0 flex-1 truncate font-mono text-md tabular-nums text-ink-700">
+                      {app.id}
+                    </code>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleCopy(app.id)}
+                    >
+                      <CopyIcon className="size-3.5" aria-hidden />
+                      {t("settings.details.copy")}
+                    </Button>
+                  </div>
+                </Field>
               </div>
-            </Field>
-          </div>
-        </form>
 
-        <AppKeyManagement appId={app.id} />
-
-        <section
-          data-slot="app-state-actions"
-          className="overflow-hidden rounded-2xl bg-ink-wash"
-        >
-          <div className="px-4 py-4">
-            <div className="flex items-center gap-3">
-              <h2
-                id="app-enabled-title"
-                className="text-md font-semibold text-ink-900"
+              <div
+                data-slot="app-state-actions"
+                className="flex items-center gap-3 rounded-xl bg-ink-wash px-4 py-3"
               >
-                {t("form.enabled")}
-              </h2>
-              <Switch
-                id="app-enabled"
-                checked={enabled}
-                onCheckedChange={setEnabled}
-                disabled={mutation.isPending}
-                aria-labelledby="app-enabled-title"
-              />
-            </div>
-            <p className="mt-1 text-xs text-ink-500">{t("form.enabledHint")}</p>
-          </div>
+                <div className="min-w-0">
+                  <p
+                    id="app-enabled-label"
+                    className="text-sm font-semibold text-ink-900"
+                  >
+                    {t("form.enabled")}
+                  </p>
+                  <p className="mt-0.5 text-xs text-ink-500">
+                    {t("form.enabledHint")}
+                  </p>
+                </div>
+                <Switch
+                  id="app-enabled"
+                  checked={enabled}
+                  onCheckedChange={setEnabled}
+                  disabled={mutation.isPending}
+                  aria-labelledby="app-enabled-label"
+                />
+              </div>
 
-          <div className="border-t border-surface px-4 py-4">
-            <h2 className="text-md font-semibold text-ink-900">
+              {changed ? (
+                <div className="flex justify-end">
+                  <Button type="submit" disabled={!dirty || mutation.isPending}>
+                    {mutation.isPending
+                      ? t("dialog.saving")
+                      : t("settings.details.save")}
+                  </Button>
+                </div>
+              ) : null}
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">
               {t("settings.danger.title")}
-            </h2>
-            <p className="mt-1 text-xs text-ink-500">
+            </CardTitle>
+            <CardDescription>
               {t("settings.danger.description")}
-            </p>
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
             <Button
               type="button"
               variant="destructive"
-              className="mt-4"
               onClick={() => setDeleteOpen(true)}
             >
               {t("settings.danger.delete")}
             </Button>
-          </div>
-        </section>
-
-        {changed ? (
-          <div className="flex justify-end">
-            <Button
-              form={APP_DETAILS_FORM_ID}
-              type="submit"
-              disabled={!dirty || mutation.isPending}
-            >
-              {mutation.isPending
-                ? t("dialog.saving")
-                : t("settings.details.save")}
-            </Button>
-          </div>
-        ) : null}
+          </CardContent>
+        </Card>
       </div>
 
       <DeleteAppDialog

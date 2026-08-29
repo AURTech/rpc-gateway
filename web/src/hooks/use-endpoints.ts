@@ -1,18 +1,30 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 import {
   bulkDeleteEndpoints,
   type CreateEndpointInput,
+  checkEndpointHealth,
   createEndpoint,
   deleteEndpoint,
+  deleteEndpointRouteBinding,
+  type Endpoint,
   type EndpointDetail,
+  type EndpointList,
   getEndpoint,
   type ListEndpointsParams,
-  listEndpointAuditEvents,
+  listEndpointRouteBindings,
   listEndpoints,
   type UpdateEndpointInput,
   updateEndpoint,
 } from "@/api/endpoints/client";
+import { gatewaysKeys } from "@/hooks/use-gateways";
+import { httpApiRoutesKeys } from "@/hooks/use-http-api-routes";
+import { routesKeys } from "@/hooks/use-routes";
 
 const root = ["endpoints"] as const;
 
@@ -21,32 +33,69 @@ export const endpointsKeys = {
   lists: () => [...root, "list"] as const,
   list: (params: ListEndpointsParams) => [...root, "list", params] as const,
   detail: (id: string) => [...root, "detail", id] as const,
-  audit: (id: string, page: number, size: number) =>
-    [...root, "audit", id, page, size] as const,
+  bindings: (id: string) => [...root, "bindings", id] as const,
 };
 
 export function useEndpointsQuery(params: ListEndpointsParams = {}) {
   return useQuery({
     queryKey: endpointsKeys.list(params),
     queryFn: () => listEndpoints(params),
+    placeholderData: keepPreviousData,
     staleTime: 15_000,
   });
 }
 
-export function useEndpointQuery(id: string | null) {
+export function endpointDetailQueryOptions(id: string) {
+  return {
+    queryKey: endpointsKeys.detail(id),
+    queryFn: () => getEndpoint(id),
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+  } as const;
+}
+
+export function useEndpointQuery(
+  id: string | null,
+  placeholderData?: Endpoint,
+) {
   return useQuery({
-    queryKey: endpointsKeys.detail(id ?? ""),
-    queryFn: () => getEndpoint(id as string),
+    ...endpointDetailQueryOptions(id ?? ""),
     enabled: Boolean(id),
-    gcTime: 0,
+    placeholderData,
   });
 }
 
-export function useEndpointAuditQuery(id: string | null, page = 1, size = 20) {
+export function useEndpointRouteBindingsQuery(id: string | null) {
   return useQuery({
-    queryKey: endpointsKeys.audit(id ?? "", page, size),
-    queryFn: () => listEndpointAuditEvents(id as string, page, size),
+    queryKey: endpointsKeys.bindings(id ?? ""),
+    queryFn: () => listEndpointRouteBindings(id as string),
     enabled: Boolean(id),
+    staleTime: 15_000,
+  });
+}
+
+export function useCheckEndpointHealthMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => checkEndpointHealth(id),
+    onSuccess: (health, id) => {
+      queryClient.setQueriesData<EndpointList>(
+        { queryKey: endpointsKeys.lists() },
+        (value) =>
+          value
+            ? {
+                ...value,
+                items: value.items.map((endpoint) =>
+                  endpoint.id === id ? { ...endpoint, health } : endpoint,
+                ),
+              }
+            : value,
+      );
+      queryClient.setQueryData<EndpointDetail>(
+        endpointsKeys.detail(id),
+        (value) => (value ? { ...value, health } : value),
+      );
+    },
   });
 }
 
@@ -76,9 +125,6 @@ export function useUpdateEndpointMutation() {
     onSuccess: (endpoint) => {
       cacheEndpoint(queryClient, endpoint);
       queryClient.invalidateQueries({ queryKey: endpointsKeys.lists() });
-      queryClient.invalidateQueries({
-        queryKey: [...root, "audit", endpoint.id],
-      });
     },
   });
 }
@@ -106,6 +152,27 @@ export function useBulkDeleteEndpointsMutation() {
         });
       }
       queryClient.invalidateQueries({ queryKey: endpointsKeys.lists() });
+    },
+  });
+}
+
+export function useDeleteEndpointRouteBindingMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      endpointId,
+      binding,
+    }: {
+      endpointId: string;
+      binding: Parameters<typeof deleteEndpointRouteBinding>[1];
+    }) => deleteEndpointRouteBinding(endpointId, binding),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({
+        queryKey: endpointsKeys.bindings(result.endpoint_id),
+      });
+      queryClient.invalidateQueries({ queryKey: gatewaysKeys.all });
+      queryClient.invalidateQueries({ queryKey: routesKeys.all });
+      queryClient.invalidateQueries({ queryKey: httpApiRoutesKeys.all });
     },
   });
 }

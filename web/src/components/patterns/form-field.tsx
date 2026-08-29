@@ -5,6 +5,7 @@ import {
   type ReactNode,
 } from "react";
 
+import { FieldMessage } from "@/components/patterns/field-message";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
@@ -68,21 +69,23 @@ export function Field({
       ) : null}
       {describedChild}
       {error ? (
-        <p
+        <FieldMessage
+          messageKey="error"
           id={messageId}
-          data-slot="field-error"
+          slot="field-error"
           className="text-sm text-danger"
         >
           {error}
-        </p>
+        </FieldMessage>
       ) : hint ? (
-        <p
+        <FieldMessage
+          messageKey="hint"
           id={messageId}
-          data-slot="field-hint"
+          slot="field-hint"
           className="text-sm text-ink-500"
         >
           {hint}
-        </p>
+        </FieldMessage>
       ) : null}
     </div>
   );

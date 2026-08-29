@@ -2,6 +2,8 @@
 
 import type * as React from "react";
 
+import { MotionList, MotionListItem } from "@/components/patterns/motion-list";
+import { StatusFade } from "@/components/patterns/status-fade";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { cn } from "@/lib/utils";
@@ -82,20 +84,24 @@ export function MobileDataList<T>({
           ))
         : null}
 
-      {isError ? <div className="px-4 py-12">{error}</div> : null}
+      {isError ? <StatusFade className="px-4 py-12">{error}</StatusFade> : null}
 
-      {showEmpty ? <div className="px-4 py-14">{empty}</div> : null}
+      {showEmpty ? (
+        <StatusFade className="px-4 py-14">{empty}</StatusFade>
+      ) : null}
 
-      {showItems
-        ? items.map((item, i) => (
-            <div
+      {showItems ? (
+        <MotionList>
+          {items.map((item, i) => (
+            <MotionListItem
               key={getKey(item)}
               className={i < items.length - 1 ? DIVIDER : undefined}
             >
               {renderCard(item)}
-            </div>
-          ))
-        : null}
+            </MotionListItem>
+          ))}
+        </MotionList>
+      ) : null}
 
       {/* Infinite-scroll sentinel + "loading more" indicator, only once a first
        * page of items is on screen. */}

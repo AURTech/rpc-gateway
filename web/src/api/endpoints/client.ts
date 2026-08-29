@@ -10,29 +10,29 @@ export const ENDPOINT_HEALTH_STATUSES = [
   "healthy",
   "unhealthy",
 ] as const;
-export const ENDPOINT_HEALTH_FAILURES = [
-  "connection",
-  "timeout",
-  "auth",
-  "server",
-  "protocol",
-  "config",
+export const ENDPOINT_ROUTE_TYPES = [
+  "jsonrpc_default",
+  "jsonrpc_method",
+  "http_api",
 ] as const;
-export const ENDPOINT_AUTH_TYPES = [
-  "none",
-  "bearer",
-  "header_api_key",
-  "query_api_key",
-  "path_api_key",
+export const ENDPOINT_ROUTE_STRATEGY_TYPES = [
+  "priority_failover",
+  "load_balance",
 ] as const;
 export type EndpointOriginType = (typeof ENDPOINT_ORIGIN_TYPES)[number];
 export type EndpointProtocol = (typeof ENDPOINT_PROTOCOLS)[number];
-export type EndpointAuthType = (typeof ENDPOINT_AUTH_TYPES)[number];
 
 const originTypeSchema = z.enum(ENDPOINT_ORIGIN_TYPES);
 const protocolSchema = z.enum(ENDPOINT_PROTOCOLS);
 const chainSchema = z.enum(CHAINS);
 const networkSchema = z.enum(NETWORKS);
+const endpointHealthSchema = z.object({
+  status: z.enum(ENDPOINT_HEALTH_STATUSES),
+  last_observed_at: z.string(),
+});
+const endpointHealthCheckSchema = endpointHealthSchema.extend({
+  status: z.enum(["healthy", "unhealthy"]),
+});
 
 const endpointAuthSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("none"), has_secret: z.literal(false) }),
@@ -102,16 +102,17 @@ const endpointSchema = z.object({
   network: networkSchema,
   protocol: protocolSchema,
   url: z.string(),
+  effective_url: z.string().nullable(),
   enabled: z.boolean(),
   auth: endpointAuthSchema,
+  health: endpointHealthSchema.nullable(),
   version: z.number().int().positive(),
   created_at: z.string(),
   modified_at: z.string(),
 });
 
 const endpointDetailSchema = endpointSchema.extend({
-  configured_url: z.string(),
-  auth: endpointAuthDetailSchema,
+  auth: z.union([endpointAuthDetailSchema, endpointAuthSchema]),
 });
 
 const endpointListSchema = z.object({
@@ -131,69 +132,54 @@ const endpointDeleteResultSchema = z.object({
 const bulkDeleteEndpointResultSchema = z.object({
   total: z.number().int().nonnegative(),
   deleted: z.array(endpointDeleteResultSchema),
-  referenced_ids: z.array(z.string()),
 });
 
-const endpointHealthSchema = z.object({
-  status: z.enum(ENDPOINT_HEALTH_STATUSES),
-  error_rate: z.number().min(0).max(1),
-  latency_ms: z.number().nonnegative().nullable(),
-  samples: z.number().int().nonnegative(),
-  last_observed_at: z.string(),
-  last_success_at: z.string().nullable(),
-  last_failure_at: z.string().nullable(),
-  last_failure: z.enum(ENDPOINT_HEALTH_FAILURES).nullable(),
+const endpointRouteBindingSchema = z.object({
+  route_type: z.enum(ENDPOINT_ROUTE_TYPES),
+  route_id: z.string(),
+  route_version: z.number().int().positive(),
+  strategy_type: z.enum(ENDPOINT_ROUTE_STRATEGY_TYPES),
+  methods: z.array(z.string()),
+  target_count: z.number().int().positive(),
+  gateway: z.object({
+    id: z.string(),
+    app_id: z.string(),
+    name: z.string(),
+  }),
 });
 
-const endpointHealthCheckSchema = z.object({
+const endpointRouteBindingListSchema = z.object({
+  total: z.number().int().nonnegative(),
+  items: z.array(endpointRouteBindingSchema),
+});
+
+const endpointRouteBindingDeleteResultSchema = z.object({
   endpoint_id: z.string(),
-  checked_at: z.string(),
-  success: z.boolean(),
-  limited: z.boolean(),
-  latency_ms: z.number().nonnegative().nullable(),
-  failure: z.enum(ENDPOINT_HEALTH_FAILURES).nullable(),
-  health: endpointHealthSchema,
-});
-
-const endpointAuditActionSchema = z.enum(["created", "updated", "deleted"]);
-
-const endpointAuditEventSchema = z.object({
-  id: z.string(),
-  endpoint_id: z.string(),
-  account_id: z.string(),
-  actor_id: z.string(),
-  action: endpointAuditActionSchema,
-  previous_version: z.number().int().positive().nullable(),
-  new_version: z.number().int().positive(),
-  changed_fields: z.array(z.string()),
-  created_at: z.string(),
-});
-
-const endpointAuditEventListSchema = z.object({
-  page: z.number().int(),
-  size: z.number().int(),
-  total: z.number().int(),
-  max_page: z.number().int(),
-  items: z.array(endpointAuditEventSchema),
+  route_type: z.enum(ENDPOINT_ROUTE_TYPES),
+  route_id: z.string(),
+  route_deleted: z.boolean(),
+  route_version: z.number().int().positive().nullable(),
 });
 
 const envelope = <T extends z.ZodType>(data: T) =>
   z.object({ msg: z.string(), data });
 
 export type Endpoint = z.infer<typeof endpointSchema>;
-export type EndpointAuth = z.infer<typeof endpointAuthSchema>;
 export type EndpointDetail = z.infer<typeof endpointDetailSchema>;
 export type EndpointList = z.infer<typeof endpointListSchema>;
-export type EndpointAuditEvent = z.infer<typeof endpointAuditEventSchema>;
-export type EndpointAuditEventList = z.infer<
-  typeof endpointAuditEventListSchema
->;
 export type EndpointDeleteResult = z.infer<typeof endpointDeleteResultSchema>;
 export type BulkDeleteEndpointResult = z.infer<
   typeof bulkDeleteEndpointResultSchema
 >;
 export type EndpointHealth = z.infer<typeof endpointHealthSchema>;
 export type EndpointHealthCheck = z.infer<typeof endpointHealthCheckSchema>;
+export type EndpointRouteBinding = z.infer<typeof endpointRouteBindingSchema>;
+export type EndpointRouteBindingList = z.infer<
+  typeof endpointRouteBindingListSchema
+>;
+export type EndpointRouteBindingDeleteResult = z.infer<
+  typeof endpointRouteBindingDeleteResultSchema
+>;
 
 export type EndpointCreateAuth =
   | { type: "none" }
@@ -228,6 +214,7 @@ export type UpdateEndpointInput = {
 };
 
 export type ListEndpointsParams = {
+  q?: string;
   chain?: readonly Chain[];
   network?: readonly Network[];
   protocol?: EndpointProtocol;
@@ -242,6 +229,7 @@ function buildListParams(
   input: ListEndpointsParams,
 ): Record<string, string | string[]> {
   const params: Record<string, string | string[]> = {};
+  if (input.q) params.q = input.q;
   if (input.chain?.length) params.chain = [...input.chain];
   if (input.network?.length) params.network = [...input.network];
   if (input.protocol) params.protocol = input.protocol;
@@ -316,13 +304,26 @@ export async function checkEndpointHealth(
   return envelope(endpointHealthCheckSchema).parse(response).data;
 }
 
-export async function listEndpointAuditEvents(
+export async function listEndpointRouteBindings(
   id: string,
-  page = 1,
-  size = 20,
-): Promise<EndpointAuditEventList> {
-  const response = await api.get<unknown>(`/v2/endpoints/${id}/audit-events`, {
-    params: { page: String(page), size: String(size) },
-  });
-  return envelope(endpointAuditEventListSchema).parse(response).data;
+): Promise<EndpointRouteBindingList> {
+  const response = await api.get<unknown>(
+    `/v2/endpoints/${id}/route-bindings`,
+    { cache: "no-store" },
+  );
+  return envelope(endpointRouteBindingListSchema).parse(response).data;
+}
+
+export async function deleteEndpointRouteBinding(
+  endpointId: string,
+  binding: Pick<
+    EndpointRouteBinding,
+    "route_type" | "route_id" | "route_version"
+  >,
+): Promise<EndpointRouteBindingDeleteResult> {
+  const response = await api.delete<unknown>(
+    `/v2/endpoints/${endpointId}/route-bindings/${binding.route_type}/${binding.route_id}`,
+    { params: { expected_version: String(binding.route_version) } },
+  );
+  return envelope(endpointRouteBindingDeleteResultSchema).parse(response).data;
 }

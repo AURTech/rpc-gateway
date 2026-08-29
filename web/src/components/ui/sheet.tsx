@@ -1,11 +1,12 @@
 "use client";
 
 import { XIcon } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { Dialog as SheetPrimitive } from "radix-ui";
 import type * as React from "react";
 import { createContext, useContext, useState } from "react";
 
+import { useMotionPreset } from "@/hooks/use-motion-preset";
 import {
   sheetContentVariants,
   sheetOverlayTransition,
@@ -88,7 +89,7 @@ function SheetContent({
   closeLabel?: string;
 }) {
   const { open } = useContext(SheetContext);
-  const reduce = useReducedMotion();
+  const motionPreset = useMotionPreset();
 
   return (
     <SheetPortal forceMount>
@@ -101,7 +102,7 @@ function SheetContent({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={reduce ? { duration: 0 } : sheetOverlayTransition}
+              transition={motionPreset.transition(sheetOverlayTransition)}
             />
           </SheetPrimitive.Overlay>
         )}
@@ -126,7 +127,7 @@ function SheetContent({
               initial="initial"
               animate="animate"
               exit="exit"
-              transition={reduce ? { duration: 0 } : sheetSpring}
+              transition={motionPreset.transition(sheetSpring)}
             >
               {children}
               {showCloseButton && (

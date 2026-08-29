@@ -1,8 +1,8 @@
 "use client";
 
-import { ChevronDown, Layers, RefreshCw, Search } from "lucide-react";
+import { ChevronDown, RefreshCw, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 
 import { RPC_USAGE_RANGES, type RpcUsageRange } from "@/api/usage/client";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,6 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tabs } from "@/components/ui/tabs";
 import { Toolbar, ToolbarGroup } from "@/components/ui/toolbar";
 import {
   chainLabel,
@@ -57,16 +56,50 @@ export type UsageChartFilters = {
   network?: RpcNetwork;
 };
 
+// The page owns one range + one chain/network scope for every chart and the KPI
+// strip, so this toolbar is the only place either filter is offered.
 export function UsageGlobalToolbar({
   value,
   onChange,
-  onApplyToAll,
   onRefresh,
   isRefreshing,
 }: {
   value: UsageChartFilters;
   onChange: (next: UsageChartFilters) => void;
-  onApplyToAll: () => void;
+  onRefresh: () => void;
+  isRefreshing: boolean;
+}) {
+  return (
+    <UsageToolbar
+      range={value.range}
+      onRangeChange={(range) => onChange({ ...value, range })}
+      scopeFilter={
+        <UsageScopeFilters
+          value={value}
+          onChange={(next) =>
+            onChange({ ...value, chain: next.chain, network: next.network })
+          }
+        />
+      }
+      onRefresh={onRefresh}
+      isRefreshing={isRefreshing}
+    />
+  );
+}
+
+// Shared Usage toolbar shell. Account Usage supplies the chain/network picker;
+// App Usage supplies its app-scoped gateway picker, while range and refresh
+// behavior remain identical across both surfaces.
+export function UsageToolbar({
+  range,
+  onRangeChange,
+  scopeFilter,
+  onRefresh,
+  isRefreshing,
+}: {
+  range: RpcUsageRange;
+  onRangeChange: (next: RpcUsageRange) => void;
+  scopeFilter: ReactNode;
   onRefresh: () => void;
   isRefreshing: boolean;
 }) {
@@ -75,28 +108,10 @@ export function UsageGlobalToolbar({
   return (
     <Toolbar role="toolbar" aria-label={t("filters.toolbarAriaLabel")}>
       <ToolbarGroup>
-        <UsageRangeTabs
-          value={value.range}
-          onChange={(range) => onChange({ ...value, range })}
-        />
-        <UsageScopeFilters
-          value={value}
-          onChange={(next) =>
-            onChange({ ...value, chain: next.chain, network: next.network })
-          }
-        />
+        <UsageRangeSelect value={range} onChange={onRangeChange} />
+        {scopeFilter}
       </ToolbarGroup>
       <ToolbarGroup align="end">
-        <Button
-          type="button"
-          variant="pill-primary"
-          size="sm"
-          className="rounded-full"
-          onClick={onApplyToAll}
-        >
-          <Layers className="size-3.5" aria-hidden />
-          {t("filters.applyToAll")}
-        </Button>
         <Button
           type="button"
           variant="pill-secondary"
@@ -116,35 +131,8 @@ export function UsageGlobalToolbar({
   );
 }
 
-export function UsageFilterToolchain({
-  value,
-  onChange,
-  className,
-}: {
-  value: UsageChartFilters;
-  onChange: (next: UsageChartFilters) => void;
-  className?: string;
-}) {
-  return (
-    <div className={cn("flex flex-wrap items-center gap-2", className)}>
-      <UsageRangeSelect
-        value={value.range}
-        onChange={(range) => onChange({ ...value, range })}
-      />
-      <UsageScopeFilters
-        value={value}
-        onChange={(next) =>
-          onChange({
-            ...value,
-            chain: next.chain,
-            network: next.network,
-          })
-        }
-      />
-    </div>
-  );
-}
-
+// Dropdown form of the range control. Its options name the complete window
+// ("Last 7 days") so the selected state remains clear on both Usage surfaces.
 export function UsageRangeSelect({
   value,
   onChange,
@@ -157,7 +145,7 @@ export function UsageRangeSelect({
     () =>
       RPC_USAGE_RANGES.map((range) => ({
         value: range,
-        label: t(`filters.ranges.${range}`),
+        label: t(`filters.rangeWindows.${range}`),
       })),
     [t],
   );
@@ -240,20 +228,7 @@ export function UsageScopeFilters({
               <ChainIcon chain={selectedChain} className="size-4 shrink-0" />
             </span>
           ) : null}
-          {display ? (
-            display
-          ) : (
-            <>
-              <span aria-hidden>
-                <ChainGroup
-                  chains={ALL_SCOPE_CHAINS}
-                  max={5}
-                  className="mx-0.5"
-                />
-              </span>
-              <span className="sr-only">{t("filters.allChains")}</span>
-            </>
-          )}
+          {display ?? t("filters.allNetworks")}
           <ChevronDown
             className={cn(
               "size-3",
@@ -286,11 +261,11 @@ export function UsageScopeFilters({
             value={selectedValue}
             onValueChange={(next) => onChange(parseScopeValue(value, next))}
           >
-            <DropdownMenuRadioItem value={SCOPE_ALL} className="min-h-9">
+            <DropdownMenuRadioItem value={SCOPE_ALL} className="min-h-9 gap-2">
               <span aria-hidden>
                 <ChainGroup chains={ALL_SCOPE_CHAINS} max={5} />
               </span>
-              <span className="sr-only">{t("filters.allChains")}</span>
+              {t("filters.allNetworks")}
             </DropdownMenuRadioItem>
             {filteredOptions.length > 0 ? (
               filteredOptions.map((option) => (
@@ -317,37 +292,6 @@ export function UsageScopeFilters({
         </div>
       </DropdownMenuContent>
     </DropdownMenu>
-  );
-}
-
-// The per-card time-range toggle. Each chart
-// owns its own range, so this sits in every card's top-right corner.
-export function UsageRangeTabs({
-  value,
-  onChange,
-}: {
-  value: RpcUsageRange;
-  onChange: (next: RpcUsageRange) => void;
-}) {
-  const t = useTranslations("dashboard.usage");
-
-  const rangeOptions = useMemo(
-    () =>
-      RPC_USAGE_RANGES.map((range) => ({
-        value: range,
-        label: t(`filters.ranges.${range}`),
-      })),
-    [t],
-  );
-
-  return (
-    <Tabs
-      mode="segmented"
-      value={value}
-      onChange={onChange}
-      options={rangeOptions}
-      ariaLabel={t("filters.rangeAriaLabel")}
-    />
   );
 }
 

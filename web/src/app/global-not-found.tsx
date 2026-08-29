@@ -7,6 +7,10 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "404 - Page not found",
   description: "The requested page does not exist.",
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export default function GlobalNotFound() {
@@ -34,9 +38,9 @@ export default function GlobalNotFound() {
               icon: "apps",
             },
             {
-              href: "/en/dashboard/providers",
-              label: "Providers",
-              description: "Manage provider connections.",
+              href: "/en/dashboard/endpoints/providers",
+              label: "Provider connections",
+              description: "Manage synchronized endpoint sources.",
               icon: "providers",
             },
             {

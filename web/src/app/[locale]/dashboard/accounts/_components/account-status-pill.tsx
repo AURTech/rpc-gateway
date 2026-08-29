@@ -1,4 +1,6 @@
-import type { AccountStatus } from "@/api/accounts/client";
+import { useTranslations } from "next-intl";
+
+import type { AccountBase, AccountStatus } from "@/api/accounts/client";
 import { Badge } from "@/components/ui/badge";
 
 const STATUS_VARIANT: Record<
@@ -6,23 +8,30 @@ const STATUS_VARIANT: Record<
   React.ComponentProps<typeof Badge>["variant"]
 > = {
   active: "positive",
-  unactivated: "warning",
   disabled: "danger",
   archived: "neutral",
 };
 
+/**
+ * Status badge. An active account that has never signed in is still awaiting
+ * its own first sign-in, so it reads as "Invited" instead of "Active".
+ */
 export function AccountStatusPill({
-  status,
-  label,
+  account,
   className,
 }: {
-  status: AccountStatus;
-  label: string;
+  account: AccountBase;
   className?: string;
 }) {
+  const t = useTranslations("dashboard.admin.accounts");
+  const invited = !account.activated && account.status === "active";
+
   return (
-    <Badge variant={STATUS_VARIANT[status]} dot className={className}>
-      {label}
+    <Badge
+      variant={invited ? "warning" : STATUS_VARIANT[account.status]}
+      className={className}
+    >
+      {invited ? t("status.invited") : account.status_label}
     </Badge>
   );
 }

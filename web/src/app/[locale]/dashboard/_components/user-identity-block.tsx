@@ -58,7 +58,7 @@ export function UserIdentityBlock({ onOpenChange }: UserIdentityBlockProps) {
     <DropdownMenu onOpenChange={onOpenChange}>
       <DropdownMenuTrigger
         className="-mx-1 flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-ink-wash focus-visible:bg-ink-wash focus-visible:outline-none"
-        aria-label={displayName}
+        aria-label={displayName || t("accountMenu")}
       >
         <Avatar size="lg">
           {identity?.avatar_url ? (
@@ -72,6 +72,7 @@ export function UserIdentityBlock({ onOpenChange }: UserIdentityBlockProps) {
           <span className="break-all text-md font-semibold text-ink-900 leading-snug">
             {displayName}
           </span>
+          <span className="truncate text-xs text-ink-400">{email}</span>
         </div>
         <ChevronsUpDown className="size-5 shrink-0 text-ink-400" aria-hidden />
       </DropdownMenuTrigger>

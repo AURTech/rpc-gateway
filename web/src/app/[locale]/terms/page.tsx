@@ -1,35 +1,18 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 
 import { LegalPage } from "@/app/[locale]/_components/legal-page";
-import { getLegalDocument, isLegalLocale } from "@/lib/legal-documents";
+import { getLegalDocument } from "@/lib/legal-documents";
 
-interface LegalPageProps {
-  params: Promise<{ locale: string }>;
-}
+const termsDocument = getLegalDocument("terms");
 
-export async function generateMetadata({
-  params,
-}: LegalPageProps): Promise<Metadata> {
-  const { locale } = await params;
-  if (!isLegalLocale(locale)) return {};
+export const metadata: Metadata = {
+  title: termsDocument.title,
+  description: termsDocument.description,
+  alternates: {
+    canonical: "/en/terms",
+  },
+};
 
-  const document = getLegalDocument("terms", locale);
-  return {
-    title: document.title,
-    description: document.description,
-    alternates: {
-      canonical: `/${locale}/terms`,
-      languages: { en: "/en/terms" },
-    },
-  };
-}
-
-export default async function TermsPage({ params }: LegalPageProps) {
-  const { locale } = await params;
-  if (!isLegalLocale(locale)) notFound();
-
-  return (
-    <LegalPage document={getLegalDocument("terms", locale)} locale={locale} />
-  );
+export default function TermsPage() {
+  return <LegalPage document={termsDocument} />;
 }

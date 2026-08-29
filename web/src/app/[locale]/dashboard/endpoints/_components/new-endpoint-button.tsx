@@ -6,16 +6,15 @@ import { useState } from "react";
 
 import type { EndpointProtocol } from "@/api/endpoints/client";
 import { Button } from "@/components/ui/button";
-import { useIsAdmin } from "@/hooks/use-is-admin";
 import type { Chain, Network } from "@/lib/blockchain";
 
 import { EditEndpointSheet } from "./edit-endpoint-sheet";
 
 /**
- * Shared "New endpoint" CTA. Opens the endpoint form in create mode using the
- * requested presentation; the create mutation invalidates endpoint lists on
- * success. Endpoints are account-owned for users and admins alike, so the CTA
- * shows for either identity once it resolves.
+ * Shared "New endpoint" CTA. Opens the endpoint form in a centered modal;
+ * the create mutation invalidates endpoint lists on success. Endpoints are
+ * account-owned for users and admins alike, so the CTA shows for either
+ * identity once it resolves.
  */
 export function NewEndpointButton({
   className,
@@ -24,7 +23,7 @@ export function NewEndpointButton({
   initialNetwork,
   initialProtocol,
   label,
-  presentation = "sheet",
+  presentation = "dialog",
   size = "xl",
   showIcon = true,
   variant,
@@ -41,9 +40,6 @@ export function NewEndpointButton({
   variant?: ComponentProps<typeof Button>["variant"];
 }) {
   const [open, setOpen] = useState(false);
-  const { isResolved } = useIsAdmin();
-
-  if (!isResolved) return null;
 
   return (
     <>

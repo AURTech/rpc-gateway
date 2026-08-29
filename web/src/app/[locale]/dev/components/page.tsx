@@ -3,9 +3,18 @@
 import { AlertTriangle } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
+import { PageTransition } from "@/components/layout/page-transition";
+import {
+  ConfigurationPanel,
+  ConfigurationSection,
+} from "@/components/patterns/configuration-panel";
 import { ConfirmDialog } from "@/components/patterns/confirm-dialog";
 import { FormDialog } from "@/components/patterns/form-dialog";
 import { Field } from "@/components/patterns/form-field";
+import { MotionList, MotionListItem } from "@/components/patterns/motion-list";
+import { StatusFade } from "@/components/patterns/status-fade";
+import { SwapLabel } from "@/components/patterns/swap-label";
+import { AnimatedNumber } from "@/components/ui/animated-number";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,7 +33,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+const formatRequests = (value: number) => Math.round(value).toLocaleString();
 
 function Section({
   title,
@@ -77,6 +94,9 @@ export default function ComponentGalleryPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [draftName, setDraftName] = useState("");
+  const [replayKey, setReplayKey] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [showError, setShowError] = useState(false);
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-10 px-8 py-8">
@@ -111,7 +131,7 @@ export default function ComponentGalleryPage() {
         </div>
       </Section>
 
-      <Section title="Badge" description="status tones, with optional dot">
+      <Section title="Badge" description="status tones">
         <div className="flex flex-col gap-4">
           <Row>
             {BADGE_VARIANTS.map((variant) => (
@@ -122,7 +142,7 @@ export default function ComponentGalleryPage() {
           </Row>
           <Row>
             {BADGE_VARIANTS.map((variant) => (
-              <Badge key={variant} variant={variant} dot>
+              <Badge key={variant} variant={variant}>
                 {variant}
               </Badge>
             ))}
@@ -158,6 +178,20 @@ export default function ComponentGalleryPage() {
         </div>
       </Section>
 
+      <Section
+        title="Tooltip"
+        description="Context on pointer hover and keyboard focus"
+      >
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="soft">Hover or focus</Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            Weights set the expected traffic share while endpoints are eligible.
+          </TooltipContent>
+        </Tooltip>
+      </Section>
+
       <Section title="Card">
         <Card className="max-w-sm">
           <CardHeader>
@@ -177,6 +211,32 @@ export default function ComponentGalleryPage() {
             </Button>
           </CardFooter>
         </Card>
+      </Section>
+
+      <Section
+        title="ConfigurationPanel"
+        description="Collapsible settings sections with nested content surfaces"
+      >
+        <ConfigurationPanel>
+          <ConfigurationSection
+            title="General"
+            description="Identity and connection settings."
+            defaultOpen
+          >
+            <Field label="Name" htmlFor="demo-configuration-name">
+              <Input
+                id="demo-configuration-name"
+                defaultValue="Solana primary"
+              />
+            </Field>
+          </ConfigurationSection>
+          <ConfigurationSection
+            title="Health"
+            description="Run an on-demand upstream probe."
+          >
+            <Button variant="soft">Test connection</Button>
+          </ConfigurationSection>
+        </ConfigurationPanel>
       </Section>
 
       <Section title="Field" description="label + control + hint / error">
@@ -201,6 +261,118 @@ export default function ComponentGalleryPage() {
           <Button variant="destructive" onClick={() => setConfirmOpen(true)}>
             Open ConfirmDialog
           </Button>
+        </Row>
+      </Section>
+
+      <Section
+        title="Motion"
+        description="PageTransition — the arrival played on every route change"
+      >
+        <div className="flex flex-col gap-4">
+          <Row>
+            <Button onClick={() => setReplayKey((key) => key + 1)}>
+              Replay arrival
+            </Button>
+          </Row>
+          {/* In the app the remount comes from the pathname key; here it is
+              forced so the enter can be watched without navigating away. */}
+          <PageTransition key={replayKey}>
+            <div className="rounded-xl bg-ink-wash p-6">
+              <p className="text-sm text-ink-700">
+                280ms, emphasized-decelerate, 12px of travel. Turn on the OS
+                &ldquo;reduce motion&rdquo; setting and this block should appear
+                instantly instead.
+              </p>
+            </div>
+          </PageTransition>
+        </div>
+      </Section>
+
+      <Section
+        title="MotionList"
+        description="35ms stagger for div-based collections; the same replay key remounts it"
+      >
+        <MotionList key={replayKey} className="flex flex-col gap-2">
+          {["Ethereum", "Solana", "TRON", "BNB Chain"].map((chain) => (
+            <MotionListItem
+              key={chain}
+              className="rounded-xl bg-ink-wash px-4 py-3 text-sm text-ink-700"
+            >
+              {chain}
+            </MotionListItem>
+          ))}
+        </MotionList>
+      </Section>
+
+      <Section
+        title="TableRow enterIndex"
+        description="Rows stagger through CSS (opacity only), never motion.tr — see DESIGN.md §7"
+      >
+        <Table key={replayKey}>
+          <TableBody>
+            {["endpoint-a", "endpoint-b", "endpoint-c"].map((name, i) => (
+              <TableRow key={name} enterIndex={i}>
+                <TableCell>{name}</TableCell>
+                <TableCell className="text-ink-500">healthy</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Section>
+
+      <Section
+        title="StatusFade"
+        description="Empty / error panels fade in on mount — no crossfade against the skeleton"
+      >
+        <StatusFade
+          key={replayKey}
+          className="mx-auto flex max-w-prose-narrow flex-col items-center gap-2 py-8 text-center"
+        >
+          <p className="text-lg font-semibold text-ink-900">No providers yet</p>
+          <p className="text-md text-ink-500">
+            Connect one to sync its endpoints automatically.
+          </p>
+        </StatusFade>
+      </Section>
+
+      <Section
+        title="SwapLabel & FieldMessage"
+        description="Button label crossfade and the field hint/error collapse"
+      >
+        <div className="flex max-w-sm flex-col gap-4">
+          <Row>
+            <Button onClick={() => setSubmitting((value) => !value)}>
+              <SwapLabel swapKey={submitting ? "submitting" : "idle"}>
+                {submitting ? "Saving…" : "Save"}
+              </SwapLabel>
+            </Button>
+            <Button variant="ghost" onClick={() => setShowError((v) => !v)}>
+              Toggle field error
+            </Button>
+          </Row>
+          <Field
+            label="Slug"
+            htmlFor="demo-swap-slug"
+            hint={showError ? undefined : "Lowercase letters and dashes."}
+            error={showError ? "Slug is already taken." : undefined}
+          >
+            <Input id="demo-swap-slug" defaultValue="prod" />
+          </Field>
+        </div>
+      </Section>
+
+      <Section
+        title="AnimatedNumber"
+        description="Count-up on a MotionValue — no re-render per frame"
+      >
+        <Row>
+          <span className="text-3xl font-bold tabular-nums text-ink-900">
+            <AnimatedNumber
+              key={replayKey}
+              value={1_284_930}
+              format={formatRequests}
+            />
+          </span>
         </Row>
       </Section>
 

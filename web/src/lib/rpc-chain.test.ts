@@ -20,7 +20,7 @@ describe("rpc chain registry", () => {
     expect(RPC_NETWORKS).toContain("nile");
     expect(chainLabel("tron")).toBe("TRON");
     expect(chainSlug("tron")).toBe("tron");
-    expect(chainAccent("tron")).toBe("#EF0027");
+    expect(chainAccent("tron")).toBe("var(--chain-tron)");
     expect(networksFor("tron")).toEqual(["mainnet", "nile"]);
     expect(networkLabel("tron", "nile")).toBe("Nile");
     expect(chainId("tron", "mainnet")).toBe(728126428);
@@ -34,8 +34,8 @@ describe("rpc chain registry", () => {
     expect(chainLabel("litecoin")).toBe("Litecoin");
     expect(chainSlug("bitcoin")).toBe("btc");
     expect(chainSlug("litecoin")).toBe("ltc");
-    expect(chainAccent("bitcoin")).toBe("#F7931A");
-    expect(chainAccent("litecoin")).toBe("#345D9D");
+    expect(chainAccent("bitcoin")).toBe("var(--chain-bitcoin)");
+    expect(chainAccent("litecoin")).toBe("var(--chain-litecoin)");
     expect(networksFor("bitcoin")).toEqual(["mainnet", "testnet"]);
     expect(networksFor("litecoin")).toEqual(["mainnet", "testnet"]);
     expect(networkLabel("bitcoin", "testnet")).toBe("Testnet");
@@ -78,5 +78,32 @@ describe("rpc chain registry", () => {
     // Let them drift and that call stops compiling — fail here first, with a
     // message that says which list moved.
     expect([...NETWORKS]).toEqual([...RPC_NETWORKS]);
+  });
+});
+
+describe("chain accents", () => {
+  it("resolves every chain to a distinct globals.css token", () => {
+    const accents = RPC_CHAINS.map((chain) => chainAccent(chain));
+    // A shared colour would make two chains indistinguishable in the same
+    // chart, which is the whole point of the per-chain palette.
+    expect(new Set(accents).size).toBe(RPC_CHAINS.length);
+    for (const chain of RPC_CHAINS) {
+      expect(chainAccent(chain)).toBe(`var(--chain-${chain})`);
+      expect(chainAccent(chain, "sepolia")).toBe(
+        `var(--chain-${chain}-testnet)`,
+      );
+    }
+  });
+
+  it("returns the lighter variant only for testnets", () => {
+    // A by-network chart plots mainnet and testnet as two independent series;
+    // without the split they would draw in exactly the same colour.
+    expect(chainAccent("ethereum", "mainnet")).toBe("var(--chain-ethereum)");
+    expect(chainAccent("ethereum", "sepolia")).toBe(
+      "var(--chain-ethereum-testnet)",
+    );
+    expect(chainAccent("solana", "mainnet-beta")).toBe("var(--chain-solana)");
+    expect(chainAccent("solana", "devnet")).toBe("var(--chain-solana-testnet)");
+    expect(chainAccent("tron", "nile")).toBe("var(--chain-tron-testnet)");
   });
 });

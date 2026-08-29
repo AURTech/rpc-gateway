@@ -28,7 +28,7 @@ export default async function NotFound() {
           icon: "apps",
         },
         {
-          href: `/${locale}/dashboard/providers`,
+          href: `/${locale}/dashboard/endpoints/providers`,
           label: t("links.providers.label"),
           description: t("links.providers.description"),
           icon: "providers",

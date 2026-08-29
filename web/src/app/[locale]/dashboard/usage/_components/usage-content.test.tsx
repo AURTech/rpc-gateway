@@ -10,11 +10,9 @@ const labels: Record<string, string> = {
   "filters.toolbarAriaLabel": "Usage defaults",
   "filters.allAppsLabel": "All apps",
   "filters.defaultsLabel": "Default chart filters",
-  "filters.applyToAll": "Apply to all",
   "filters.refresh": "Refresh",
   "filters.chainLabel": "Chain",
   "filters.networkLabel": "Network",
-  "filters.allChains": "All chains",
   "filters.allNetworks": "All networks",
   "filters.searchPlaceholder": "Search chain or network",
   "filters.searchAria": "Search chain or network",
@@ -24,12 +22,21 @@ const labels: Record<string, string> = {
   "filters.ranges.daily": "Daily",
   "filters.ranges.weekly": "Weekly",
   "filters.ranges.monthly": "Monthly",
+  "filters.rangeWindows.hourly": "Last hour",
+  "filters.rangeWindows.daily": "Last 24 hours",
+  "filters.rangeWindows.weekly": "Last 7 days",
+  "filters.rangeWindows.monthly": "Last 30 days",
   "kpi.ariaLabel": "Usage summary",
   "kpi.totalCalls.label": "Total calls",
   "kpi.successRate.label": "Success rate",
   "kpi.cacheHit.label": "Cache acceleration rate",
   "kpi.latency.label": "Avg latency",
   "kpi.traffic.label": "Traffic",
+  "kpi.comparison.hourly": "vs previous hour",
+  "kpi.comparison.daily": "vs previous 24 hours",
+  "kpi.comparison.weekly": "vs previous 7 days",
+  "kpi.comparison.monthly": "vs previous 30 days",
+  "kpi.comparison.new": "New",
   "kpi.error.title": "Couldn't load summary",
   "kpi.error.retry": "Retry",
   "overall.title": "Requests over time",
@@ -47,7 +54,9 @@ const labels: Record<string, string> = {
   "cache.subhead": "Share of cache-eligible requests served from cache.",
   "cache.label": "Hit rate",
   "cache.empty": "No cache-eligible requests",
-  "cacheByMethod.title": "Cache hit rate by method",
+  "cache.views.overTime": "Over time",
+  "cache.views.method": "Method",
+  "cache.viewAriaLabel": "Cache hit rate view",
   "cacheByMethod.subhead": "Compare cache hit rates by method.",
   "cacheByMethod.empty": "No cache-eligible method activity",
   "traffic.title": "Network traffic",
@@ -154,10 +163,6 @@ function lastSummaryParams(): UsageParams {
   return call?.[0] as UsageParams;
 }
 
-function hasCallWithChain(mock: ReturnType<typeof vi.fn>, chain: string) {
-  return mock.mock.calls.some(([params]) => params?.chain === chain);
-}
-
 function hasCallWithScope(
   mock: ReturnType<typeof vi.fn>,
   scope: { chain: string; network: string },
@@ -213,7 +218,6 @@ describe("UsageContent filters", () => {
     renderUsage();
 
     expect(screen.getByText("Cache hit rate")).toBeInTheDocument();
-    expect(screen.getByText("Cache hit rate by method")).toBeInTheDocument();
     expect(screen.getByText("Network traffic")).toBeInTheDocument();
     expect(screen.getByText("Average latency")).toBeInTheDocument();
     expect(screen.queryByText("By gateway")).not.toBeInTheDocument();
@@ -233,25 +237,48 @@ describe("UsageContent filters", () => {
     });
   });
 
-  it("renders KPI tiles from the v2 summary window", () => {
+  it("renders KPI tiles from the v2 summary window", async () => {
     renderUsage();
 
     expect(screen.getByText("Total calls")).toBeInTheDocument();
-    expect(screen.getByText("100")).toBeInTheDocument();
-    // Default page range drives the summary query.
-    expect(lastSummaryParams()).toEqual({ range: "weekly" });
+    // The value counts up, so it lands a frame after mount even with
+    // MotionGlobalConfig.skipAnimations — assert on the settled value.
+    expect(await screen.findByText("100")).toBeInTheDocument();
+    // Default page range drives the summary query, which also asks for the
+    // preceding window.
+    expect(lastSummaryParams()).toEqual({ range: "weekly", compare: true });
   });
 
   it("does not render charts without v2 API support", () => {
     renderUsage();
 
-    expect(document.querySelectorAll("[data-slot='card']")).toHaveLength(7);
+    expect(document.querySelectorAll("[data-slot='card']")).toHaveLength(6);
     expect(screen.queryByText("Upstream attempts")).not.toBeInTheDocument();
     expect(screen.queryByText("Upstream traffic")).not.toBeInTheDocument();
     expect(screen.queryByText("Upstream latency")).not.toBeInTheDocument();
   });
 
-  it("keeps chart filters unchanged until global defaults are applied", async () => {
+  it("offers the range and network filters once, in the toolbar", async () => {
+    const { toolbar } = renderUsage();
+
+    expect(screen.getAllByRole("button", { name: "Time range" })).toHaveLength(
+      1,
+    );
+    expect(
+      screen.getAllByRole("button", { name: "Chain / Network" }),
+    ).toHaveLength(1);
+    expect(
+      within(toolbar).getByRole("button", { name: "Time range" }),
+    ).toHaveTextContent("Last 7 days");
+    expect(
+      within(toolbar).getByRole("button", { name: "Chain / Network" }),
+    ).toHaveTextContent("All networks");
+    expect(
+      screen.queryByRole("button", { name: "Apply to all" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("applies the toolbar scope to every chart and the KPI window", async () => {
     const { user, toolbar } = renderUsage();
 
     await user.click(
@@ -259,18 +286,6 @@ describe("UsageContent filters", () => {
     );
     await user.click(
       await screen.findByRole("menuitemradio", { name: "Ethereum · Mainnet" }),
-    );
-
-    // The global toolbar scope does not reach the charts until "Apply to all".
-    expect(hasCallWithChain(useUsageByMethodQueryMock, "ethereum")).toBe(false);
-    expect(lastSummaryParams()).toEqual({
-      range: "weekly",
-      chain: "ethereum",
-      network: "mainnet",
-    });
-
-    await user.click(
-      within(toolbar).getByRole("button", { name: "Apply to all" }),
     );
 
     await waitFor(() => {
@@ -286,70 +301,63 @@ describe("UsageContent filters", () => {
           network: "mainnet",
         }),
       ).toBe(true);
-    });
-  });
-
-  it("changes one chart filter without changing sibling charts", async () => {
-    const { user } = renderUsage();
-    const methodCard = screen
-      .getByText("By method")
-      .closest("[data-slot='card']");
-    expect(methodCard).not.toBeNull();
-
-    await user.click(
-      within(methodCard as HTMLElement).getByRole("button", {
-        name: "Chain / Network",
-      }),
-    );
-    await user.type(
-      await screen.findByRole("searchbox", {
-        name: "Search chain or network",
-      }),
-      "base",
-    );
-    await user.click(
-      await screen.findByRole("menuitemradio", { name: "Base · Mainnet" }),
-    );
-
-    await waitFor(() => {
       expect(
-        hasCallWithScope(useUsageByMethodQueryMock, {
-          chain: "base",
+        hasCallWithScope(useUsageByNetworkQueryMock, {
+          chain: "ethereum",
           network: "mainnet",
         }),
       ).toBe(true);
     });
-    expect(
-      hasCallWithScope(useUsageByNetworkQueryMock, {
-        chain: "base",
-        network: "mainnet",
-      }),
-    ).toBe(false);
-
-    await user.click(
-      within(methodCard as HTMLElement).getByRole("button", {
-        name: "Time range",
-      }),
-    );
-    await user.click(
-      await screen.findByRole("menuitemradio", { name: "Hourly" }),
-    );
-
-    await waitFor(() => {
-      expect(hasCallWithRange(useUsageByMethodQueryMock, "hourly")).toBe(true);
+    expect(lastSummaryParams()).toEqual({
+      range: "weekly",
+      chain: "ethereum",
+      network: "mainnet",
+      compare: true,
     });
-    expect(hasCallWithRange(useUsageByNetworkQueryMock, "hourly")).toBe(false);
   });
 
-  it("uses the global range for the KPI summary window", async () => {
+  it("moves every chart and the KPI window to the selected range", async () => {
     const { user, toolbar } = renderUsage();
 
-    expect(lastSummaryParams()).toEqual({ range: "weekly" });
+    expect(lastSummaryParams()).toEqual({ range: "weekly", compare: true });
 
-    await user.click(within(toolbar).getByRole("radio", { name: "Hourly" }));
+    await user.click(
+      within(toolbar).getByRole("button", { name: "Time range" }),
+    );
+    await user.click(
+      await screen.findByRole("menuitemradio", { name: "Last hour" }),
+    );
+
     await waitFor(() => {
-      expect(lastSummaryParams()).toEqual({ range: "hourly" });
+      expect(lastSummaryParams()).toEqual({ range: "hourly", compare: true });
+      expect(hasCallWithRange(useUsageByMethodQueryMock, "hourly")).toBe(true);
+      expect(hasCallWithRange(useUsageByNetworkQueryMock, "hourly")).toBe(true);
+      expect(hasCallWithRange(useUsageSeriesQueryMock, "hourly")).toBe(true);
     });
+  });
+
+  it("switches the cache card between the network and method views", async () => {
+    const { user } = renderUsage();
+    const cacheCard = screen
+      .getByText("Cache hit rate")
+      .closest("[data-slot='card']");
+    expect(cacheCard).not.toBeNull();
+
+    expect(
+      within(cacheCard as HTMLElement).getByText(
+        "Share of cache-eligible requests served from cache.",
+      ),
+    ).toBeInTheDocument();
+
+    await user.click(
+      within(cacheCard as HTMLElement).getByRole("radio", { name: "Method" }),
+    );
+
+    expect(
+      within(cacheCard as HTMLElement).getByText(
+        "Compare cache hit rates by method.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("refreshes usage data without resetting filters", async () => {
@@ -361,9 +369,11 @@ describe("UsageContent filters", () => {
     await user.click(
       await screen.findByRole("menuitemradio", { name: "Ethereum · Mainnet" }),
     );
-    await user.click(within(toolbar).getByRole("radio", { name: "Daily" }));
     await user.click(
-      within(toolbar).getByRole("button", { name: "Apply to all" }),
+      within(toolbar).getByRole("button", { name: "Time range" }),
+    );
+    await user.click(
+      await screen.findByRole("menuitemradio", { name: "Last 24 hours" }),
     );
 
     await waitFor(() => {
@@ -371,6 +381,7 @@ describe("UsageContent filters", () => {
         range: "daily",
         chain: "ethereum",
         network: "mainnet",
+        compare: true,
       });
       expect(hasCallWithRange(useUsageByMethodQueryMock, "daily")).toBe(true);
     });
@@ -384,8 +395,11 @@ describe("UsageContent filters", () => {
       range: "daily",
       chain: "ethereum",
       network: "mainnet",
+      compare: true,
     });
-    expect(within(toolbar).getByRole("radio", { name: "Daily" })).toBeChecked();
+    expect(
+      within(toolbar).getByRole("button", { name: "Time range" }),
+    ).toHaveTextContent("Last 24 hours");
   });
 
   it("shows the empty state for a zero-filled window instead of a chart", async () => {

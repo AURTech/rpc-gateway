@@ -80,7 +80,6 @@ const rpcAppKeyListSchema = z.object({
 const envelope = <T extends z.ZodType>(data: T) =>
   z.object({ msg: z.string(), data });
 
-export type RpcAppBase = z.infer<typeof rpcAppBaseSchema>;
 export type RpcAppDetail = z.infer<typeof rpcAppDetailSchema>;
 export type CreatedRpcApp = z.infer<typeof createdRpcAppSchema>;
 export type RpcAppListItem = z.infer<typeof rpcAppListItemSchema>;
@@ -95,6 +94,7 @@ export type RpcAppKeyList = z.infer<typeof rpcAppKeyListSchema>;
 export type ListAppsParams = {
   search?: string | null;
   enabled?: boolean;
+  provider_id?: string;
   start_at?: string;
   end_at?: string;
   sort?: "ASC" | "DESC";
@@ -113,6 +113,7 @@ function toListParams(input: ListAppsParams): Record<string, string> {
   const params: Record<string, string> = {};
   if (input.search) params.search = input.search;
   if (input.enabled !== undefined) params.enabled = String(input.enabled);
+  if (input.provider_id !== undefined) params.provider_id = input.provider_id;
   if (input.start_at !== undefined) params.start_at = input.start_at;
   if (input.end_at !== undefined) params.end_at = input.end_at;
   if (input.sort !== undefined) params.sort = input.sort;
@@ -168,13 +169,6 @@ export async function setAppProvider(
     { provider_id: providerId },
     { cache: "no-store" },
   );
-  return envelope(appProviderResultSchema).parse(response).data;
-}
-
-export async function clearAppProvider(
-  appId: string,
-): Promise<AppProviderResult> {
-  const response = await api.delete<unknown>(`${APPS_BASE}/${appId}/provider`);
   return envelope(appProviderResultSchema).parse(response).data;
 }
 

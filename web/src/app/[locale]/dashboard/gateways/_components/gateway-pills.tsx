@@ -10,7 +10,7 @@ export function StatePill({
   disabledLabel: string;
 }) {
   return (
-    <Badge variant={enabled ? "positive" : "neutral"} dot>
+    <Badge variant={enabled ? "positive" : "neutral"}>
       {enabled ? enabledLabel : disabledLabel}
     </Badge>
   );

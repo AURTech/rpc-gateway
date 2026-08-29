@@ -1,8 +1,9 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
 import { type KeyboardEvent, type ReactNode, useId, useRef } from "react";
 
+import { useMotionPreset } from "@/hooks/use-motion-preset";
 import { pillSpring } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
@@ -87,6 +88,7 @@ export function Tabs<T extends string>({
   options,
   ariaLabel,
   idBase,
+  panelIdForValue,
   size = "sm",
   variant = "pill",
   disabled = false,
@@ -99,6 +101,9 @@ export function Tabs<T extends string>({
   // Only used in tab mode: gives each tab a stable `id` and points
   // `aria-controls` at the caller's `${idBase}-panel` tabpanel.
   idBase?: string;
+  // Use when each option keeps its own mounted panel instead of sharing the
+  // default `${idBase}-panel` content region.
+  panelIdForValue?: (value: T) => string;
   // Visual scale; only applies to the pill variant.
   size?: TabSize;
   // Visual style; defaults to the sliding pill.
@@ -113,7 +118,7 @@ export function Tabs<T extends string>({
   // Unique per instance so the sliding pill (shared `layoutId`) never animates
   // across two separate switchers that happen to render on the same page.
   const layoutId = useId();
-  const reduce = useReducedMotion();
+  const motionPreset = useMotionPreset();
 
   // Hold each option's button so keyboard navigation can move focus (roving
   // tabindex) without reaching into the DOM by selector.
@@ -165,7 +170,7 @@ export function Tabs<T extends string>({
             aria-hidden
             layoutId={layoutId}
             className={indicatorClass}
-            transition={reduce ? { duration: 0 } : pillSpring}
+            transition={motionPreset.transition(pillSpring)}
           />
         )}
         <span className="relative z-10">{label}</span>
@@ -193,7 +198,13 @@ export function Tabs<T extends string>({
               tabIndex={active ? 0 : -1}
               disabled={disabled}
               id={idBase ? `${idBase}-${option.value}` : undefined}
-              aria-controls={idBase ? `${idBase}-panel` : undefined}
+              aria-controls={
+                panelIdForValue
+                  ? panelIdForValue(option.value)
+                  : idBase
+                    ? `${idBase}-panel`
+                    : undefined
+              }
               onClick={() => onChange(option.value)}
               className={itemClass(active, variant, size)}
             >
