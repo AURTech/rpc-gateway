@@ -9,6 +9,15 @@ from app.model.endpoint.access import (
     EndpointRequest,
     EndpointResponse,
 )
+from app.model.endpoint.binding import (
+    DeleteEndpointRouteBindingParams,
+    EndpointRouteBindingDeleteResult,
+    EndpointRouteBindingItem,
+    EndpointRouteBindingList,
+    EndpointRouteGatewayItem,
+    EndpointRouteStrategyType,
+    EndpointRouteType,
+)
 from app.model.endpoint.endpoint import (
     BulkDeleteEndpointParams,
     BulkDeleteEndpointResult,
@@ -48,14 +57,13 @@ from app.model.endpoint.endpoint import (
     EndpointQueryAuthDetail,
     EndpointQueryAuthPublic,
     EndpointQueryAuthUpdateParams,
-    EndpointTrustLevel,
     EndpointUpdateAuthParams,
     UpdateEndpointParams,
     redact_endpoint_detail,
     validate_endpoint_auth_url,
     validate_endpoint_url,
 )
-from app.model.endpoint.health import EndpointHealthCheck
+from app.model.endpoint.health import EndpointHealthCheck, EndpointHealthItem
 from app.model.endpoint.managed import (
     ManagedEndpointChange,
     ManagedEndpointItem,
@@ -69,6 +77,7 @@ __all__ = [
     'BulkDeleteEndpointParams',
     'BulkDeleteEndpointResult',
     'CreateEndpointParams',
+    'DeleteEndpointRouteBindingParams',
     'EndpointAccessFailure',
     'EndpointAccessFailureCode',
     'EndpointAccessResult',
@@ -93,6 +102,7 @@ __all__ = [
     'EndpointHeaderAuthPublic',
     'EndpointHeaderAuthUpdateParams',
     'EndpointHealthCheck',
+    'EndpointHealthItem',
     'EndpointHttpApiRequest',
     'EndpointItem',
     'EndpointJsonRpcRequest',
@@ -108,13 +118,18 @@ __all__ = [
     'EndpointPathAuthUpdateParams',
     'EndpointProviderSummary',
     'EndpointProtocol',
-    'EndpointTrustLevel',
     'EndpointQueryAuthCreateParams',
     'EndpointQueryAuthDetail',
     'EndpointQueryAuthPublic',
     'EndpointQueryAuthUpdateParams',
     'EndpointRequest',
     'EndpointResponse',
+    'EndpointRouteBindingDeleteResult',
+    'EndpointRouteBindingItem',
+    'EndpointRouteBindingList',
+    'EndpointRouteGatewayItem',
+    'EndpointRouteStrategyType',
+    'EndpointRouteType',
     'EndpointUpdateAuthParams',
     'ManagedEndpointChange',
     'ManagedEndpointItem',

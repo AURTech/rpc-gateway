@@ -44,7 +44,8 @@ ENV PATH="/rpc-gateway-api/.venv/bin:$PATH"
 ENV PYTHONPATH=/rpc-gateway-api
 
 RUN groupadd --gid 10001 app \
-    && useradd --uid 10001 --gid 10001 --create-home --home-dir /home/app --shell /usr/sbin/nologin --no-log-init app
+    && useradd --uid 10001 --gid 10001 --create-home --home-dir /home/app --shell /usr/sbin/nologin --no-log-init app \
+    && install -d -o 10001 -g 10001 /var/log/rpc-gateway
 
 COPY --from=builder --chown=10001:10001 /rpc-gateway-api /rpc-gateway-api
 

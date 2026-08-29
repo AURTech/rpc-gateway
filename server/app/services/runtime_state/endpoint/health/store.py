@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -24,7 +25,8 @@ HEALTH_STALE_SECONDS: Final[int] = 5 * 60
 HEALTH_BUCKET_LATE_WRITE_MARGIN_SECONDS: Final[int] = 20
 HEALTH_FUTURE_SKEW_SECONDS: Final[int] = 5
 HEALTH_SNAPSHOT_TTL_SECONDS: Final[int] = 24 * 60 * 60
-HEALTH_WATCH_RETRIES: Final[int] = 3
+HEALTH_WATCH_RETRIES: Final[int] = 8
+HEALTH_WATCH_RETRY_DELAY_SECONDS: Final[float] = 0.001
 _HEALTH_WINDOW_BUCKETS: Final[int] = HEALTH_WINDOW_SECONDS // HEALTH_BUCKET_SECONDS
 _HEALTH_OLDEST_BUCKET_OFFSET_SECONDS: Final[int] = HEALTH_WINDOW_SECONDS - HEALTH_BUCKET_SECONDS
 _HEALTH_BUCKET_RETENTION_SECONDS: Final[int] = HEALTH_WINDOW_SECONDS + HEALTH_BUCKET_LATE_WRITE_MARGIN_SECONDS
@@ -83,6 +85,7 @@ class _StoredHealth:
     health: EndpointHealth
     version: int
     observed_at: datetime
+    manual_override: bool
 
 
 def _to_text(value: object) -> str:
@@ -128,7 +131,11 @@ def _parse_snapshot(raw: object) -> _StoredHealth | None:
     payload = fields.get('payload')
     version = _to_int(fields.get('version'))
     observed_micros = _to_int(fields.get('observed_at'))
+    manual_override_value = fields.get('manual_override')
+    manual_override = 0 if manual_override_value is None else _to_int(manual_override_value)
     if payload is None or version is None or version < 1 or observed_micros is None:
+        return None
+    if manual_override not in (0, 1):
         return None
     try:
         health = EndpointHealth.model_validate_json(_to_text(payload))
@@ -137,7 +144,12 @@ def _parse_snapshot(raw: object) -> _StoredHealth | None:
         return None
     if health.last_observed_at != observed_at:
         return None
-    return _StoredHealth(health=health, version=version, observed_at=observed_at)
+    return _StoredHealth(
+        health=health,
+        version=version,
+        observed_at=observed_at,
+        manual_override=bool(manual_override),
+    )
 
 
 def _parse_bucket(raw: object, *, epochs: set[int]) -> WindowStats:
@@ -217,7 +229,7 @@ class HealthStore:
             endpoint_version=endpoint_version,
             anchor_epoch=bucket_epoch(now),
         )
-        return with_window(stored.health, stats)
+        return with_window(stored.health, stats, keep_status=stored.manual_override)
 
     async def _increment_bucket(self, batch: HealthBatch) -> int:
         if bucket_epoch(batch.last_observed_at) != batch.bucket_epoch:
@@ -272,7 +284,7 @@ class HealthStore:
 
     async def _save_snapshot(self, batch: HealthBatch, *, anchor_epoch: int) -> EndpointHealth:
         key = _snapshot_key(batch.endpoint_id)
-        for _ in range(HEALTH_WATCH_RETRIES):
+        for attempt in range(HEALTH_WATCH_RETRIES):
             async with self._redis.pipeline(transaction=True) as pipeline:
                 try:
                     await pipeline.watch(key)
@@ -290,7 +302,7 @@ class HealthStore:
                             endpoint_version=stored.version,
                             anchor_epoch=anchor_epoch,
                         )
-                        return with_window(stored.health, stats)
+                        return with_window(stored.health, stats, keep_status=stored.manual_override)
                     stats = await self._read_window(
                         endpoint_id=batch.endpoint_id,
                         endpoint_version=batch.endpoint_version,
@@ -305,17 +317,19 @@ class HealthStore:
                             'payload': health.model_dump_json(),
                             'version': batch.endpoint_version,
                             'observed_at': to_epoch_micros(batch.last_observed_at),
+                            'manual_override': int(batch.status_override is not None),
                         },
                     )
                     pipeline.expire(key, HEALTH_SNAPSHOT_TTL_SECONDS)
                     await pipeline.execute()
                     return health
                 except WatchError:
-                    continue
+                    if attempt + 1 < HEALTH_WATCH_RETRIES:
+                        await asyncio.sleep(HEALTH_WATCH_RETRY_DELAY_SECONDS * (attempt + 1))
         raise RuntimeError('Endpoint health write exceeded its concurrency retry limit.')
 
     async def _delete_invalid_snapshot(self, *, key: str, expected: object) -> bool:
-        for _ in range(HEALTH_WATCH_RETRIES):
+        for attempt in range(HEALTH_WATCH_RETRIES):
             async with self._redis.pipeline(transaction=True) as pipeline:
                 try:
                     await pipeline.watch(key)
@@ -330,7 +344,8 @@ class HealthStore:
                     await pipeline.execute()
                     return True
                 except WatchError:
-                    continue
+                    if attempt + 1 < HEALTH_WATCH_RETRIES:
+                        await asyncio.sleep(HEALTH_WATCH_RETRY_DELAY_SECONDS * (attempt + 1))
         return False
 
 

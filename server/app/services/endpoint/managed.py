@@ -221,12 +221,21 @@ class ManagedEndpointManager:
         return _to_snapshot(endpoint)
 
     @staticmethod
-    async def list_items(account_id: str, endpoint_ids: list[str]) -> dict[str, ManagedEndpointItem]:
+    async def list_items(
+        account_id: str,
+        endpoint_ids: list[str],
+        *,
+        include_effective_url: bool = False,
+    ) -> dict[str, ManagedEndpointItem]:
         endpoints = await Endpoint.filter(id__in=endpoint_ids, account_id=account_id)
         bindings = await EndpointManager._bindings_by_endpoint(endpoint_ids)
         return {
             endpoint.id: ManagedEndpointItem(
-                endpoint=EndpointManager.to_item(endpoint, binding=bindings.get(endpoint.id)),
+                endpoint=EndpointManager.to_item(
+                    endpoint,
+                    binding=bindings.get(endpoint.id),
+                    include_effective_url=include_effective_url,
+                ),
                 deleted_at=endpoint.deleted_at,
             )
             for endpoint in endpoints

@@ -8,15 +8,13 @@ from app import service_state
 from app.core.config import CONF
 from app.infra import runtime
 from app.infra.broker import broker
-from app.infra.cache import init_cache
 from app.infra.db import TORTOISE_ORM
 
 
-async def _close_lifespan_runtime(*, cache_started: bool, broker_started: bool) -> None:
+async def _close_lifespan_runtime(*, broker_started: bool) -> None:
     async with AsyncExitStack() as stack:
         stack.push_async_callback(
             service_state.close_runtime_state,
-            cache_started=cache_started,
             http_bound=False,
         )
         if broker_started:
@@ -27,7 +25,6 @@ async def _close_lifespan_runtime(*, cache_started: bool, broker_started: bool) 
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """Run the API process lifecycle for control-plane services."""
     async with runtime.open_runtime_clients() as clients:
-        cache_started = False
         broker_started = False
         try:
             app.state.redis = clients.redis
@@ -37,10 +34,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
             health_dispatcher = app.state.health_dispatcher
             circuit_manager = app.state.circuit_manager
             tip_dispatcher = app.state.tip_dispatcher
-            system_jsonrpc_cache_manager = app.state.system_jsonrpc_cache_manager
+            system_cache_manager = app.state.system_cache_manager
             usage_recorder = app.state.usage_recorder
-            init_cache(CONF.REDIS_URL, CONF.PROJECT_NAME)
-            cache_started = True
             await broker.startup()
             broker_started = True
             async with RegisterTortoise(app, config=TORTOISE_ORM, generate_schemas=False):
@@ -60,8 +55,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
                     yield
                 finally:
                     await usage_recorder.close(drain_seconds=5)
-                    if system_jsonrpc_cache_manager is not None:
-                        await system_jsonrpc_cache_manager.close(drain_seconds=5)
+                    if system_cache_manager is not None:
+                        await system_cache_manager.close(drain_seconds=5)
                     await tip_dispatcher.close(drain_seconds=CONF.RUNTIME_TIP_DISPATCHER_SHUTDOWN_DRAIN_SECONDS)
                     await circuit_manager.close(drain_seconds=CONF.RUNTIME_HEALTH_DISPATCHER_SHUTDOWN_DRAIN_SECONDS)
                     await health_dispatcher.close(drain_seconds=CONF.RUNTIME_HEALTH_DISPATCHER_SHUTDOWN_DRAIN_SECONDS)
@@ -74,4 +69,4 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
                     )
                     await jsonrpc_rate_limit_policy_manager.close()
         finally:
-            await _close_lifespan_runtime(cache_started=cache_started, broker_started=broker_started)
+            await _close_lifespan_runtime(broker_started=broker_started)

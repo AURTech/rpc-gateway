@@ -76,7 +76,7 @@ def inject_path_api_key(url: str, secret: str) -> str:
     return urlunsplit((parts.scheme, parts.netloc, path, parts.query, parts.fragment))
 
 
-def _apply_auth(url: str, headers: dict[str, str], auth: HttpAuth) -> tuple[str, dict[str, str]]:
+def apply_http_auth(url: str, headers: dict[str, str], auth: HttpAuth) -> tuple[str, dict[str, str]]:
     if auth.type is EndpointAuthType.NONE:
         if auth.secret is not None or auth.name is not None:
             raise HttpTransportConfigError('HTTP no-auth configuration is invalid.')
@@ -174,7 +174,7 @@ class HttpTransport:
         request_headers = dict(headers or {})
         request_headers.setdefault('Accept-Encoding', 'identity')
         request_url = _merge_query(url.strip(), query)
-        request_url, request_headers = _apply_auth(request_url, request_headers, auth or HttpAuth())
+        request_url, request_headers = apply_http_auth(request_url, request_headers, auth or HttpAuth())
         request_body = content or b''
         try:
             async with self._client.stream(

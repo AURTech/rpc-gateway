@@ -2,13 +2,17 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from urllib.parse import unquote, urlsplit, urlunsplit
 
-from app.clients.transport import HttpAuth, HttpTransport, HttpTransportConfigError, HttpTransportResponse
+from app.clients.transport import HttpAuth, HttpTransport, HttpTransportConfigError, HttpTransportResponse, apply_http_auth
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class EndpointConnection:
     url: str
     auth: HttpAuth
+
+    @property
+    def effective_url(self) -> str:
+        return apply_http_auth(self.url, {}, self.auth)[0]
 
 
 def _join_endpoint_path(base_url: str, path: str) -> str:
@@ -38,7 +42,7 @@ class EndpointHttpClient:
         connection: EndpointConnection,
         content: bytes,
         *,
-        timeout: float = 10,
+        timeout: float = 6,
         max_response_bytes: int | None = None,
     ) -> HttpTransportResponse:
         return await self._transport.request(
@@ -60,7 +64,7 @@ class EndpointHttpClient:
         headers: Mapping[str, str] | None = None,
         query: Mapping[str, str | int | bool] | Sequence[tuple[str, str | int | bool]] | None = None,
         content: bytes | None = None,
-        timeout: float = 10,
+        timeout: float = 6,
         max_response_bytes: int | None = None,
     ) -> HttpTransportResponse:
         url = _join_endpoint_path(connection.url, path)

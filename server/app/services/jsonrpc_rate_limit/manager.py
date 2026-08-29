@@ -4,7 +4,7 @@ from typing import Protocol
 
 from redis.asyncio import Redis
 
-from app.model.admission import AdmissionBackend, AdmissionMode, AdmissionRuntimePolicy
+from app.model.admission import AdmissionBackend, AdmissionRuntimePolicy
 from app.model.jsonrpc_rate_limit import JsonRpcRateLimitBucket, JsonRpcRateLimitPolicyItem
 from app.services.admission import (
     AdmissionDecision,
@@ -60,7 +60,7 @@ class JsonRpcAdmissionManager:
     @asynccontextmanager
     async def acquire_inflight(self) -> AsyncGenerator[AdmissionDecision]:
         policy = self._policy_provider.get_policy()
-        async with self._inflight.acquire(policy.max_inflight_per_worker, AdmissionMode.ENFORCE) as decision:
+        async with self._inflight.acquire(policy.max_inflight_per_worker) as decision:
             yield decision
 
     async def acquire_pre_auth(self, client_ip: str) -> AdmissionDecision:

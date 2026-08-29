@@ -60,7 +60,7 @@ class HttpApiAdmissionManager:
     @asynccontextmanager
     async def acquire_inflight(self) -> AsyncGenerator[AdmissionDecision]:
         policy = self._policy_provider.get_policy()
-        async with self._inflight.acquire(policy.max_inflight_per_worker, policy.mode) as decision:
+        async with self._inflight.acquire(policy.max_inflight_per_worker) as decision:
             yield decision
 
     async def acquire_pre_auth(self, client_ip: str) -> AdmissionDecision:

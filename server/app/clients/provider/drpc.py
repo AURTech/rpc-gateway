@@ -10,7 +10,8 @@ from app.clients.provider.base import (
 )
 from app.clients.provider.http import get_json
 from app.clients.provider.networks import EVM_NETWORK_BY_CHAIN_ID
-from app.clients.transport import PATH_API_KEY_PLACEHOLDER, HttpTransport
+from app.clients.provider.probe import validate_evm_provider_credential
+from app.clients.transport import PATH_API_KEY_PLACEHOLDER, HttpAuth, HttpTransport
 from app.model.blockchain import CHAIN_CATALOG, Chain, Network, Protocol
 from app.model.endpoint import EndpointAuthType
 from app.model.provider import ProviderVendor
@@ -50,8 +51,14 @@ class DrpcProviderAdapter:
         config: ProviderDiscoveryConfig,
         check_account_active: AccountActiveCheck,
     ) -> ProviderDiscovery:
-        await check_account_active()
         credential = _credential_key(config.credential)
+        await validate_evm_provider_credential(
+            self._transport,
+            f'{DRPC_ENDPOINT_ORIGIN}/ethereum/{PATH_API_KEY_PLACEHOLDER}',
+            HttpAuth(type=EndpointAuthType.PATH_API_KEY, secret=credential),
+            check_account_active,
+            expected_chain_id=1,
+        )
         complete = True
         try:
             networks = self._parse_networks(await get_json(self._transport, DRPC_NETWORKS_URL))
@@ -66,7 +73,6 @@ class DrpcProviderAdapter:
                 url=f'{DRPC_ENDPOINT_ORIGIN}/{network_name}/{PATH_API_KEY_PLACEHOLDER}',
                 auth_type=EndpointAuthType.PATH_API_KEY,
                 auth_secret=credential,
-                label=f'{config.name}-{pair[0].value}-{pair[1].value}',
             )
             for pair, network_name in sorted(networks.items(), key=lambda item: (item[0][0].value, item[0][1].value))
         ]

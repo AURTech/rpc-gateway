@@ -4,8 +4,6 @@ from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.model.endpoint import EndpointTrustLevel
-
 
 class JsonRpcRoutingStrategyType(StrEnum):
     LOAD_BALANCE = 'load_balance'
@@ -67,8 +65,6 @@ JsonRpcRoutingStrategyParams = Annotated[
 class JsonRpcRouteValues(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
-    minimum_trust: EndpointTrustLevel = EndpointTrustLevel.UNVERIFIED
-    max_latency_ms: float | None = Field(default=None, gt=0, le=120_000, allow_inf_nan=False)
     max_attempts: int = Field(default=3, ge=1, le=10, strict=True)
     retry_policy: JsonRpcRetryPolicy = JsonRpcRetryPolicy.SAFE_ONLY
     strategy: JsonRpcRoutingStrategyParams
@@ -131,8 +127,6 @@ class JsonRpcRouteItem(BaseModel):
     gateway_id: str
     methods: list[str]
     is_default: bool
-    minimum_trust: EndpointTrustLevel
-    max_latency_ms: float | None
     max_attempts: int
     retry_policy: JsonRpcRetryPolicy
     strategy: JsonRpcRoutingStrategyItem

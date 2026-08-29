@@ -141,8 +141,6 @@ class HttpApiRouteManager:
     def _route_values(params: HttpApiRouteValues) -> dict[str, object]:
         return {
             'strategy_type': params.strategy.type,
-            'minimum_trust': params.minimum_trust,
-            'max_latency_ms': params.max_latency_ms,
             'max_attempts': params.max_attempts,
             'retry_policy': params.retry_policy,
         }
@@ -206,8 +204,6 @@ class HttpApiRouteManager:
             return HttpApiRouteItem(
                 id=route.id,
                 gateway_id=route.gateway_id,
-                minimum_trust=route.minimum_trust,
-                max_latency_ms=route.max_latency_ms,
                 max_attempts=route.max_attempts,
                 retry_policy=route.retry_policy,
                 strategy=strategy,

@@ -21,7 +21,7 @@ from app.model.jsonrpc_forwarding import (
 from app.model.jsonrpc_route import JsonRpcRetryPolicy, JsonRpcRoutingStrategyType
 from app.model.public import JsonRpcCall
 from app.model.runtime_state.circuit import CircuitDecision, CircuitObservation, CircuitOutcome, CircuitState
-from app.model.runtime_state.endpoint.health import EndpointHealth, HealthFailure, HealthObservation, HealthStatus
+from app.model.runtime_state.endpoint.health import HealthFailure, HealthObservation
 from app.model.runtime_state.endpoint.tip import TipObservation
 from app.services.jsonrpc_forwarding.manager import JsonRpcForwardingManager
 from app.services.runtime_state.circuit import CircuitManager
@@ -108,23 +108,6 @@ class _HealthStateStub(HealthDispatcher):
     def __init__(self) -> None:
         self.observations: list[HealthObservation] = []
 
-    async def get_many(self, endpoints: list[tuple[str, int]]) -> Mapping[str, EndpointHealth | None]:
-        if len(self.observations) < 3:
-            return {}
-        latest = self.observations[-1]
-        return {
-            endpoint_id: EndpointHealth(
-                status=HealthStatus.UNHEALTHY,
-                error_rate=1,
-                latency_ms=latest.latency_ms,
-                samples=len(self.observations),
-                last_observed_at=latest.observed_at,
-                last_failure_at=latest.observed_at,
-                last_failure=latest.failure,
-            )
-            for endpoint_id, _version in endpoints
-        }
-
     def submit(self, observation: HealthObservation) -> bool:
         self.observations.append(observation)
         return True
@@ -200,7 +183,6 @@ def _make_forwarding(
     return JsonRpcForwardingManager(
         endpoint_access=access,
         route_plans=_RoutePlanStub(plan),
-        health_reader=health,
         circuit=circuit,
         health=health,
         tip=_TipStateStub(),
@@ -329,6 +311,24 @@ async def test_priority_failover_primary_success_skips_backup() -> None:
 
 
 @pytest.mark.anyio
+async def test_forwarding_skips_disabled_endpoint_before_circuit_admission() -> None:
+    access = _EndpointAccessStub([_make_response(200, b'{"jsonrpc":"2.0","id":1,"result":"backup"}')])
+    health = _HealthStateStub()
+    circuit = _CircuitStub()
+    plan = make_plan(
+        [make_endpoint('primary', enabled=False), make_endpoint('backup')],
+        strategy_type=JsonRpcRoutingStrategyType.PRIORITY_FAILOVER,
+    )
+    forwarding = _make_forwarding(plan, access, health, circuit)
+
+    result = await _forward(forwarding, JsonRpcCall(jsonrpc='2.0', method='eth_blockNumber', id=1))
+
+    assert isinstance(result, JsonRpcForwardingSuccess)
+    assert access.attempted == ['backup']
+    assert circuit.before_calls == ['backup']
+
+
+@pytest.mark.anyio
 async def test_priority_failover_retries_backup_after_primary_failure() -> None:
     access = _EndpointAccessStub(
         [
@@ -349,6 +349,7 @@ async def test_priority_failover_retries_backup_after_primary_failure() -> None:
 
     assert isinstance(result, JsonRpcForwardingSuccess)
     assert access.attempted == ['primary', 'backup']
+    assert result.attempted_endpoint_ids == ('primary', 'backup')
     assert circuit.records == [CircuitOutcome.SAMPLED_FAILURE, CircuitOutcome.SUCCESS]
 
 

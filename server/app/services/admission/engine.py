@@ -32,18 +32,15 @@ class InflightAdmissionLimiter:
         self._lock = asyncio.Lock()
 
     @asynccontextmanager
-    async def acquire(self, limit: int, mode: AdmissionMode) -> AsyncGenerator[AdmissionDecision]:
-        if mode is AdmissionMode.DISABLED:
-            yield AdmissionDecision(limited=False, enforced=False, backend='local')
-            return
+    async def acquire(self, limit: int) -> AsyncGenerator[AdmissionDecision]:
         async with self._lock:
             limited = self._inflight >= limit
-            entered = not limited or mode is not AdmissionMode.ENFORCE
+            entered = not limited
             if entered:
                 self._inflight += 1
         decision = AdmissionDecision(
             limited=limited,
-            enforced=limited and mode is AdmissionMode.ENFORCE,
+            enforced=limited,
             retry_after_ms=1000 if limited else 0,
             backend='local',
         )

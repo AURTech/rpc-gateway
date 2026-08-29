@@ -47,3 +47,29 @@ async def test_provider_name_can_be_reused_after_delete(client: AsyncClient) -> 
     assert recreated['id'] != created['id']
     assert await Provider.filter(account_id=account.id, name=payload['name'], deleted_at=None).count() == 1
     assert await Provider.filter(account_id=account.id, name=payload['name'], deleted_at__isnull=False).count() == 1
+
+
+@pytest.mark.anyio
+async def test_provider_creation_limit_excludes_deleted_providers(client: AsyncClient) -> None:
+    await Account.create(email='member@example.com')
+    await login_with_google(client, 'member@example.com', sub='member-sub')
+    payload = {
+        'vendor': 'alchemy',
+        'credential': {'secret': 'provider-secret'},
+    }
+
+    provider_ids: list[str] = []
+    for index in range(6):
+        response = await client.post('/v2/providers', json={**payload, 'name': f'Provider {index}'})
+        assert response.status_code == 201, response.text
+        provider_ids.append(response.json()['data']['id'])
+
+    response = await client.post('/v2/providers', json={**payload, 'name': 'Provider over limit'})
+    assert response.status_code == 400, response.text
+    assert response.json()['msg'] == 'An account can have at most 6 providers.'
+
+    response = await client.delete(f'/v2/providers/{provider_ids[0]}')
+    assert response.status_code == 200, response.text
+
+    response = await client.post('/v2/providers', json={**payload, 'name': 'Replacement provider'})
+    assert response.status_code == 201, response.text

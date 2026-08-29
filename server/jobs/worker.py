@@ -3,7 +3,6 @@ import contextlib
 from app import service_state
 from app.core.config import CONF, validate_runtime_security
 from app.infra import runtime
-from app.infra.cache import init_cache
 from app.infra.db import TORTOISE_ORM
 from fastlog import configure, log
 from taskiq import TaskiqEvents, TaskiqState
@@ -25,7 +24,7 @@ def _clear_worker_stack(state: TaskiqState) -> None:
         del state.runtime_stack
 
 
-async def _close_worker_runtime(state: TaskiqState, *, cache_started: bool, http_bound: bool) -> None:
+async def _close_worker_runtime(state: TaskiqState, *, http_bound: bool) -> None:
     runtime_stack = state.runtime_stack if 'runtime_stack' in state else None
     async with contextlib.AsyncExitStack() as stack:
         if runtime_stack is not None:
@@ -34,7 +33,6 @@ async def _close_worker_runtime(state: TaskiqState, *, cache_started: bool, http
         stack.callback(_clear_worker_runtime, state)
         stack.push_async_callback(
             service_state.close_runtime_state,
-            cache_started=cache_started,
             http_bound=http_bound,
         )
 
@@ -42,7 +40,6 @@ async def _close_worker_runtime(state: TaskiqState, *, cache_started: bool, http
 @broker.on_event(TaskiqEvents.WORKER_STARTUP)
 async def _worker_startup(state: TaskiqState) -> None:
     runtime_stack = contextlib.AsyncExitStack()
-    cache_started = False
     http_bound = False
     orm_started = False
     try:
@@ -52,12 +49,10 @@ async def _worker_startup(state: TaskiqState) -> None:
         service_state.bind_redis(clients)
         service_state.bind_http_client(clients)
         http_bound = True
-        init_cache(CONF.REDIS_URL, CONF.PROJECT_NAME)
-        cache_started = True
         await Tortoise.init(config=TORTOISE_ORM)
         orm_started = True
     except Exception:
-        await _close_worker_runtime(state, cache_started=cache_started, http_bound=http_bound)
+        await _close_worker_runtime(state, http_bound=http_bound)
         if orm_started:
             await Tortoise.close_connections()
         raise
@@ -68,5 +63,5 @@ async def _worker_startup(state: TaskiqState) -> None:
 async def _worker_shutdown(state: TaskiqState) -> None:
     async with contextlib.AsyncExitStack() as stack:
         stack.push_async_callback(Tortoise.close_connections)
-        stack.push_async_callback(_close_worker_runtime, state, cache_started=True, http_bound=True)
+        stack.push_async_callback(_close_worker_runtime, state, http_bound=True)
     log.info('TaskIQ worker stopped')

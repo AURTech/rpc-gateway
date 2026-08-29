@@ -66,7 +66,6 @@ def test_endpoint_detail_exposes_encrypted_path_credential() -> None:
         protocol='jsonrpc',
         encrypted_url=encrypt_endpoint_url('https://rpc.example.com/{api_key}/solana-mainnet'),
         enabled=True,
-        trust_level='unverified',
         auth_type='path_api_key',
         auth_header_name=None,
         auth_query_param=None,
@@ -79,8 +78,7 @@ def test_endpoint_detail_exposes_encrypted_path_credential() -> None:
 
     detail = EndpointManager.to_detail(endpoint)
 
-    assert detail.configured_url == 'https://rpc.example.com/{api_key}/solana-mainnet'
-    assert detail.url == 'https://rpc.example.com/path-secret/solana-mainnet'
+    assert detail.url == 'https://rpc.example.com/{api_key}/solana-mainnet'
     assert isinstance(detail.auth, EndpointPathAuthDetail)
     assert detail.auth.secret == 'path-secret'
 
