@@ -16,6 +16,10 @@ class AuthSettings:
     cookie_samesite: Literal['lax', 'strict', 'none']
     cookie_secure: bool
     is_dev: bool
+    aurpay_issuer: str = ''
+    aurpay_client_id: str = ''
+    aurpay_client_secret: str = ''
+    aurpay_redirect_uri: str = ''
     session_ttl_seconds: int = 259200
 
 
@@ -33,6 +37,10 @@ def get_auth_settings(conf: Config | None = None) -> AuthSettings:
         google_client_id=conf.GOOGLE_OAUTH_CLIENT_ID,
         google_client_secret=conf.GOOGLE_OAUTH_CLIENT_SECRET,
         google_redirect_uri=conf.GOOGLE_OAUTH_REDIRECT_URI,
+        aurpay_issuer=conf.AURPAY_OIDC_ISSUER.rstrip('/'),
+        aurpay_client_id=conf.AURPAY_OIDC_CLIENT_ID,
+        aurpay_client_secret=conf.AURPAY_OIDC_CLIENT_SECRET,
+        aurpay_redirect_uri=conf.AURPAY_OIDC_REDIRECT_URI,
         frontend_auth_callback_url=conf.FRONTEND_AUTH_CALLBACK_URL,
         allowed_frontend_origins=frozenset(allowed_origins),
         admin_allowed_emails=frozenset(allowed),

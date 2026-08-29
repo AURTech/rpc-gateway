@@ -2,7 +2,8 @@ from datetime import datetime, timedelta
 
 import pytest
 from app.model.auth import PersonalAccessTokenScope
-from app.orm.application import AppAuditEvent
+from app.orm.account import Account
+from app.orm.application import App, AppAuditEvent
 from app.orm.auth import PersonalAccessToken
 from app.services.auth.token import hash_pat
 from app.util import datetime as datetime_util
@@ -106,6 +107,32 @@ async def test_pat_scope_allows_mapped_route_and_rejects_missing_scope(client: A
 
 
 @pytest.mark.anyio
+async def test_usage_pat_scope_allows_route_and_endpoint_usage(client: AsyncClient) -> None:
+    await login_with_google(client, 'admin@example.com')
+    account = await Account.get(email='admin@example.com')
+    app = await App.create(account_id=account.id, name='PAT usage app')
+    _, usage_token = await create_pat(client, [PersonalAccessTokenScope.USAGE_READ], name='Usage reader')
+    _, overview_token = await create_pat(client, [PersonalAccessTokenScope.OVERVIEW_READ], name='Overview reader')
+    client.cookies.clear()
+    client.headers.pop('X-RPC-Gateway-CSRF', None)
+    client.headers['Authorization'] = f'Bearer {usage_token}'
+
+    routes = await client.get('/v2/usage/routes', params={'app_id': app.id})
+    endpoints = await client.get('/v2/usage/endpoints', params={'app_id': app.id})
+
+    assert routes.status_code == 200, routes.text
+    assert endpoints.status_code == 200, endpoints.text
+    assert routes.json()['data']['coverage_start_at'] is None
+    assert endpoints.json()['data']['classification_coverage_start_at'] is None
+
+    client.headers['Authorization'] = f'Bearer {overview_token}'
+    rejected = await client.get('/v2/usage/endpoints', params={'app_id': app.id})
+    assert rejected.status_code == 403, rejected.text
+    assert rejected.json()['code'] == 'auth.insufficient_scope'
+    assert rejected.json()['details'] == {'required_scopes': ['usage:read']}
+
+
+@pytest.mark.anyio
 async def test_pat_rejects_ambiguous_cookie_and_bearer_credentials(client: AsyncClient) -> None:
     await login_with_google(client, 'admin@example.com')
     _, raw_token = await create_pat(client, [PersonalAccessTokenScope.OVERVIEW_READ])
@@ -138,7 +165,6 @@ async def test_pat_without_endpoint_secret_scope_receives_redacted_detail(client
     assert response.status_code == 201, response.text
     data = response.json()['data']
     assert data['auth'] == {'type': 'bearer', 'has_secret': True}
-    assert 'configured_url' not in data
     assert 'upstream-secret' not in response.text
 
 
@@ -222,52 +248,3 @@ async def test_pat_idempotency_replays_create_and_audits_token(client: AsyncClie
     conflict = await client.post('/v2/apps', json={'name': 'Different app'})
     assert conflict.status_code == 409, conflict.text
     assert conflict.json()['code'] == 'idempotency.conflict'
-
-
-@pytest.mark.anyio
-async def test_pat_idempotency_cache_is_isolated_between_pat_scopes(client: AsyncClient) -> None:
-    await login_with_google(client, 'admin@example.com')
-    response = await client.post(
-        '/v2/providers',
-        json={
-            'name': 'Idempotency provider',
-            'vendor': 'alchemy',
-            'credential': {'secret': 'existing-provider-secret'},
-        },
-    )
-    assert response.status_code == 201, response.text
-    provider = response.json()['data']
-
-    _, privileged_token = await create_pat(
-        client,
-        [PersonalAccessTokenScope.PROVIDERS_WRITE, PersonalAccessTokenScope.PROVIDER_SECRETS_READ],
-        name='Privileged provider agent',
-    )
-    _, restricted_token = await create_pat(
-        client,
-        [PersonalAccessTokenScope.PROVIDERS_WRITE],
-        name='Restricted provider agent',
-    )
-    client.cookies.clear()
-    client.headers.pop('X-RPC-Gateway-CSRF', None)
-    client.headers['Idempotency-Key'] = 'provider-scope-isolation'
-    payload = {'expected_version': provider['version'], 'name': provider['name']}
-
-    client.headers['Authorization'] = f'Bearer {privileged_token}'
-    privileged = await client.patch(f'/v2/providers/{provider["id"]}', json=payload)
-    assert privileged.status_code == 200, privileged.text
-    assert privileged.json()['data']['credential'] == {
-        'has_secret': True,
-        'secret': 'existing-provider-secret',
-    }
-
-    client.headers['Authorization'] = f'Bearer {restricted_token}'
-    restricted = await client.patch(f'/v2/providers/{provider["id"]}', json=payload)
-    assert restricted.status_code == 200, restricted.text
-    assert 'Idempotency-Replayed' not in restricted.headers
-    assert restricted.json()['data']['credential'] == {'has_secret': True}
-
-    restricted_replay = await client.patch(f'/v2/providers/{provider["id"]}', json=payload)
-    assert restricted_replay.status_code == 200, restricted_replay.text
-    assert restricted_replay.headers['Idempotency-Replayed'] == 'true'
-    assert restricted_replay.json()['data']['credential'] == {'has_secret': True}

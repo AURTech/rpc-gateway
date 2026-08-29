@@ -7,16 +7,10 @@ import { api } from "@/api/client";
  * (`credentials: "include"` in the shared client).
  */
 
-export const ACCOUNT_STATUSES = [
-  "unactivated",
-  "active",
-  "disabled",
-  "archived",
-] as const;
+export const ACCOUNT_STATUSES = ["active", "disabled", "archived"] as const;
 export type AccountStatus = (typeof ACCOUNT_STATUSES)[number];
 
 export const ACCOUNT_ROLES = ["admin", "user"] as const;
-export type AccountRole = (typeof ACCOUNT_ROLES)[number];
 
 /** Statuses an admin may set directly (the others are lifecycle-managed). */
 export const UPDATABLE_ACCOUNT_STATUSES = ["active", "disabled"] as const;
@@ -31,6 +25,8 @@ const accountBaseSchema = z.object({
   email: z.string(),
   role: accountRoleSchema,
   status: accountStatusSchema,
+  /** False until the account completes its own first sign-in. */
+  activated: z.boolean(),
   name: z.string().nullable().optional(),
   avatar_url: z.string().nullable().optional(),
   created_at: z.string().nullable().optional(),

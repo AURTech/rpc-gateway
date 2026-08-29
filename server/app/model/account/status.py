@@ -2,7 +2,6 @@ from enum import StrEnum
 
 
 class AccountStatus(StrEnum):
-    UNACTIVATED = 'unactivated'
     ACTIVE = 'active'
     DISABLED = 'disabled'
     ARCHIVED = 'archived'
@@ -10,8 +9,6 @@ class AccountStatus(StrEnum):
     @property
     def label(self) -> str:
         match self:
-            case AccountStatus.UNACTIVATED:
-                return 'Unactivated'
             case AccountStatus.ACTIVE:
                 return 'Active'
             case AccountStatus.DISABLED:
