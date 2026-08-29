@@ -62,6 +62,7 @@ class AccountBase(BaseModel):
     email: str
     role: AccountRole
     status: AccountStatus
+    activated: bool
     name: str | None = None
     avatar_url: str | None = None
     created_at: datetime | None = None

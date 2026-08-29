@@ -9,7 +9,7 @@ from app.orm.mixin import GuidMixin, TimestampMixin
 class Account(GuidMixin, TimestampMixin):
     email = fields.CharField(max_length=320, unique=True)
     role = fields.CharEnumField(AccountRole, default=AccountRole.USER, max_length=32)
-    status = fields.CharEnumField(AccountStatus, default=AccountStatus.UNACTIVATED, max_length=32)
+    status = fields.CharEnumField(AccountStatus, default=AccountStatus.ACTIVE, max_length=32)
     password_hash = fields.CharField(max_length=255, null=True)
     name = fields.CharField(max_length=255, null=True)
     avatar_url = fields.CharField(max_length=1024, null=True)
@@ -30,6 +30,7 @@ class Account(GuidMixin, TimestampMixin):
             'email': self.email,
             'role': AccountRole(self.role),
             'status': AccountStatus(self.status),
+            'activated': self.first_login_at is not None,
             'name': self.name,
             'avatar_url': self.avatar_url,
             'first_login_at': self.first_login_at,

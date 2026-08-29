@@ -17,7 +17,6 @@ class PersonalAccessTokenScope(StrEnum):
     ENDPOINT_SECRETS_READ = 'endpoint-secrets:read'
     PROVIDERS_READ = 'providers:read'
     PROVIDERS_WRITE = 'providers:write'
-    PROVIDER_SECRETS_READ = 'provider-secrets:read'
     ROUTES_READ = 'routes:read'
     ROUTES_WRITE = 'routes:write'
     USAGE_READ = 'usage:read'
