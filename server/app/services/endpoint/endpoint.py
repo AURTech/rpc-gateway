@@ -1,6 +1,7 @@
 from fastlog import log
 from tortoise.backends.base.client import BaseDBAsyncClient
 from tortoise.exceptions import IntegrityError, NoValuesFetched
+from tortoise.expressions import Q
 
 from app.core.auth_context import get_pat_id
 from app.core.errors import BadRequestError, NotfoundError, UnavailableError
@@ -28,15 +29,16 @@ from app.model.endpoint import (
     EndpointProtocol,
     EndpointProviderSummary,
     EndpointQueryAuthDetail,
-    EndpointTrustLevel,
     UpdateEndpointParams,
     validate_endpoint_auth_url,
     validate_endpoint_url,
 )
-from app.model.provider import ProviderVendor
+from app.model.provider import ProviderEndpointSyncStatus, ProviderVendor
+from app.orm.account import Account
 from app.orm.endpoint import Endpoint, EndpointAuditEvent
 from app.orm.provider import Provider, ProviderEndpointBinding
 from app.services.endpoint.auth import auth_update_values, build_create_auth, create_auth_changed_fields
+from app.services.endpoint.binding import EndpointRouteBindingManager
 from app.services.endpoint.crypto import (
     EndpointSecretConfigError,
     decrypt_endpoint_secret,
@@ -54,8 +56,8 @@ _CREATE_BASE_CHANGED_FIELDS = [
     'protocol',
     'url',
     'enabled',
-    'trust_level',
 ]
+MAX_MANUAL_ENDPOINTS_PER_ACCOUNT = 20
 
 
 async def create_endpoint_audit_event(
@@ -105,6 +107,18 @@ class EndpointManager:
 
         try:
             async with in_tx() as connection:
+                await Account.select_for_update(using_db=connection).get(id=account_id, deleted_at=None)
+                manual_endpoint_count = (
+                    await Endpoint.filter(
+                        account_id=account_id,
+                        deleted_at=None,
+                        provider_binding__provider_id__isnull=True,
+                    )
+                    .using_db(connection)
+                    .count()
+                )
+                if manual_endpoint_count >= MAX_MANUAL_ENDPOINTS_PER_ACCOUNT:
+                    raise BadRequestError(f'An account can have at most {MAX_MANUAL_ENDPOINTS_PER_ACCOUNT} manual endpoints.')
                 endpoint = await Endpoint.create(
                     using_db=connection,
                     account_id=account_id,
@@ -114,7 +128,6 @@ class EndpointManager:
                     protocol=params.protocol,
                     encrypted_url=encrypted_url,
                     enabled=params.enabled,
-                    trust_level=params.trust_level,
                     version=1,
                     **auth_columns.values(),
                 )
@@ -138,6 +151,8 @@ class EndpointManager:
         self,
         account_id: str,
         *,
+        include_effective_url: bool = False,
+        q: str | None = None,
         chain: list[Chain] | None = None,
         network: list[Network] | None = None,
         protocol: EndpointProtocol | None = None,
@@ -148,6 +163,9 @@ class EndpointManager:
         size: int = 20,
     ) -> EndpointList:
         query = Endpoint.filter(account_id=account_id, deleted_at=None)
+        if q:
+            value = q.strip()
+            query = query.filter(Q(name__icontains=value) | Q(id__icontains=value))
         if chain:
             query = query.filter(chain__in=chain)
         if network:
@@ -169,7 +187,14 @@ class EndpointManager:
             size=size,
             total=total,
             max_page=max_page,
-            items=[EndpointManager.to_item(row, binding=bindings.get(row.id)) for row in rows],
+            items=[
+                EndpointManager.to_item(
+                    row,
+                    binding=bindings.get(row.id),
+                    include_effective_url=include_effective_url,
+                )
+                for row in rows
+            ],
         )
 
     async def get_endpoint(self, account_id: str, endpoint_id: str) -> EndpointDetail:
@@ -209,7 +234,7 @@ class EndpointManager:
                     raise BadRequestError('Endpoint version conflict. Reload the endpoint before saving.')
                 binding = await EndpointManager._binding(endpoint.id, using_db=connection)
                 if binding is not None:
-                    managed_fields = params.model_fields_set - {'expected_version', 'name', 'enabled', 'trust_level'}
+                    managed_fields = params.model_fields_set - {'expected_version', 'name', 'enabled'}
                     if managed_fields:
                         raise BadRequestError('Provider-managed endpoint connection fields are read-only.')
                 values, changed_fields = EndpointManager._update_values(endpoint, params)
@@ -242,7 +267,7 @@ class EndpointManager:
         return EndpointManager.to_detail(endpoint, binding=binding)
 
     async def delete_endpoint(self, account_id: str, actor_id: str, endpoint_id: str) -> EndpointDeleteResult:
-        """Soft-delete an owned endpoint and write the audit event atomically."""
+        """Remove route bindings, soft-delete an owned endpoint, and audit atomically."""
         async with in_tx() as connection:
             endpoint = await Endpoint.select_for_update(using_db=connection).get_or_none(
                 id=endpoint_id,
@@ -251,11 +276,14 @@ class EndpointManager:
             )
             if endpoint is None:
                 raise NotfoundError('Endpoint not found.')
-            referenced_ids = await self._route_references.referenced_endpoint_ids([endpoint.id], using_db=connection)
-            if endpoint.id in referenced_ids:
-                raise BadRequestError('Endpoint is referenced by an active RPC route.')
             if await ProviderEndpointBinding.filter(endpoint_id=endpoint.id).using_db(connection).exists():
                 raise BadRequestError('Provider-managed endpoints must be removed through their provider.')
+            await EndpointRouteBindingManager.delete_all_bindings(
+                account_id,
+                actor_id,
+                endpoint.id,
+                using_db=connection,
+            )
             previous_version = endpoint.version
             new_version = previous_version + 1
             deleted_at = datetime_util.next_utc_timestamp(endpoint.modified_at)
@@ -280,10 +308,9 @@ class EndpointManager:
         actor_id: str,
         params: BulkDeleteEndpointParams,
     ) -> BulkDeleteEndpointResult:
-        """Soft-delete every unreferenced manual Endpoint in one transaction.
+        """Remove route bindings and soft-delete every manual Endpoint atomically.
 
-        Missing, foreign, or Provider-managed targets reject the whole request. Endpoints
-        referenced by active routes remain unchanged and are returned to the caller.
+        Missing, foreign, or Provider-managed targets reject the whole request.
         """
         endpoint_ids = params.endpoint_ids
         sorted_ids = sorted(endpoint_ids)
@@ -299,12 +326,15 @@ class EndpointManager:
             if await ProviderEndpointBinding.filter(endpoint_id__in=sorted_ids).using_db(connection).exists():
                 raise BadRequestError('Provider-managed endpoints must be removed through their provider.')
 
-            referenced_ids = await self._route_references.referenced_endpoint_ids(sorted_ids, using_db=connection)
             deleted_endpoints: list[Endpoint] = []
             previous_versions: dict[str, int] = {}
             for endpoint in endpoints:
-                if endpoint.id in referenced_ids:
-                    continue
+                await EndpointRouteBindingManager.delete_all_bindings(
+                    account_id,
+                    actor_id,
+                    endpoint.id,
+                    using_db=connection,
+                )
                 previous_versions[endpoint.id] = endpoint.version
                 endpoint.version += 1
                 deleted_at = datetime_util.next_utc_timestamp(endpoint.modified_at)
@@ -335,15 +365,10 @@ class EndpointManager:
             for endpoint_id in endpoint_ids
             if endpoint_id in deleted_ids
         ]
-        ordered_referenced_ids = [endpoint_id for endpoint_id in endpoint_ids if endpoint_id in referenced_ids]
-        log.info(
-            f'Endpoints deleted | Account:{account_id} | Actor:{actor_id} | '
-            f'Deleted:{len(deleted)} | Referenced:{len(ordered_referenced_ids)}'
-        )
+        log.info(f'Endpoints deleted | Account:{account_id} | Actor:{actor_id} | Deleted:{len(deleted)}')
         return BulkDeleteEndpointResult(
             total=len(endpoint_ids),
             deleted=deleted,
-            referenced_ids=ordered_referenced_ids,
         )
 
     async def list_audit_events(
@@ -379,14 +404,9 @@ class EndpointManager:
         if 'enabled' in fields_set and params.enabled != endpoint.enabled:
             values['enabled'] = params.enabled
             changed_fields.append('enabled')
-        stored_trust = EndpointTrustLevel(endpoint.trust_level)
-        if 'trust_level' in fields_set and params.trust_level is not stored_trust:
-            values['trust_level'] = params.trust_level
-            changed_fields.append('trust_level')
 
-        stored_protocol = EndpointProtocol(endpoint.protocol)
         if 'url' in fields_set and params.url is not None:
-            normalized_url = validate_endpoint_url(params.url, stored_protocol)
+            normalized_url = validate_endpoint_url(params.url)
             stored_url = decrypt_endpoint_url(endpoint.encrypted_url)
             if normalized_url != stored_url:
                 values['encrypted_url'] = encrypt_endpoint_url(normalized_url)
@@ -427,7 +447,12 @@ class EndpointManager:
         return {row.endpoint_id: row for row in rows}
 
     @staticmethod
-    def to_item(endpoint: Endpoint, *, binding: ProviderEndpointBinding | None = None) -> EndpointItem:
+    def to_item(
+        endpoint: Endpoint,
+        *,
+        binding: ProviderEndpointBinding | None = None,
+        include_effective_url: bool = False,
+    ) -> EndpointItem:
         try:
             provider_summary: EndpointProviderSummary | None = None
             if binding is not None:
@@ -445,11 +470,19 @@ class EndpointManager:
                     vendor_label=vendor.label,
                 )
             return EndpointItem(
-                url=build_endpoint_url(endpoint),
+                url=decrypt_endpoint_url(endpoint.encrypted_url),
+                effective_url=build_endpoint_url(endpoint) if include_effective_url else None,
                 **endpoint.model_dump(
                     provider=provider_summary.model_dump() if provider_summary else None,
                     provider_external_id=binding.external_id if binding is not None else None,
                     provider_last_seen_at=binding.last_seen_at if binding is not None else None,
+                    provider_sync_status=(
+                        ProviderEndpointSyncStatus.MISSING
+                        if binding is not None and binding.discovery_status == 'missing'
+                        else ProviderEndpointSyncStatus.AVAILABLE
+                        if binding is not None
+                        else None
+                    ),
                 ),
             )
         except (EndpointSecretConfigError, ValueError) as exc:
@@ -458,12 +491,11 @@ class EndpointManager:
 
     @staticmethod
     def to_detail(endpoint: Endpoint, *, binding: ProviderEndpointBinding | None = None) -> EndpointDetail:
-        item = EndpointManager.to_item(endpoint, binding=binding)
+        item = EndpointManager.to_item(endpoint, binding=binding, include_effective_url=True)
         try:
-            configured_url = decrypt_endpoint_url(endpoint.encrypted_url)
             auth = EndpointManager._to_auth_detail(endpoint)
             values = item.model_dump(exclude={'auth'})
-            return EndpointDetail(**values, configured_url=configured_url, auth=auth)
+            return EndpointDetail(**values, auth=auth)
         except (EndpointSecretConfigError, ValueError) as exc:
             log.warning(f'Endpoint configuration is unavailable | Endpoint:{endpoint.id}')
             raise UnavailableError('Endpoint configuration is unavailable.') from exc

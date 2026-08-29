@@ -257,8 +257,6 @@ class JsonRpcRouteManager:
     def _route_values(params: JsonRpcRouteValues) -> dict[str, object]:
         return {
             'strategy_type': params.strategy.type,
-            'minimum_trust': params.minimum_trust,
-            'max_latency_ms': params.max_latency_ms,
             'max_attempts': params.max_attempts,
             'retry_policy': params.retry_policy,
         }
@@ -407,8 +405,6 @@ class JsonRpcRouteManager:
                 gateway_id=route.gateway_id,
                 methods=methods,
                 is_default=is_default,
-                minimum_trust=route.minimum_trust,
-                max_latency_ms=route.max_latency_ms,
                 max_attempts=route.max_attempts,
                 retry_policy=route.retry_policy,
                 strategy=strategy,

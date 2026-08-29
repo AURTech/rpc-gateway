@@ -41,6 +41,10 @@
       },
       "AccountBase": {
         "properties": {
+          "activated": {
+            "title": "Activated",
+            "type": "boolean"
+          },
           "avatar_url": {
             "anyOf": [
               {
@@ -117,6 +121,7 @@
           "email",
           "role",
           "status",
+          "activated",
           "role_label",
           "status_label"
         ],
@@ -142,6 +147,10 @@
       },
       "AccountDetail": {
         "properties": {
+          "activated": {
+            "title": "Activated",
+            "type": "boolean"
+          },
           "app_count": {
             "default": 0,
             "title": "App Count",
@@ -274,6 +283,7 @@
           "email",
           "role",
           "status",
+          "activated",
           "role_label",
           "status_label"
         ],
@@ -360,7 +370,6 @@
       },
       "AccountStatus": {
         "enum": [
-          "unactivated",
           "active",
           "disabled",
           "archived"
@@ -886,13 +895,6 @@
             "title": "Deleted",
             "type": "array"
           },
-          "referenced_ids": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Referenced Ids",
-            "type": "array"
-          },
           "total": {
             "title": "Total",
             "type": "integer"
@@ -900,8 +902,7 @@
         },
         "required": [
           "total",
-          "deleted",
-          "referenced_ids"
+          "deleted"
         ],
         "title": "BulkDeleteEndpointResult",
         "type": "object"
@@ -1089,10 +1090,6 @@
           "protocol": {
             "$ref": "#/components/schemas/EndpointProtocol"
           },
-          "trust_level": {
-            "$ref": "#/components/schemas/EndpointTrustLevel",
-            "default": "unverified"
-          },
           "url": {
             "maxLength": 4096,
             "minLength": 1,
@@ -1120,19 +1117,6 @@
             "title": "Max Attempts",
             "type": "integer"
           },
-          "max_latency_ms": {
-            "anyOf": [
-              {
-                "exclusiveMinimum": 0.0,
-                "maximum": 120000.0,
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Max Latency Ms"
-          },
           "methods": {
             "items": {
               "type": "string"
@@ -1141,10 +1125,6 @@
             "minItems": 1,
             "title": "Methods",
             "type": "array"
-          },
-          "minimum_trust": {
-            "$ref": "#/components/schemas/EndpointTrustLevel",
-            "default": "unverified"
           },
           "retry_policy": {
             "$ref": "#/components/schemas/JsonRpcRetryPolicy",
@@ -1201,7 +1181,7 @@
             "items": {
               "$ref": "#/components/schemas/PersonalAccessTokenScope"
             },
-            "maxItems": 21,
+            "maxItems": 20,
             "minItems": 1,
             "title": "Scopes",
             "type": "array"
@@ -1225,27 +1205,27 @@
             "title": "Enabled",
             "type": "boolean"
           },
-          "ignore_networks": {
-            "items": {
-              "$ref": "#/components/schemas/ProviderNetworkPair"
-            },
-            "maxItems": 50,
-            "title": "Ignore Networks",
-            "type": "array"
-          },
           "name": {
             "maxLength": 128,
             "minLength": 1,
             "title": "Name",
             "type": "string"
           },
-          "only_networks": {
-            "items": {
-              "$ref": "#/components/schemas/ProviderNetworkPair"
-            },
-            "maxItems": 50,
-            "title": "Only Networks",
-            "type": "array"
+          "networks": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ProviderNetworkPair"
+                },
+                "maxItems": 50,
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Networks"
           },
           "settings": {
             "$ref": "#/components/schemas/ProviderSettingsParams"
@@ -1838,31 +1818,64 @@
             "type": "string"
           },
           "auth": {
-            "discriminator": {
-              "mapping": {
-                "bearer": "#/components/schemas/EndpointBearerAuthDetail",
-                "header_api_key": "#/components/schemas/EndpointHeaderAuthDetail",
-                "none": "#/components/schemas/EndpointNoAuthPublic",
-                "path_api_key": "#/components/schemas/EndpointPathAuthDetail",
-                "query_api_key": "#/components/schemas/EndpointQueryAuthDetail"
-              },
-              "propertyName": "type"
-            },
-            "oneOf": [
+            "anyOf": [
               {
-                "$ref": "#/components/schemas/EndpointNoAuthPublic"
+                "discriminator": {
+                  "mapping": {
+                    "bearer": "#/components/schemas/EndpointBearerAuthDetail",
+                    "header_api_key": "#/components/schemas/EndpointHeaderAuthDetail",
+                    "none": "#/components/schemas/EndpointNoAuthPublic",
+                    "path_api_key": "#/components/schemas/EndpointPathAuthDetail",
+                    "query_api_key": "#/components/schemas/EndpointQueryAuthDetail"
+                  },
+                  "propertyName": "type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/EndpointNoAuthPublic"
+                  },
+                  {
+                    "$ref": "#/components/schemas/EndpointBearerAuthDetail"
+                  },
+                  {
+                    "$ref": "#/components/schemas/EndpointHeaderAuthDetail"
+                  },
+                  {
+                    "$ref": "#/components/schemas/EndpointQueryAuthDetail"
+                  },
+                  {
+                    "$ref": "#/components/schemas/EndpointPathAuthDetail"
+                  }
+                ]
               },
               {
-                "$ref": "#/components/schemas/EndpointBearerAuthDetail"
-              },
-              {
-                "$ref": "#/components/schemas/EndpointHeaderAuthDetail"
-              },
-              {
-                "$ref": "#/components/schemas/EndpointQueryAuthDetail"
-              },
-              {
-                "$ref": "#/components/schemas/EndpointPathAuthDetail"
+                "discriminator": {
+                  "mapping": {
+                    "bearer": "#/components/schemas/EndpointBearerAuthPublic",
+                    "header_api_key": "#/components/schemas/EndpointHeaderAuthPublic",
+                    "none": "#/components/schemas/EndpointNoAuthPublic",
+                    "path_api_key": "#/components/schemas/EndpointPathAuthPublic",
+                    "query_api_key": "#/components/schemas/EndpointQueryAuthPublic"
+                  },
+                  "propertyName": "type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/EndpointNoAuthPublic"
+                  },
+                  {
+                    "$ref": "#/components/schemas/EndpointBearerAuthPublic"
+                  },
+                  {
+                    "$ref": "#/components/schemas/EndpointHeaderAuthPublic"
+                  },
+                  {
+                    "$ref": "#/components/schemas/EndpointQueryAuthPublic"
+                  },
+                  {
+                    "$ref": "#/components/schemas/EndpointPathAuthPublic"
+                  }
+                ]
               }
             ],
             "title": "Auth"
@@ -1870,18 +1883,35 @@
           "chain": {
             "$ref": "#/components/schemas/Chain"
           },
-          "configured_url": {
-            "title": "Configured Url",
-            "type": "string"
-          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
             "type": "string"
           },
+          "effective_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Url"
+          },
           "enabled": {
             "title": "Enabled",
             "type": "boolean"
+          },
+          "health": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EndpointHealthItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "id": {
             "title": "Id",
@@ -1948,9 +1978,6 @@
               }
             ]
           },
-          "trust_level": {
-            "$ref": "#/components/schemas/EndpointTrustLevel"
-          },
           "url": {
             "title": "Url",
             "type": "string"
@@ -1974,12 +2001,10 @@
           "protocol",
           "url",
           "enabled",
-          "trust_level",
           "auth",
           "version",
           "created_at",
-          "modified_at",
-          "configured_url"
+          "modified_at"
         ],
         "title": "EndpointDetail",
         "type": "object"
@@ -2136,136 +2161,25 @@
         "title": "EndpointHeaderAuthUpdateParams",
         "type": "object"
       },
-      "EndpointHealth": {
+      "EndpointHealthCheck": {
         "properties": {
-          "error_rate": {
-            "maximum": 1.0,
-            "minimum": 0.0,
-            "title": "Error Rate",
-            "type": "number"
-          },
-          "last_failure": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/HealthFailure"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "last_failure_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Failure At"
-          },
           "last_observed_at": {
             "format": "date-time",
             "title": "Last Observed At",
             "type": "string"
           },
-          "last_success_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Success At"
-          },
-          "latency_ms": {
-            "anyOf": [
-              {
-                "minimum": 0.0,
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Latency Ms"
-          },
-          "samples": {
-            "minimum": 0.0,
-            "title": "Samples",
-            "type": "integer"
-          },
           "status": {
-            "$ref": "#/components/schemas/HealthStatus"
+            "enum": [
+              "healthy",
+              "unhealthy"
+            ],
+            "title": "Status",
+            "type": "string"
           }
         },
         "required": [
           "status",
-          "error_rate",
-          "samples",
           "last_observed_at"
-        ],
-        "title": "EndpointHealth",
-        "type": "object"
-      },
-      "EndpointHealthCheck": {
-        "properties": {
-          "checked_at": {
-            "format": "date-time",
-            "title": "Checked At",
-            "type": "string"
-          },
-          "endpoint_id": {
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Endpoint Id",
-            "type": "string"
-          },
-          "failure": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/HealthFailure"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "health": {
-            "$ref": "#/components/schemas/EndpointHealth"
-          },
-          "latency_ms": {
-            "anyOf": [
-              {
-                "minimum": 0.0,
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Latency Ms"
-          },
-          "limited": {
-            "title": "Limited",
-            "type": "boolean"
-          },
-          "success": {
-            "title": "Success",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "endpoint_id",
-          "checked_at",
-          "success",
-          "limited",
-          "health"
         ],
         "title": "EndpointHealthCheck",
         "type": "object"
@@ -2285,6 +2199,24 @@
           "data"
         ],
         "title": "EndpointHealthCheckResponse",
+        "type": "object"
+      },
+      "EndpointHealthItem": {
+        "properties": {
+          "last_observed_at": {
+            "format": "date-time",
+            "title": "Last Observed At",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/HealthStatus"
+          }
+        },
+        "required": [
+          "status",
+          "last_observed_at"
+        ],
+        "title": "EndpointHealthItem",
         "type": "object"
       },
       "EndpointItem": {
@@ -2331,9 +2263,30 @@
             "title": "Created At",
             "type": "string"
           },
+          "effective_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Url"
+          },
           "enabled": {
             "title": "Enabled",
             "type": "boolean"
+          },
+          "health": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EndpointHealthItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "id": {
             "title": "Id",
@@ -2400,9 +2353,6 @@
               }
             ]
           },
-          "trust_level": {
-            "$ref": "#/components/schemas/EndpointTrustLevel"
-          },
           "url": {
             "title": "Url",
             "type": "string"
@@ -2426,7 +2376,6 @@
           "protocol",
           "url",
           "enabled",
-          "trust_level",
           "auth",
           "version",
           "created_at",
@@ -2795,13 +2744,184 @@
         "title": "EndpointQueryAuthUpdateParams",
         "type": "object"
       },
-      "EndpointTrustLevel": {
-        "enum": [
-          "unverified",
-          "trusted",
-          "authoritative"
+      "EndpointRouteBindingDeleteResult": {
+        "properties": {
+          "endpoint_id": {
+            "title": "Endpoint Id",
+            "type": "string"
+          },
+          "route_deleted": {
+            "title": "Route Deleted",
+            "type": "boolean"
+          },
+          "route_id": {
+            "title": "Route Id",
+            "type": "string"
+          },
+          "route_type": {
+            "$ref": "#/components/schemas/EndpointRouteType"
+          },
+          "route_version": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route Version"
+          }
+        },
+        "required": [
+          "endpoint_id",
+          "route_type",
+          "route_id",
+          "route_deleted"
         ],
-        "title": "EndpointTrustLevel",
+        "title": "EndpointRouteBindingDeleteResult",
+        "type": "object"
+      },
+      "EndpointRouteBindingDeleteResultResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EndpointRouteBindingDeleteResult"
+          },
+          "msg": {
+            "default": "ok",
+            "title": "Msg",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "EndpointRouteBindingDeleteResultResponse",
+        "type": "object"
+      },
+      "EndpointRouteBindingItem": {
+        "properties": {
+          "gateway": {
+            "$ref": "#/components/schemas/EndpointRouteGatewayItem"
+          },
+          "methods": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Methods",
+            "type": "array"
+          },
+          "route_id": {
+            "title": "Route Id",
+            "type": "string"
+          },
+          "route_type": {
+            "$ref": "#/components/schemas/EndpointRouteType"
+          },
+          "route_version": {
+            "minimum": 1.0,
+            "title": "Route Version",
+            "type": "integer"
+          },
+          "strategy_type": {
+            "$ref": "#/components/schemas/EndpointRouteStrategyType"
+          },
+          "target_count": {
+            "minimum": 1.0,
+            "title": "Target Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "route_type",
+          "route_id",
+          "route_version",
+          "strategy_type",
+          "methods",
+          "target_count",
+          "gateway"
+        ],
+        "title": "EndpointRouteBindingItem",
+        "type": "object"
+      },
+      "EndpointRouteBindingList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EndpointRouteBindingItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "items"
+        ],
+        "title": "EndpointRouteBindingList",
+        "type": "object"
+      },
+      "EndpointRouteBindingListResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EndpointRouteBindingList"
+          },
+          "msg": {
+            "default": "ok",
+            "title": "Msg",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "EndpointRouteBindingListResponse",
+        "type": "object"
+      },
+      "EndpointRouteGatewayItem": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "app_id",
+          "name"
+        ],
+        "title": "EndpointRouteGatewayItem",
+        "type": "object"
+      },
+      "EndpointRouteStrategyType": {
+        "enum": [
+          "priority_failover",
+          "load_balance"
+        ],
+        "title": "EndpointRouteStrategyType",
+        "type": "string"
+      },
+      "EndpointRouteType": {
+        "enum": [
+          "jsonrpc_default",
+          "jsonrpc_method",
+          "http_api"
+        ],
+        "title": "EndpointRouteType",
         "type": "string"
       },
       "ErrorResponseModel": {
@@ -3029,18 +3149,6 @@
         ],
         "title": "GatewayListResponse",
         "type": "object"
-      },
-      "HealthFailure": {
-        "enum": [
-          "connection",
-          "timeout",
-          "auth",
-          "server",
-          "protocol",
-          "config"
-        ],
-        "title": "HealthFailure",
-        "type": "string"
       },
       "HealthStatus": {
         "enum": [
@@ -3372,13 +3480,15 @@
             "$ref": "#/components/schemas/HttpApiRateLimitBucket"
           },
           "max_inflight_per_worker": {
+            "description": "Maximum simultaneous HTTP API requests handled by one API process.",
             "maximum": 100000.0,
             "minimum": 1.0,
             "title": "Max Inflight Per Worker",
             "type": "integer"
           },
           "mode": {
-            "$ref": "#/components/schemas/AdmissionMode"
+            "$ref": "#/components/schemas/AdmissionMode",
+            "description": "Controls request-per-second limits; the per-process simultaneous request limit is always enforced."
           },
           "modified_at": {
             "format": "date-time",
@@ -3476,20 +3586,6 @@
             "title": "Max Attempts",
             "type": "integer"
           },
-          "max_latency_ms": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Max Latency Ms"
-          },
-          "minimum_trust": {
-            "$ref": "#/components/schemas/EndpointTrustLevel"
-          },
           "modified_at": {
             "format": "date-time",
             "title": "Modified At",
@@ -3524,8 +3620,6 @@
         "required": [
           "id",
           "gateway_id",
-          "minimum_trust",
-          "max_latency_ms",
           "max_attempts",
           "retry_policy",
           "strategy",
@@ -4030,26 +4124,12 @@
             "title": "Max Attempts",
             "type": "integer"
           },
-          "max_latency_ms": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Max Latency Ms"
-          },
           "methods": {
             "items": {
               "type": "string"
             },
             "title": "Methods",
             "type": "array"
-          },
-          "minimum_trust": {
-            "$ref": "#/components/schemas/EndpointTrustLevel"
           },
           "modified_at": {
             "format": "date-time",
@@ -4087,8 +4167,6 @@
           "gateway_id",
           "methods",
           "is_default",
-          "minimum_trust",
-          "max_latency_ms",
           "max_attempts",
           "retry_policy",
           "strategy",
@@ -4449,7 +4527,6 @@
           "endpoint-secrets:read",
           "providers:read",
           "providers:write",
-          "provider-secrets:read",
           "routes:read",
           "routes:write",
           "usage:read",
@@ -4473,10 +4550,6 @@
       },
       "ProviderCredentialDetail": {
         "properties": {
-          "has_secret": {
-            "title": "Has Secret",
-            "type": "boolean"
-          },
           "secret": {
             "maxLength": 4096,
             "minLength": 1,
@@ -4485,10 +4558,26 @@
           }
         },
         "required": [
-          "has_secret",
           "secret"
         ],
         "title": "ProviderCredentialDetail",
+        "type": "object"
+      },
+      "ProviderCredentialDetailResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ProviderCredentialDetail"
+          },
+          "msg": {
+            "default": "ok",
+            "title": "Msg",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "ProviderCredentialDetailResponse",
         "type": "object"
       },
       "ProviderCredentialParams": {
@@ -4519,6 +4608,67 @@
           "has_secret"
         ],
         "title": "ProviderCredentialPublic",
+        "type": "object"
+      },
+      "ProviderDeleteImpact": {
+        "properties": {
+          "automatic_route_targets": {
+            "minimum": 0.0,
+            "title": "Automatic Route Targets",
+            "type": "integer"
+          },
+          "connected_apps": {
+            "minimum": 0.0,
+            "title": "Connected Apps",
+            "type": "integer"
+          },
+          "managed_endpoints": {
+            "minimum": 0.0,
+            "title": "Managed Endpoints",
+            "type": "integer"
+          },
+          "would_archive": {
+            "minimum": 0.0,
+            "title": "Would Archive",
+            "type": "integer"
+          },
+          "would_detach": {
+            "minimum": 0.0,
+            "title": "Would Detach",
+            "type": "integer"
+          },
+          "would_retain": {
+            "minimum": 0.0,
+            "title": "Would Retain",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "connected_apps",
+          "automatic_route_targets",
+          "managed_endpoints",
+          "would_detach",
+          "would_archive",
+          "would_retain"
+        ],
+        "title": "ProviderDeleteImpact",
+        "type": "object"
+      },
+      "ProviderDeleteImpactResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ProviderDeleteImpact"
+          },
+          "msg": {
+            "default": "ok",
+            "title": "Msg",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "ProviderDeleteImpactResponse",
         "type": "object"
       },
       "ProviderDeleteResult": {
@@ -4579,181 +4729,30 @@
         "title": "ProviderDeleteResultResponse",
         "type": "object"
       },
-      "ProviderDetail": {
+      "ProviderEndpointCounts": {
         "properties": {
-          "account_id": {
-            "title": "Account Id",
-            "type": "string"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "credential": {
-            "$ref": "#/components/schemas/ProviderCredentialDetail"
-          },
-          "enabled": {
-            "title": "Enabled",
-            "type": "boolean"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "ignore_networks": {
-            "items": {
-              "$ref": "#/components/schemas/ProviderNetworkPair"
-            },
-            "title": "Ignore Networks",
-            "type": "array"
-          },
-          "last_sync_archived": {
-            "title": "Last Sync Archived",
+          "missing": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Missing",
             "type": "integer"
           },
-          "last_sync_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Sync At"
-          },
-          "last_sync_created": {
-            "title": "Last Sync Created",
-            "type": "integer"
-          },
-          "last_sync_error": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Sync Error"
-          },
-          "last_sync_restored": {
-            "title": "Last Sync Restored",
-            "type": "integer"
-          },
-          "last_sync_skipped": {
-            "title": "Last Sync Skipped",
-            "type": "integer"
-          },
-          "last_sync_status": {
-            "$ref": "#/components/schemas/ProviderSyncStatus"
-          },
-          "last_sync_updated": {
-            "title": "Last Sync Updated",
-            "type": "integer"
-          },
-          "modified_at": {
-            "format": "date-time",
-            "title": "Modified At",
-            "type": "string"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "only_networks": {
-            "items": {
-              "$ref": "#/components/schemas/ProviderNetworkPair"
-            },
-            "title": "Only Networks",
-            "type": "array"
-          },
-          "settings": {
-            "additionalProperties": true,
-            "title": "Settings",
-            "type": "object"
-          },
-          "sync_enabled": {
-            "title": "Sync Enabled",
-            "type": "boolean"
-          },
-          "vendor": {
-            "$ref": "#/components/schemas/ProviderVendor"
-          },
-          "vendor_label": {
-            "readOnly": true,
-            "title": "Vendor Label",
-            "type": "string"
-          },
-          "version": {
-            "title": "Version",
+          "present": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Present",
             "type": "integer"
           }
         },
-        "required": [
-          "id",
-          "account_id",
-          "name",
-          "vendor",
-          "enabled",
-          "sync_enabled",
-          "credential",
-          "settings",
-          "only_networks",
-          "ignore_networks",
-          "last_sync_at",
-          "last_sync_status",
-          "last_sync_error",
-          "last_sync_created",
-          "last_sync_updated",
-          "last_sync_restored",
-          "last_sync_archived",
-          "last_sync_skipped",
-          "version",
-          "created_at",
-          "modified_at",
-          "vendor_label"
-        ],
-        "title": "ProviderDetail",
+        "title": "ProviderEndpointCounts",
         "type": "object"
       },
-      "ProviderDetailOrProviderItemResponse": {
-        "properties": {
-          "data": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ProviderDetail"
-              },
-              {
-                "$ref": "#/components/schemas/ProviderItem"
-              }
-            ],
-            "title": "Data"
-          },
-          "msg": {
-            "default": "ok",
-            "title": "Msg",
-            "type": "string"
-          }
-        },
-        "required": [
-          "data"
-        ],
-        "title": "ProviderDetailOrProviderItemResponse",
-        "type": "object"
-      },
-      "ProviderEndpointAction": {
+      "ProviderEndpointDiscoveryStatus": {
         "enum": [
-          "created",
-          "updated",
-          "restored",
-          "archived",
-          "skipped",
-          "failed"
+          "present",
+          "missing"
         ],
-        "title": "ProviderEndpointAction",
+        "title": "ProviderEndpointDiscoveryStatus",
         "type": "string"
       },
       "ProviderEndpointItem": {
@@ -4769,6 +4768,9 @@
               }
             ],
             "title": "Archived At"
+          },
+          "discovery_status": {
+            "$ref": "#/components/schemas/ProviderEndpointDiscoveryStatus"
           },
           "endpoint": {
             "$ref": "#/components/schemas/EndpointItem"
@@ -4789,6 +4791,26 @@
             ],
             "title": "Last Seen At"
           },
+          "missing_since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Since"
+          },
+          "registry_state": {
+            "title": "Registry State",
+            "type": "string"
+          },
+          "retained_by_routes": {
+            "title": "Retained By Routes",
+            "type": "boolean"
+          },
           "sync_status": {
             "$ref": "#/components/schemas/ProviderEndpointSyncStatus"
           }
@@ -4796,8 +4818,12 @@
         "required": [
           "endpoint",
           "sync_status",
+          "discovery_status",
+          "registry_state",
+          "retained_by_routes",
           "external_id",
           "last_seen_at",
+          "missing_since",
           "archived_at"
         ],
         "title": "ProviderEndpointItem",
@@ -4866,14 +4892,11 @@
       },
       "ProviderItem": {
         "properties": {
-          "account_id": {
-            "title": "Account Id",
-            "type": "string"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
+          "connected_app_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Connected App Count",
+            "type": "integer"
           },
           "credential": {
             "$ref": "#/components/schemas/ProviderCredentialPublic"
@@ -4882,20 +4905,12 @@
             "title": "Enabled",
             "type": "boolean"
           },
+          "endpoint_counts": {
+            "$ref": "#/components/schemas/ProviderEndpointCounts"
+          },
           "id": {
             "title": "Id",
             "type": "string"
-          },
-          "ignore_networks": {
-            "items": {
-              "$ref": "#/components/schemas/ProviderNetworkPair"
-            },
-            "title": "Ignore Networks",
-            "type": "array"
-          },
-          "last_sync_archived": {
-            "title": "Last Sync Archived",
-            "type": "integer"
           },
           "last_sync_at": {
             "anyOf": [
@@ -4909,68 +4924,38 @@
             ],
             "title": "Last Sync At"
           },
-          "last_sync_created": {
-            "title": "Last Sync Created",
-            "type": "integer"
-          },
-          "last_sync_error": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Sync Error"
-          },
-          "last_sync_restored": {
-            "title": "Last Sync Restored",
-            "type": "integer"
-          },
-          "last_sync_skipped": {
-            "title": "Last Sync Skipped",
-            "type": "integer"
-          },
           "last_sync_status": {
             "$ref": "#/components/schemas/ProviderSyncStatus"
-          },
-          "last_sync_updated": {
-            "title": "Last Sync Updated",
-            "type": "integer"
-          },
-          "modified_at": {
-            "format": "date-time",
-            "title": "Modified At",
-            "type": "string"
           },
           "name": {
             "title": "Name",
             "type": "string"
           },
-          "only_networks": {
-            "items": {
-              "$ref": "#/components/schemas/ProviderNetworkPair"
-            },
-            "title": "Only Networks",
-            "type": "array"
-          },
-          "settings": {
-            "additionalProperties": true,
-            "title": "Settings",
-            "type": "object"
+          "networks": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ProviderNetworkPair"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Networks"
           },
           "sync_enabled": {
             "title": "Sync Enabled",
             "type": "boolean"
           },
+          "syncing": {
+            "default": false,
+            "title": "Syncing",
+            "type": "boolean"
+          },
           "vendor": {
             "$ref": "#/components/schemas/ProviderVendor"
-          },
-          "vendor_label": {
-            "readOnly": true,
-            "title": "Vendor Label",
-            "type": "string"
           },
           "version": {
             "title": "Version",
@@ -4979,29 +4964,34 @@
         },
         "required": [
           "id",
-          "account_id",
           "name",
           "vendor",
           "enabled",
           "sync_enabled",
           "credential",
-          "settings",
-          "only_networks",
-          "ignore_networks",
+          "networks",
           "last_sync_at",
           "last_sync_status",
-          "last_sync_error",
-          "last_sync_created",
-          "last_sync_updated",
-          "last_sync_restored",
-          "last_sync_archived",
-          "last_sync_skipped",
-          "version",
-          "created_at",
-          "modified_at",
-          "vendor_label"
+          "version"
         ],
         "title": "ProviderItem",
+        "type": "object"
+      },
+      "ProviderItemResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ProviderItem"
+          },
+          "msg": {
+            "default": "ok",
+            "title": "Msg",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "ProviderItemResponse",
         "type": "object"
       },
       "ProviderList": {
@@ -5175,31 +5165,13 @@
         "title": "ProviderSettingsParams",
         "type": "object"
       },
-      "ProviderSyncItem": {
+      "ProviderSyncRunItem": {
         "properties": {
-          "action": {
-            "$ref": "#/components/schemas/ProviderEndpointAction"
-          },
-          "chain": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Chain"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "endpoint_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Endpoint Id"
+          "endpoint_changes": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Endpoint Changes",
+            "type": "integer"
           },
           "error": {
             "anyOf": [
@@ -5212,102 +5184,48 @@
             ],
             "title": "Error"
           },
-          "external_id": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "queued_at": {
+            "format": "date-time",
+            "title": "Queued At",
+            "type": "string"
+          },
+          "started_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "External Id"
+            "title": "Started At"
           },
-          "network": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Network"
-              },
-              {
-                "type": "null"
-              }
-            ]
+          "state": {
+            "$ref": "#/components/schemas/ProviderSyncRunState"
+          },
+          "trigger": {
+            "$ref": "#/components/schemas/ProviderSyncTrigger"
           }
         },
         "required": [
-          "action"
+          "id",
+          "trigger",
+          "state",
+          "queued_at",
+          "started_at"
         ],
-        "title": "ProviderSyncItem",
+        "title": "ProviderSyncRunItem",
         "type": "object"
       },
-      "ProviderSyncResult": {
-        "properties": {
-          "archived": {
-            "title": "Archived",
-            "type": "integer"
-          },
-          "created": {
-            "title": "Created",
-            "type": "integer"
-          },
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/ProviderSyncItem"
-            },
-            "title": "Items",
-            "type": "array"
-          },
-          "provider_id": {
-            "title": "Provider Id",
-            "type": "string"
-          },
-          "restored": {
-            "title": "Restored",
-            "type": "integer"
-          },
-          "route_targets_added": {
-            "default": 0,
-            "title": "Route Targets Added",
-            "type": "integer"
-          },
-          "route_targets_removed": {
-            "default": 0,
-            "title": "Route Targets Removed",
-            "type": "integer"
-          },
-          "route_targets_skipped": {
-            "default": 0,
-            "title": "Route Targets Skipped",
-            "type": "integer"
-          },
-          "skipped": {
-            "title": "Skipped",
-            "type": "integer"
-          },
-          "status": {
-            "$ref": "#/components/schemas/ProviderSyncStatus"
-          },
-          "updated": {
-            "title": "Updated",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "provider_id",
-          "status",
-          "created",
-          "updated",
-          "restored",
-          "archived",
-          "skipped"
-        ],
-        "title": "ProviderSyncResult",
-        "type": "object"
-      },
-      "ProviderSyncResultResponse": {
+      "ProviderSyncRunItemResponse": {
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/ProviderSyncResult"
+            "$ref": "#/components/schemas/ProviderSyncRunItem"
           },
           "msg": {
             "default": "ok",
@@ -5318,8 +5236,72 @@
         "required": [
           "data"
         ],
-        "title": "ProviderSyncResultResponse",
+        "title": "ProviderSyncRunItemResponse",
         "type": "object"
+      },
+      "ProviderSyncRunList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderSyncRunItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "max_page": {
+            "title": "Max Page",
+            "type": "integer"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "size",
+          "total",
+          "max_page",
+          "items"
+        ],
+        "title": "ProviderSyncRunList",
+        "type": "object"
+      },
+      "ProviderSyncRunListResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ProviderSyncRunList"
+          },
+          "msg": {
+            "default": "ok",
+            "title": "Msg",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "ProviderSyncRunListResponse",
+        "type": "object"
+      },
+      "ProviderSyncRunState": {
+        "enum": [
+          "queued",
+          "running",
+          "success",
+          "partial",
+          "failed"
+        ],
+        "title": "ProviderSyncRunState",
+        "type": "string"
       },
       "ProviderSyncStatus": {
         "enum": [
@@ -5329,6 +5311,14 @@
           "failed"
         ],
         "title": "ProviderSyncStatus",
+        "type": "string"
+      },
+      "ProviderSyncTrigger": {
+        "enum": [
+          "manual",
+          "scheduled"
+        ],
+        "title": "ProviderSyncTrigger",
         "type": "string"
       },
       "ProviderVendor": {
@@ -5356,23 +5346,6 @@
             "minimum": 1.0,
             "title": "Max Attempts",
             "type": "integer"
-          },
-          "max_latency_ms": {
-            "anyOf": [
-              {
-                "exclusiveMinimum": 0.0,
-                "maximum": 120000.0,
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Max Latency Ms"
-          },
-          "minimum_trust": {
-            "$ref": "#/components/schemas/EndpointTrustLevel",
-            "default": "unverified"
           },
           "retry_policy": {
             "$ref": "#/components/schemas/HttpApiRetryPolicy",
@@ -5419,19 +5392,6 @@
             "title": "Max Attempts",
             "type": "integer"
           },
-          "max_latency_ms": {
-            "anyOf": [
-              {
-                "exclusiveMinimum": 0.0,
-                "maximum": 120000.0,
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Max Latency Ms"
-          },
           "methods": {
             "items": {
               "type": "string"
@@ -5440,10 +5400,6 @@
             "minItems": 1,
             "title": "Methods",
             "type": "array"
-          },
-          "minimum_trust": {
-            "$ref": "#/components/schemas/EndpointTrustLevel",
-            "default": "unverified"
           },
           "retry_policy": {
             "$ref": "#/components/schemas/JsonRpcRetryPolicy",
@@ -5490,23 +5446,6 @@
             "minimum": 1.0,
             "title": "Max Attempts",
             "type": "integer"
-          },
-          "max_latency_ms": {
-            "anyOf": [
-              {
-                "exclusiveMinimum": 0.0,
-                "maximum": 120000.0,
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Max Latency Ms"
-          },
-          "minimum_trust": {
-            "$ref": "#/components/schemas/EndpointTrustLevel",
-            "default": "unverified"
           },
           "retry_policy": {
             "$ref": "#/components/schemas/JsonRpcRetryPolicy",
@@ -5912,16 +5851,6 @@
             ],
             "title": "Name"
           },
-          "trust_level": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/EndpointTrustLevel"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "url": {
             "anyOf": [
               {
@@ -6244,21 +6173,6 @@
             "title": "Expected Version",
             "type": "integer"
           },
-          "ignore_networks": {
-            "anyOf": [
-              {
-                "items": {
-                  "$ref": "#/components/schemas/ProviderNetworkPair"
-                },
-                "maxItems": 50,
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ignore Networks"
-          },
           "name": {
             "anyOf": [
               {
@@ -6272,20 +6186,21 @@
             ],
             "title": "Name"
           },
-          "only_networks": {
+          "networks": {
             "anyOf": [
               {
                 "items": {
                   "$ref": "#/components/schemas/ProviderNetworkPair"
                 },
                 "maxItems": 50,
+                "minItems": 1,
                 "type": "array"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Only Networks"
+            "title": "Networks"
           },
           "settings": {
             "anyOf": [
@@ -6313,6 +6228,136 @@
           "expected_version"
         ],
         "title": "UpdateProviderParams",
+        "type": "object"
+      },
+      "UsageByEndpoint": {
+        "properties": {
+          "classification_coverage_complete": {
+            "title": "Classification Coverage Complete",
+            "type": "boolean"
+          },
+          "classification_coverage_start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Classification Coverage Start At"
+          },
+          "data_through": {
+            "format": "date-time",
+            "title": "Data Through",
+            "type": "string"
+          },
+          "end_at": {
+            "format": "date-time",
+            "title": "End At",
+            "type": "string"
+          },
+          "first_attempts": {
+            "default": 0,
+            "title": "First Attempts",
+            "type": "integer"
+          },
+          "granularity": {
+            "$ref": "#/components/schemas/UsageGranularity"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UsageEndpointItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "observed_endpoint_count": {
+            "default": 0,
+            "title": "Observed Endpoint Count",
+            "type": "integer"
+          },
+          "other_first_attempts": {
+            "default": 0,
+            "title": "Other First Attempts",
+            "type": "integer"
+          },
+          "other_points": {
+            "items": {
+              "$ref": "#/components/schemas/UsageEndpointPoint"
+            },
+            "title": "Other Points",
+            "type": "array"
+          },
+          "other_retry_attempts": {
+            "default": 0,
+            "title": "Other Retry Attempts",
+            "type": "integer"
+          },
+          "other_total_attempts": {
+            "default": 0,
+            "title": "Other Total Attempts",
+            "type": "integer"
+          },
+          "other_unclassified_attempts": {
+            "default": 0,
+            "title": "Other Unclassified Attempts",
+            "type": "integer"
+          },
+          "retry_attempts": {
+            "default": 0,
+            "title": "Retry Attempts",
+            "type": "integer"
+          },
+          "start_at": {
+            "format": "date-time",
+            "title": "Start At",
+            "type": "string"
+          },
+          "time_range": {
+            "$ref": "#/components/schemas/UsageRange"
+          },
+          "total_attempts": {
+            "default": 0,
+            "title": "Total Attempts",
+            "type": "integer"
+          },
+          "unclassified_attempts": {
+            "default": 0,
+            "title": "Unclassified Attempts",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "time_range",
+          "granularity",
+          "start_at",
+          "end_at",
+          "data_through",
+          "classification_coverage_start_at",
+          "classification_coverage_complete",
+          "items",
+          "other_points"
+        ],
+        "title": "UsageByEndpoint",
+        "type": "object"
+      },
+      "UsageByEndpointResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/UsageByEndpoint"
+          },
+          "msg": {
+            "default": "ok",
+            "title": "Msg",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "UsageByEndpointResponse",
         "type": "object"
       },
       "UsageByMethod": {
@@ -6464,6 +6509,186 @@
         "title": "UsageByNetworkResponse",
         "type": "object"
       },
+      "UsageByRoute": {
+        "properties": {
+          "coverage_complete": {
+            "title": "Coverage Complete",
+            "type": "boolean"
+          },
+          "coverage_start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage Start At"
+          },
+          "data_through": {
+            "format": "date-time",
+            "title": "Data Through",
+            "type": "string"
+          },
+          "end_at": {
+            "format": "date-time",
+            "title": "End At",
+            "type": "string"
+          },
+          "granularity": {
+            "$ref": "#/components/schemas/UsageGranularity"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UsageRouteItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "start_at": {
+            "format": "date-time",
+            "title": "Start At",
+            "type": "string"
+          },
+          "time_range": {
+            "$ref": "#/components/schemas/UsageRange"
+          }
+        },
+        "required": [
+          "time_range",
+          "granularity",
+          "start_at",
+          "end_at",
+          "data_through",
+          "coverage_start_at",
+          "coverage_complete",
+          "items"
+        ],
+        "title": "UsageByRoute",
+        "type": "object"
+      },
+      "UsageByRouteResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/UsageByRoute"
+          },
+          "msg": {
+            "default": "ok",
+            "title": "Msg",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "UsageByRouteResponse",
+        "type": "object"
+      },
+      "UsageEndpointItem": {
+        "properties": {
+          "chain": {
+            "$ref": "#/components/schemas/Chain"
+          },
+          "endpoint_id": {
+            "title": "Endpoint Id",
+            "type": "string"
+          },
+          "first_attempts": {
+            "default": 0,
+            "title": "First Attempts",
+            "type": "integer"
+          },
+          "historical": {
+            "default": false,
+            "title": "Historical",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "network": {
+            "$ref": "#/components/schemas/Network"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/UsageEndpointPoint"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "protocol": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EndpointProtocol"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "retry_attempts": {
+            "default": 0,
+            "title": "Retry Attempts",
+            "type": "integer"
+          },
+          "total_attempts": {
+            "default": 0,
+            "title": "Total Attempts",
+            "type": "integer"
+          },
+          "unclassified_attempts": {
+            "default": 0,
+            "title": "Unclassified Attempts",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "endpoint_id",
+          "name",
+          "chain",
+          "network",
+          "points"
+        ],
+        "title": "UsageEndpointItem",
+        "type": "object"
+      },
+      "UsageEndpointPoint": {
+        "properties": {
+          "bucket_start": {
+            "format": "date-time",
+            "title": "Bucket Start",
+            "type": "string"
+          },
+          "first_attempts": {
+            "default": 0,
+            "title": "First Attempts",
+            "type": "integer"
+          },
+          "retry_attempts": {
+            "default": 0,
+            "title": "Retry Attempts",
+            "type": "integer"
+          },
+          "total_attempts": {
+            "default": 0,
+            "title": "Total Attempts",
+            "type": "integer"
+          },
+          "unclassified_attempts": {
+            "default": 0,
+            "title": "Unclassified Attempts",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "bucket_start"
+        ],
+        "title": "UsageEndpointPoint",
+        "type": "object"
+      },
       "UsageGranularity": {
         "enum": [
           "five_minute",
@@ -6559,6 +6784,86 @@
         "title": "UsageNetworkPoint",
         "type": "object"
       },
+      "UsagePreviousWindow": {
+        "properties": {
+          "avg_duration_ms": {
+            "default": 0,
+            "title": "Avg Duration Ms",
+            "type": "number"
+          },
+          "cache_eligible_requests": {
+            "default": 0,
+            "title": "Cache Eligible Requests",
+            "type": "integer"
+          },
+          "cache_hit_rate": {
+            "default": 0,
+            "title": "Cache Hit Rate",
+            "type": "number"
+          },
+          "cache_hit_requests": {
+            "default": 0,
+            "title": "Cache Hit Requests",
+            "type": "integer"
+          },
+          "end_at": {
+            "format": "date-time",
+            "title": "End At",
+            "type": "string"
+          },
+          "failed_requests": {
+            "default": 0,
+            "title": "Failed Requests",
+            "type": "integer"
+          },
+          "start_at": {
+            "format": "date-time",
+            "title": "Start At",
+            "type": "string"
+          },
+          "success_rate": {
+            "default": 0,
+            "title": "Success Rate",
+            "type": "number"
+          },
+          "successful_requests": {
+            "default": 0,
+            "title": "Successful Requests",
+            "type": "integer"
+          },
+          "total_duration_ms": {
+            "default": 0,
+            "title": "Total Duration Ms",
+            "type": "integer"
+          },
+          "total_request_bytes": {
+            "default": 0,
+            "title": "Total Request Bytes",
+            "type": "integer"
+          },
+          "total_requests": {
+            "default": 0,
+            "title": "Total Requests",
+            "type": "integer"
+          },
+          "total_response_bytes": {
+            "default": 0,
+            "title": "Total Response Bytes",
+            "type": "integer"
+          },
+          "total_traffic_bytes": {
+            "default": 0,
+            "title": "Total Traffic Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "start_at",
+          "end_at"
+        ],
+        "title": "UsagePreviousWindow",
+        "type": "object"
+      },
       "UsageRange": {
         "enum": [
           "hourly",
@@ -6568,6 +6873,174 @@
         ],
         "title": "UsageRange",
         "type": "string"
+      },
+      "UsageRouteItem": {
+        "properties": {
+          "avg_attempts": {
+            "default": 0,
+            "title": "Avg Attempts",
+            "type": "number"
+          },
+          "avg_duration_ms": {
+            "default": 0,
+            "title": "Avg Duration Ms",
+            "type": "number"
+          },
+          "chain": {
+            "$ref": "#/components/schemas/Chain"
+          },
+          "exhausted_rate": {
+            "default": 0,
+            "title": "Exhausted Rate",
+            "type": "number"
+          },
+          "exhausted_requests": {
+            "default": 0,
+            "title": "Exhausted Requests",
+            "type": "integer"
+          },
+          "failed_requests": {
+            "default": 0,
+            "title": "Failed Requests",
+            "type": "integer"
+          },
+          "gateway_id": {
+            "title": "Gateway Id",
+            "type": "string"
+          },
+          "multi_attempt_rate": {
+            "default": 0,
+            "title": "Multi Attempt Rate",
+            "type": "number"
+          },
+          "multi_attempt_requests": {
+            "default": 0,
+            "title": "Multi Attempt Requests",
+            "type": "integer"
+          },
+          "network": {
+            "$ref": "#/components/schemas/Network"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/UsageRoutePoint"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "route_id": {
+            "title": "Route Id",
+            "type": "string"
+          },
+          "routed_requests": {
+            "default": 0,
+            "title": "Routed Requests",
+            "type": "integer"
+          },
+          "success_rate": {
+            "default": 0,
+            "title": "Success Rate",
+            "type": "number"
+          },
+          "successful_requests": {
+            "default": 0,
+            "title": "Successful Requests",
+            "type": "integer"
+          },
+          "total_attempts": {
+            "default": 0,
+            "title": "Total Attempts",
+            "type": "integer"
+          },
+          "total_duration_ms": {
+            "default": 0,
+            "title": "Total Duration Ms",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "route_id",
+          "gateway_id",
+          "chain",
+          "network",
+          "points"
+        ],
+        "title": "UsageRouteItem",
+        "type": "object"
+      },
+      "UsageRoutePoint": {
+        "properties": {
+          "avg_attempts": {
+            "default": 0,
+            "title": "Avg Attempts",
+            "type": "number"
+          },
+          "avg_duration_ms": {
+            "default": 0,
+            "title": "Avg Duration Ms",
+            "type": "number"
+          },
+          "bucket_start": {
+            "format": "date-time",
+            "title": "Bucket Start",
+            "type": "string"
+          },
+          "exhausted_rate": {
+            "default": 0,
+            "title": "Exhausted Rate",
+            "type": "number"
+          },
+          "exhausted_requests": {
+            "default": 0,
+            "title": "Exhausted Requests",
+            "type": "integer"
+          },
+          "failed_requests": {
+            "default": 0,
+            "title": "Failed Requests",
+            "type": "integer"
+          },
+          "multi_attempt_rate": {
+            "default": 0,
+            "title": "Multi Attempt Rate",
+            "type": "number"
+          },
+          "multi_attempt_requests": {
+            "default": 0,
+            "title": "Multi Attempt Requests",
+            "type": "integer"
+          },
+          "routed_requests": {
+            "default": 0,
+            "title": "Routed Requests",
+            "type": "integer"
+          },
+          "success_rate": {
+            "default": 0,
+            "title": "Success Rate",
+            "type": "number"
+          },
+          "successful_requests": {
+            "default": 0,
+            "title": "Successful Requests",
+            "type": "integer"
+          },
+          "total_attempts": {
+            "default": 0,
+            "title": "Total Attempts",
+            "type": "integer"
+          },
+          "total_duration_ms": {
+            "default": 0,
+            "title": "Total Duration Ms",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "bucket_start"
+        ],
+        "title": "UsageRoutePoint",
+        "type": "object"
       },
       "UsageSeries": {
         "properties": {
@@ -6726,6 +7199,16 @@
             "default": 0,
             "title": "Failed Requests",
             "type": "integer"
+          },
+          "previous": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UsagePreviousWindow"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "start_at": {
             "format": "date-time",
@@ -7347,6 +7830,24 @@
                 }
               ],
               "title": "Enabled"
+            }
+          },
+          {
+            "in": "query",
+            "name": "provider_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider Id"
             }
           }
         ],
@@ -8011,6 +8512,144 @@
         ]
       }
     },
+    "/v2/auth/aurpay/callback": {
+      "get": {
+        "description": "Handle the AurPay OIDC callback and set the session cookie.",
+        "operationId": "auth-aurpay_callback",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Code"
+            }
+          },
+          {
+            "in": "query",
+            "name": "error",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Error"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "rpc_gateway_oauth_state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Rpc Gateway Oauth State"
+            }
+          }
+        ],
+        "responses": {
+          "303": {
+            "description": "See Other"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseModel"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Aurpay Callback",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v2/auth/aurpay/login": {
+      "get": {
+        "description": "Redirect the browser to AurPay OIDC.",
+        "operationId": "auth-aurpay_login",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "prompt",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "login",
+                    "select_account"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Prompt"
+            }
+          }
+        ],
+        "responses": {
+          "307": {
+            "description": "Temporary Redirect"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseModel"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Aurpay Login",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/v2/auth/google/callback": {
       "get": {
         "description": "Handle the Google OAuth callback and set the session cookie.",
@@ -8470,6 +9109,24 @@
         "description": "List endpoint registry entries owned by the authenticated account.",
         "operationId": "endpoints-list_endpoints",
         "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 320,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
           {
             "in": "query",
             "name": "chain",
@@ -9123,6 +9780,152 @@
         ],
         "x-required-pat-scopes": [
           "endpoints:write"
+        ]
+      }
+    },
+    "/v2/endpoints/{endpoint_id}/route-bindings": {
+      "get": {
+        "description": "List active Gateway routes that target one owned Endpoint.",
+        "operationId": "endpoints-list_endpoint_route_bindings",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "endpoint_id",
+            "required": true,
+            "schema": {
+              "title": "Endpoint Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EndpointRouteBindingListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseModel"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "PersonalAccessToken": []
+          }
+        ],
+        "summary": "List Endpoint Route Bindings",
+        "tags": [
+          "endpoints"
+        ],
+        "x-required-pat-scopes": [
+          "endpoints:read"
+        ]
+      }
+    },
+    "/v2/endpoints/{endpoint_id}/route-bindings/{route_type}/{route_id}": {
+      "delete": {
+        "description": "Remove one Endpoint target, deleting an empty JSON-RPC method route.",
+        "operationId": "endpoints-delete_endpoint_route_binding",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "endpoint_id",
+            "required": true,
+            "schema": {
+              "title": "Endpoint Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "route_type",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/EndpointRouteType"
+            }
+          },
+          {
+            "in": "path",
+            "name": "route_id",
+            "required": true,
+            "schema": {
+              "title": "Route Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expected_version",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Expected Version",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Replays a successful PAT write with the same account, key, and request for 24 hours.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EndpointRouteBindingDeleteResultResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseModel"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "PersonalAccessToken": []
+          }
+        ],
+        "summary": "Delete Endpoint Route Binding",
+        "tags": [
+          "endpoints"
+        ],
+        "x-required-pat-scopes": [
+          "routes:write"
         ]
       }
     },
@@ -10039,6 +10842,7 @@
         ]
       },
       "patch": {
+        "description": "Update the public HTTP API admission policy using optimistic version control.\n\n`max_inflight_per_worker` limits the simultaneous HTTP API requests handled by each API process and is always\nenforced. `mode` controls only the request-per-second limits; disabling those limits does not disable the simultaneous\nrequest limit.",
         "operationId": "http-api-rate-limit-policy-update_rate_limit_policy",
         "parameters": [
           {
@@ -10451,6 +11255,24 @@
         "parameters": [
           {
             "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 320,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
             "name": "vendor",
             "required": false,
             "schema": {
@@ -10499,6 +11321,22 @@
                 }
               ],
               "title": "Sync Enabled"
+            }
+          },
+          {
+            "in": "query",
+            "name": "last_sync_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ProviderSyncStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last Sync Status"
             }
           },
           {
@@ -10594,16 +11432,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProviderDetailOrProviderItemResponse",
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ProviderDetail"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ProviderItem"
-                    }
-                  ],
-                  "title": "Response Providers-Create Provider"
+                  "$ref": "#/components/schemas/ProviderItemResponse"
                 }
               }
             },
@@ -10729,16 +11558,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProviderDetailOrProviderItemResponse",
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ProviderDetail"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ProviderItem"
-                    }
-                  ],
-                  "title": "Response Providers-Get Provider"
+                  "$ref": "#/components/schemas/ProviderItemResponse"
                 }
               }
             },
@@ -10810,16 +11630,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProviderDetailOrProviderItemResponse",
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ProviderDetail"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ProviderItem"
-                    }
-                  ],
-                  "title": "Response Providers-Update Provider"
+                  "$ref": "#/components/schemas/ProviderItemResponse"
                 }
               }
             },
@@ -10853,6 +11664,100 @@
         ]
       }
     },
+    "/v2/providers/{provider_id}/credential": {
+      "get": {
+        "operationId": "providers-get_provider_credential",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "title": "Provider Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderCredentialDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseModel"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Get Provider Credential",
+        "tags": [
+          "providers"
+        ]
+      }
+    },
+    "/v2/providers/{provider_id}/delete-impact": {
+      "get": {
+        "operationId": "providers-get_delete_impact",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "title": "Provider Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderDeleteImpactResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseModel"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Get Delete Impact",
+        "tags": [
+          "providers"
+        ]
+      }
+    },
     "/v2/providers/{provider_id}/endpoints": {
       "get": {
         "description": "List active and archived Endpoints managed by one Provider.",
@@ -10869,18 +11774,100 @@
           },
           {
             "in": "query",
-            "name": "sync_status",
+            "name": "discovery_status",
             "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "$ref": "#/components/schemas/ProviderEndpointSyncStatus"
+                  "$ref": "#/components/schemas/ProviderEndpointDiscoveryStatus"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "title": "Sync Status"
+              "title": "Discovery Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 320,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "chain",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Chain"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain"
+            }
+          },
+          {
+            "in": "query",
+            "name": "network",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Network"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Network"
+            }
+          },
+          {
+            "in": "query",
+            "name": "protocol",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/EndpointProtocol"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Protocol"
+            }
+          },
+          {
+            "in": "query",
+            "name": "retained_by_routes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Retained By Routes"
             }
           },
           {
@@ -10948,7 +11935,7 @@
     },
     "/v2/providers/{provider_id}/sync": {
       "post": {
-        "description": "Discover and transactionally publish the Provider Endpoint inventory.",
+        "description": "Queue Provider discovery and return its persistent run.",
         "operationId": "providers-sync_provider",
         "parameters": [
           {
@@ -10973,11 +11960,11 @@
           }
         ],
         "responses": {
-          "200": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProviderSyncResultResponse"
+                  "$ref": "#/components/schemas/ProviderSyncRunItemResponse"
                 }
               }
             },
@@ -11008,6 +11995,258 @@
         ],
         "x-required-pat-scopes": [
           "providers:write"
+        ]
+      }
+    },
+    "/v2/providers/{provider_id}/sync-runs": {
+      "get": {
+        "operationId": "providers-list_sync_runs",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "title": "Provider Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderSyncRunListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseModel"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "List Sync Runs",
+        "tags": [
+          "providers"
+        ]
+      }
+    },
+    "/v2/providers/{provider_id}/sync-runs/{run_id}": {
+      "get": {
+        "operationId": "providers-get_sync_run",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "title": "Provider Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderSyncRunItemResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseModel"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Get Sync Run",
+        "tags": [
+          "providers"
+        ]
+      }
+    },
+    "/v2/usage/endpoints": {
+      "get": {
+        "description": "Return actual upstream Endpoint attempts for an App, Gateway, or route.",
+        "operationId": "usage-get_usage_endpoints",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "time_range",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/UsageRange",
+              "default": "daily"
+            }
+          },
+          {
+            "in": "query",
+            "name": "app_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 21,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "App Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gateway_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 21,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gateway Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "route_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 21,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Route Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 100,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageByEndpointResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseModel"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "PersonalAccessToken": []
+          }
+        ],
+        "summary": "Get Usage Endpoints",
+        "tags": [
+          "usage"
+        ],
+        "x-required-pat-scopes": [
+          "usage:read"
         ]
       }
     },
@@ -11287,6 +12526,101 @@
         ]
       }
     },
+    "/v2/usage/routes": {
+      "get": {
+        "description": "Return routes ranked by routed request volume with request and retry series.",
+        "operationId": "usage-get_usage_routes",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "time_range",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/UsageRange",
+              "default": "daily"
+            }
+          },
+          {
+            "in": "query",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "maxLength": 21,
+              "minLength": 1,
+              "title": "App Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gateway_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 21,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gateway Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageByRouteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseModel"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "PersonalAccessToken": []
+          }
+        ],
+        "summary": "Get Usage Routes",
+        "tags": [
+          "usage"
+        ],
+        "x-required-pat-scopes": [
+          "usage:read"
+        ]
+      }
+    },
     "/v2/usage/series": {
       "get": {
         "operationId": "usage-get_usage_series",
@@ -11487,6 +12821,16 @@
                 }
               ],
               "title": "Gateway Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "compare",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Compare",
+              "type": "boolean"
             }
           }
         ],

@@ -3,7 +3,8 @@ from typing import Any, Final
 from app.clients.provider.base import AccountActiveCheck, DiscoveredEndpoint, ProviderDiscovery, ProviderDiscoveryConfig
 from app.clients.provider.http import get_json
 from app.clients.provider.networks import EVM_NETWORK_BY_CHAIN_ID
-from app.clients.transport import HttpTransport
+from app.clients.provider.probe import validate_evm_provider_credential
+from app.clients.transport import HttpAuth, HttpTransport
 from app.model.blockchain import CHAIN_CATALOG, Chain, Network, Protocol
 from app.model.endpoint import EndpointAuthType, EndpointProtocol
 from app.model.provider import ProviderVendor
@@ -46,7 +47,13 @@ class AlchemyProviderAdapter:
         config: ProviderDiscoveryConfig,
         check_account_active: AccountActiveCheck,
     ) -> ProviderDiscovery:
-        await check_account_active()
+        await validate_evm_provider_credential(
+            self._transport,
+            'https://eth-mainnet.g.alchemy.com/v2',
+            HttpAuth(type=EndpointAuthType.PATH_API_KEY, secret=config.credential),
+            check_account_active,
+            expected_chain_id=1,
+        )
         complete = True
         networks = dict(ALCHEMY_NETWORK_SUBDOMAINS)
         try:
@@ -84,7 +91,6 @@ class AlchemyProviderAdapter:
             url=f'https://{subdomain}.g.alchemy.com/v2',
             auth_type=EndpointAuthType.PATH_API_KEY,
             auth_secret=config.credential,
-            label=f'{config.name}-{chain.value}-{network.value}-{protocol.value}',
         )
 
     @staticmethod

@@ -4,7 +4,7 @@ from app import service_state
 from app.core.config import CONF, validate_runtime_security
 from app.infra import runtime
 from app.infra.db import TORTOISE_ORM
-from fastlog import log
+from fastlog import configure, log
 from taskiq import AsyncBroker, TaskiqScheduler
 from taskiq.abc.schedule_source import ScheduleSource
 from taskiq.schedule_sources.label_based import LabelScheduleSource
@@ -33,7 +33,7 @@ class GatewayScheduler(TaskiqScheduler):
             await Tortoise.init(config=TORTOISE_ORM)
             self._orm_started = True
         except Exception:
-            await service_state.close_runtime_state(cache_started=False, http_bound=self._http_bound)
+            await service_state.close_runtime_state(http_bound=self._http_bound)
             await runtime_stack.aclose()
             await super().shutdown()
             raise
@@ -53,7 +53,6 @@ class GatewayScheduler(TaskiqScheduler):
                 stack.push_async_callback(self._runtime_stack.aclose)
             stack.push_async_callback(
                 service_state.close_runtime_state,
-                cache_started=False,
                 http_bound=self._http_bound,
             )
             if self._orm_started:
@@ -62,4 +61,5 @@ class GatewayScheduler(TaskiqScheduler):
 
 
 validate_runtime_security(CONF)
+configure(level=CONF.log_level, log_path=CONF.LOG_PATH)
 scheduler = GatewayScheduler(broker, sources=[LabelScheduleSource(broker), ProviderScheduleSource()])

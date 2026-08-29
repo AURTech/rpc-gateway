@@ -2,7 +2,6 @@ from tortoise import fields
 from tortoise.fields.base import OnDelete
 from tortoise.indexes import Index
 
-from app.model.endpoint import EndpointTrustLevel
 from app.model.jsonrpc_route import JsonRpcRetryPolicy, JsonRpcRoutingStrategyType
 from app.orm.endpoint import Endpoint
 from app.orm.gateway import Gateway
@@ -21,12 +20,6 @@ class JsonRpcRoute(GuidMixin, TimestampMixin):
         default=JsonRpcRoutingStrategyType.LOAD_BALANCE,
         max_length=32,
     )
-    minimum_trust = fields.CharEnumField(
-        EndpointTrustLevel,
-        default=EndpointTrustLevel.UNVERIFIED,
-        max_length=32,
-    )
-    max_latency_ms = fields.FloatField(null=True)
     max_attempts = fields.IntField(default=3)
     retry_policy = fields.CharEnumField(JsonRpcRetryPolicy, default=JsonRpcRetryPolicy.SAFE_ONLY, max_length=32)
     version = fields.IntField(default=1)

@@ -12,7 +12,9 @@ from pydantic import AwareDatetime, Field, SecretBytes, SecretStr, field_validat
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.origin import normalize_origin
-from app.core.usage import (
+from app.model.admission import AdmissionBackend
+from app.model.blockchain import Chain
+from app.model.usage import (
     DEFAULT_USAGE_FINE_RETENTION_HOURS,
     DEFAULT_USAGE_RETENTION_MONTHS,
     DEFAULT_USAGE_STREAM_MAX_LENGTH,
@@ -20,15 +22,13 @@ from app.core.usage import (
     MAX_USAGE_RETENTION_MONTHS,
     MAX_USAGE_STREAM_LENGTH,
 )
-from app.model.admission import AdmissionBackend
-from app.model.blockchain import Chain
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 ENDPOINT_MIN_MASTER_KEY_BYTES = 32
 
 _ENDPOINT_KEY_VERSION_RE = re.compile(r'^[A-Za-z0-9._-]{1,32}$')
 
-_SYSTEM_JSONRPC_CACHE_POSTGRES_RETENTION_SECONDS: Final[Mapping[Chain, int]] = MappingProxyType(
+_SYSTEM_CACHE_POSTGRES_RETENTION_SECONDS: Final[Mapping[Chain, int]] = MappingProxyType(
     {
         Chain.ETHEREUM: 7200,
         Chain.POLYGON: 1200,
@@ -42,8 +42,8 @@ _SYSTEM_JSONRPC_CACHE_POSTGRES_RETENTION_SECONDS: Final[Mapping[Chain, int]] = M
         Chain.TRON: 1200,
     }
 )
-_SYSTEM_JSONRPC_CACHE_POSTGRES_CLEANUP_BATCH_BYTES: Final[int] = 32 * 1024 * 1024
-_SYSTEM_JSONRPC_CACHE_POSTGRES_CLEANUP_MAX_BYTES: Final[int] = 1024 * 1024 * 1024
+_SYSTEM_CACHE_POSTGRES_CLEANUP_BATCH_BYTES: Final[int] = 32 * 1024 * 1024
+_SYSTEM_CACHE_POSTGRES_CLEANUP_MAX_BYTES: Final[int] = 1024 * 1024 * 1024
 
 
 def normalize_endpoint_key_version(value: str) -> str:
@@ -151,26 +151,26 @@ class Config(BaseSettings):
     PUBLIC_HTTP_API_RATE_LIMIT_SHADOW_REDIS_TIMEOUT_MS: int = Field(default=10, ge=1, le=1000)
     PUBLIC_HTTP_API_RATE_LIMIT_SHADOW_SHUTDOWN_DRAIN_SECONDS: float = Field(default=1, ge=0, le=30)
 
-    # System JSON-RPC Cache
-    SYSTEM_JSONRPC_CACHE_ENABLED: bool = True
-    SYSTEM_JSONRPC_CACHE_REDIS_TTL_MS: int = Field(default=250, ge=20, le=60_000)
-    SYSTEM_JSONRPC_CACHE_POSTGRES_RETENTION_SECONDS_BY_CHAIN: dict[Chain, int] = Field(
-        default_factory=lambda: dict(_SYSTEM_JSONRPC_CACHE_POSTGRES_RETENTION_SECONDS)
+    # System Cache
+    SYSTEM_CACHE_ENABLED: bool = True
+    SYSTEM_CACHE_REDIS_TTL_MS: int = Field(default=250, ge=20, le=60_000)
+    SYSTEM_CACHE_POSTGRES_RETENTION_SECONDS_BY_CHAIN: dict[Chain, int] = Field(
+        default_factory=lambda: dict(_SYSTEM_CACHE_POSTGRES_RETENTION_SECONDS)
     )
-    SYSTEM_JSONRPC_CACHE_POSTGRES_CLEANUP_BATCH_MAX_BYTES: int = Field(
-        default=_SYSTEM_JSONRPC_CACHE_POSTGRES_CLEANUP_BATCH_BYTES,
+    SYSTEM_CACHE_POSTGRES_CLEANUP_BATCH_MAX_BYTES: int = Field(
+        default=_SYSTEM_CACHE_POSTGRES_CLEANUP_BATCH_BYTES,
         ge=1,
-        le=_SYSTEM_JSONRPC_CACHE_POSTGRES_CLEANUP_MAX_BYTES,
+        le=_SYSTEM_CACHE_POSTGRES_CLEANUP_MAX_BYTES,
     )
 
     # Database
     ORM_URL: str = 'postgres://rpc_gateway:rpc_gateway@127.0.0.1:5432/rpc_gateway'
     ORM_POOL_MIN_SIZE: int = Field(default=1, ge=1, le=100)
     ORM_POOL_MAX_SIZE: int = Field(default=5, ge=1, le=100)
-    SYSTEM_JSONRPC_CACHE_POSTGRES_POOL_MIN_SIZE: int = Field(default=1, ge=1, le=100)
-    SYSTEM_JSONRPC_CACHE_POSTGRES_POOL_MAX_SIZE: int = Field(default=8, ge=1, le=100)
-    SYSTEM_JSONRPC_CACHE_COORDINATION_POOL_MIN_SIZE: int = Field(default=1, ge=1, le=100)
-    SYSTEM_JSONRPC_CACHE_COORDINATION_POOL_MAX_SIZE: int = Field(default=8, ge=1, le=100)
+    SYSTEM_CACHE_POSTGRES_POOL_MIN_SIZE: int = Field(default=1, ge=1, le=100)
+    SYSTEM_CACHE_POSTGRES_POOL_MAX_SIZE: int = Field(default=8, ge=1, le=100)
+    SYSTEM_CACHE_COORDINATION_POOL_MIN_SIZE: int = Field(default=1, ge=1, le=100)
+    SYSTEM_CACHE_COORDINATION_POOL_MAX_SIZE: int = Field(default=8, ge=1, le=100)
 
     # Redis
     REDIS_URL: str = 'redis://localhost:6379/0'
@@ -225,6 +225,10 @@ class Config(BaseSettings):
     GOOGLE_OAUTH_CLIENT_ID: str = ''
     GOOGLE_OAUTH_CLIENT_SECRET: str = ''
     GOOGLE_OAUTH_REDIRECT_URI: str = ''
+    AURPAY_OIDC_ISSUER: str = ''
+    AURPAY_OIDC_CLIENT_ID: str = ''
+    AURPAY_OIDC_CLIENT_SECRET: str = ''
+    AURPAY_OIDC_REDIRECT_URI: str = ''
     FRONTEND_AUTH_CALLBACK_URL: str = ''
     ADMIN_ALLOWED_EMAILS: list[str] = []
     AUTH_SESSION_SECRET: str = ''
@@ -274,13 +278,13 @@ class Config(BaseSettings):
                 seen.add(cidr)
         return normalized
 
-    @field_validator('SYSTEM_JSONRPC_CACHE_POSTGRES_RETENTION_SECONDS_BY_CHAIN')
+    @field_validator('SYSTEM_CACHE_POSTGRES_RETENTION_SECONDS_BY_CHAIN')
     @classmethod
-    def validate_jsonrpc_cache_retention(cls, values: dict[Chain, int]) -> dict[Chain, int]:
+    def validate_system_cache_retention(cls, values: dict[Chain, int]) -> dict[Chain, int]:
         if set(values) != set(Chain):
-            raise ValueError('System JSON-RPC Cache PostgreSQL retention must define every supported chain exactly once.')
+            raise ValueError('System Cache PostgreSQL retention must define every supported chain exactly once.')
         if any(isinstance(seconds, bool) or not 60 <= seconds <= 604_800 for seconds in values.values()):
-            raise ValueError('System JSON-RPC Cache PostgreSQL retention must be between 60 seconds and 7 days.')
+            raise ValueError('System Cache PostgreSQL retention must be between 60 seconds and 7 days.')
         return values
 
     @property
@@ -300,14 +304,14 @@ class Config(BaseSettings):
         pool_sizes = (
             ('ORM', self.ORM_POOL_MIN_SIZE, self.ORM_POOL_MAX_SIZE),
             (
-                'System JSON-RPC Cache PostgreSQL Retention',
-                self.SYSTEM_JSONRPC_CACHE_POSTGRES_POOL_MIN_SIZE,
-                self.SYSTEM_JSONRPC_CACHE_POSTGRES_POOL_MAX_SIZE,
+                'System Cache PostgreSQL Retention',
+                self.SYSTEM_CACHE_POSTGRES_POOL_MIN_SIZE,
+                self.SYSTEM_CACHE_POSTGRES_POOL_MAX_SIZE,
             ),
             (
-                'System JSON-RPC Cache Coordination',
-                self.SYSTEM_JSONRPC_CACHE_COORDINATION_POOL_MIN_SIZE,
-                self.SYSTEM_JSONRPC_CACHE_COORDINATION_POOL_MAX_SIZE,
+                'System Cache Coordination',
+                self.SYSTEM_CACHE_COORDINATION_POOL_MIN_SIZE,
+                self.SYSTEM_CACHE_COORDINATION_POOL_MAX_SIZE,
             ),
         )
         for name, minimum, maximum in pool_sizes:

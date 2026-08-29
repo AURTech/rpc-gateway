@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
 
-from app.model.runtime_state.endpoint.health import EndpointHealth, HealthFailure, HealthObservation, HealthStatus
+from app.model.runtime_state.endpoint.health import EndpointHealth, HealthFailure, HealthObservation, HealthOrigin, HealthStatus
 
 HEALTH_BUCKET_SECONDS: Final[int] = 10
 HEALTH_WINDOW_SECONDS: Final[int] = 60
@@ -33,6 +33,7 @@ class HealthBatch:
     last_success_at: datetime | None
     last_failure_at: datetime | None
     last_failure: HealthFailure | None
+    status_override: HealthStatus | None
 
 
 def bucket_epoch(value: datetime) -> int:
@@ -46,6 +47,9 @@ def batch_key(observation: HealthObservation) -> HealthBatchKey:
 
 def make_batch(observation: HealthObservation) -> HealthBatch:
     latency_micros = round(observation.latency_ms * 1000) if observation.success and observation.latency_ms is not None else 0
+    status_override = None
+    if observation.origin is HealthOrigin.MANUAL:
+        status_override = HealthStatus.HEALTHY if observation.success else HealthStatus.UNHEALTHY
     return HealthBatch(
         endpoint_id=observation.endpoint_id,
         endpoint_version=observation.endpoint_version,
@@ -58,10 +62,15 @@ def make_batch(observation: HealthObservation) -> HealthBatch:
         last_success_at=observation.observed_at if observation.success else None,
         last_failure_at=observation.observed_at if not observation.success else None,
         last_failure=observation.failure,
+        status_override=status_override,
     )
 
 
 def merge_batch(batch: HealthBatch, observation: HealthObservation) -> None:
+    if observation.observed_at >= batch.last_observed_at:
+        batch.status_override = None
+        if observation.origin is HealthOrigin.MANUAL:
+            batch.status_override = HealthStatus.HEALTHY if observation.success else HealthStatus.UNHEALTHY
     batch.samples += 1
     if observation.success:
         batch.successes += 1
@@ -111,8 +120,9 @@ def build_health(batch: HealthBatch, stats: WindowStats, saved: EndpointHealth |
     else:
         last_failure_at = batch.last_failure_at
         last_failure = batch.last_failure
+    status = batch.status_override if batch.status_override is not None else select_status(previous, stats)
     return EndpointHealth(
-        status=select_status(previous, stats),
+        status=status,
         error_rate=error_rate,
         latency_ms=latency_ms,
         samples=stats.samples,
@@ -123,12 +133,13 @@ def build_health(batch: HealthBatch, stats: WindowStats, saved: EndpointHealth |
     )
 
 
-def with_window(health: EndpointHealth, stats: WindowStats) -> EndpointHealth:
+def with_window(health: EndpointHealth, stats: WindowStats, *, keep_status: bool = False) -> EndpointHealth:
     error_rate = stats.failures / stats.samples if stats.samples else 0
     latency_ms = stats.success_latency_micros / stats.successes / 1000 if stats.successes else None
+    status = health.status if keep_status else select_status(health.status, stats)
     return health.model_copy(
         update={
-            'status': select_status(health.status, stats),
+            'status': status,
             'error_rate': error_rate,
             'latency_ms': latency_ms,
             'samples': stats.samples,

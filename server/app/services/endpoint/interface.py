@@ -84,4 +84,10 @@ class ManagedEndpointStore(Protocol):
         using_db: BaseDBAsyncClient,
     ) -> ManagedEndpointSnapshot: ...
 
-    async def list_items(self, account_id: str, endpoint_ids: list[str]) -> dict[str, ManagedEndpointItem]: ...
+    async def list_items(
+        self,
+        account_id: str,
+        endpoint_ids: list[str],
+        *,
+        include_effective_url: bool = False,
+    ) -> dict[str, ManagedEndpointItem]: ...

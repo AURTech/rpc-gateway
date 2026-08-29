@@ -15,7 +15,7 @@ from app.model.jsonrpc_forwarding import (
     JsonRpcForwardingSuccess,
     JsonRpcRoutePlan,
 )
-from app.model.public import JsonRpcCall, JsonRpcSuccessResponse, parse_jsonrpc_response
+from app.model.public import JsonRpcCall, JsonRpcResponse, JsonRpcSuccessResponse, parse_jsonrpc_response
 from app.model.runtime_state.circuit import (
     CircuitDecision,
     CircuitObservation,
@@ -35,9 +35,8 @@ from app.services.jsonrpc_forwarding.health import (
     classify_response_failure,
     submit_health,
 )
-from app.services.jsonrpc_forwarding.interface import EndpointHealthReader, JsonRpcRoutePlanProvider
+from app.services.jsonrpc_forwarding.interface import JsonRpcRoutePlanProvider
 from app.services.jsonrpc_forwarding.retry import can_retry_access, can_retry_response, is_internal_failure
-from app.services.jsonrpc_forwarding.selector import select_candidates
 from app.services.jsonrpc_forwarding.strategy import build_strategy
 from app.services.public.jsonrpc.tip import extract_tip_observation
 from app.services.runtime_state.circuit import CircuitManager
@@ -54,7 +53,6 @@ class JsonRpcForwardingManager:
         self,
         endpoint_access: EndpointAccess,
         route_plans: JsonRpcRoutePlanProvider,
-        health_reader: EndpointHealthReader,
         circuit: CircuitManager,
         health: HealthDispatcher,
         *,
@@ -66,7 +64,6 @@ class JsonRpcForwardingManager:
             raise ValueError('JSON-RPC forwarding attempt limit must be between 1 and 10.')
         self._endpoint_access = endpoint_access
         self._route_plans = route_plans
-        self._health_reader = health_reader
         self._circuit = circuit
         self._health = health
         self._tip = tip
@@ -128,29 +125,32 @@ class JsonRpcForwardingManager:
         exactly one Circuit outcome, while admission-unavailable attempts bypass Circuit recording
         and Health observations remain non-blocking.
         """
-        if not plan.targets:
+        attempted_endpoint_ids: list[str] = []
+
+        def failure(
+            code: JsonRpcForwardingFailureCode,
+            reason: JsonRpcForwardingFailureReason | None = None,
+        ) -> JsonRpcForwardingFailure:
             return JsonRpcForwardingFailure(
-                code=JsonRpcForwardingFailureCode.NO_ENDPOINT,
-                reason=JsonRpcForwardingFailureReason.NO_TARGET,
+                code=code,
+                reason=reason,
+                attempted_endpoint_ids=tuple(attempted_endpoint_ids),
             )
 
-        endpoint_versions = [(target.endpoint.id, target.endpoint.version) for target in plan.targets]
-        try:
-            health_by_endpoint = await self._health_reader.get_many(endpoint_versions)
-        except Exception as exc:
-            log.warning(f'JSON-RPC route Health read failed | Gateway:{plan.gateway_id} | Error:{exc!r}')
-            health_by_endpoint = {}
-        candidates = select_candidates(plan, health_by_endpoint)
+        def success(response: JsonRpcResponse | None) -> JsonRpcForwardingSuccess:
+            return JsonRpcForwardingSuccess(response=response, attempted_endpoint_ids=tuple(attempted_endpoint_ids))
+
+        if not plan.targets:
+            return failure(JsonRpcForwardingFailureCode.NO_ENDPOINT, JsonRpcForwardingFailureReason.NO_TARGET)
+
+        candidates = [target for target in plan.targets if target.endpoint.enabled]
         if not candidates:
-            return JsonRpcForwardingFailure(
-                code=JsonRpcForwardingFailureCode.NO_ENDPOINT,
-                reason=JsonRpcForwardingFailureReason.CANDIDATE_FILTERED,
-            )
+            return failure(JsonRpcForwardingFailureCode.NO_ENDPOINT, JsonRpcForwardingFailureReason.CANDIDATE_FILTERED)
         try:
             strategy = build_strategy(plan.strategy_type)
         except ValueError as exc:
             log.error(f'JSON-RPC route strategy is invalid | Route:{plan.id} | Error:{exc!r}')
-            return JsonRpcForwardingFailure(code=JsonRpcForwardingFailureCode.INTERNAL)
+            return failure(JsonRpcForwardingFailureCode.INTERNAL)
 
         request = EndpointJsonRpcRequest(content=_encode_call(call))
         workload_class = classify_workload(call.method, self._trace_method_prefixes)
@@ -162,7 +162,7 @@ class JsonRpcForwardingManager:
         while candidates and attempts < attempt_limit:
             candidate = strategy.select_next(candidates)
             candidates.remove(candidate)
-            endpoint = candidate.target.endpoint
+            endpoint = candidate.endpoint
             decision: CircuitDecision | None = None
             try:
                 if workload_class is CircuitWorkloadClass.STANDARD:
@@ -181,6 +181,7 @@ class JsonRpcForwardingManager:
                 continue
 
             attempts += 1
+            attempted_endpoint_ids.append(endpoint.id)
             observation = CircuitObservation(outcome=CircuitOutcome.IGNORED)
             try:
                 started_at = time.perf_counter()
@@ -190,13 +191,13 @@ class JsonRpcForwardingManager:
                     health = classify_access_failure(result.code)
                     submit_health(self._health, endpoint, latency_ms=latency_ms, classification=health)
                     if is_internal_failure(result.code):
-                        return JsonRpcForwardingFailure(code=JsonRpcForwardingFailureCode.INTERNAL)
+                        return failure(JsonRpcForwardingFailureCode.INTERNAL)
                     observation = classify_access_observation(result.code, workload_class)
                     if can_retry_access(result.code, plan.retry_policy):
                         continue
-                    return JsonRpcForwardingFailure(
-                        code=JsonRpcForwardingFailureCode.ATTEMPTS_FAILED,
-                        reason=JsonRpcForwardingFailureReason.ENDPOINT_FAILED,
+                    return failure(
+                        JsonRpcForwardingFailureCode.ATTEMPTS_FAILED,
+                        JsonRpcForwardingFailureReason.ENDPOINT_FAILED,
                     )
 
                 status_code = result.response.status_code
@@ -204,13 +205,13 @@ class JsonRpcForwardingManager:
                     if 200 <= status_code < 300:
                         submit_health(self._health, endpoint, latency_ms=latency_ms, classification=HEALTH_SUCCESS)
                         observation = CircuitObservation(outcome=CircuitOutcome.SUCCESS)
-                        return JsonRpcForwardingSuccess(response=None)
+                        return success(None)
                     health = classify_response_failure(status_code)
                     submit_health(self._health, endpoint, latency_ms=latency_ms, classification=health)
                     observation = classify_response_observation(status_code, result.response.headers)
-                    return JsonRpcForwardingFailure(
-                        code=JsonRpcForwardingFailureCode.ATTEMPTS_FAILED,
-                        reason=JsonRpcForwardingFailureReason.ENDPOINT_FAILED,
+                    return failure(
+                        JsonRpcForwardingFailureCode.ATTEMPTS_FAILED,
+                        JsonRpcForwardingFailureReason.ENDPOINT_FAILED,
                     )
 
                 try:
@@ -225,28 +226,28 @@ class JsonRpcForwardingManager:
                     observation = classify_response_observation(status_code, result.response.headers)
                     if can_retry_response(status_code, plan.retry_policy, invalid_protocol=True):
                         continue
-                    return JsonRpcForwardingFailure(
-                        code=JsonRpcForwardingFailureCode.ATTEMPTS_FAILED,
-                        reason=JsonRpcForwardingFailureReason.ENDPOINT_FAILED,
+                    return failure(
+                        JsonRpcForwardingFailureCode.ATTEMPTS_FAILED,
+                        JsonRpcForwardingFailureReason.ENDPOINT_FAILED,
                     )
                 if status_code in {425, 429}:
                     health = classify_response_failure(status_code)
                     submit_health(self._health, endpoint, latency_ms=latency_ms, classification=health)
                     observation = classify_response_observation(status_code, result.response.headers)
-                    return JsonRpcForwardingSuccess(response=response)
+                    return success(response)
                 submit_health(self._health, endpoint, latency_ms=latency_ms, classification=HEALTH_SUCCESS)
                 observation = CircuitObservation(outcome=CircuitOutcome.SUCCESS)
                 if isinstance(response, JsonRpcSuccessResponse):
                     self._submit_tip(endpoint, call, response)
-                return JsonRpcForwardingSuccess(response=response)
+                return success(response)
             finally:
                 if decision is not None:
                     self._circuit.submit(decision, observation)
 
         if attempts:
-            return JsonRpcForwardingFailure(
-                code=JsonRpcForwardingFailureCode.ATTEMPTS_FAILED,
-                reason=JsonRpcForwardingFailureReason.ENDPOINT_FAILED,
+            return failure(
+                JsonRpcForwardingFailureCode.ATTEMPTS_FAILED,
+                JsonRpcForwardingFailureReason.ENDPOINT_FAILED,
             )
         reason = (
             JsonRpcForwardingFailureReason.CIRCUIT_OPEN
@@ -255,7 +256,7 @@ class JsonRpcForwardingManager:
             if probe_in_progress
             else JsonRpcForwardingFailureReason.CANDIDATE_FILTERED
         )
-        return JsonRpcForwardingFailure(code=JsonRpcForwardingFailureCode.NO_ENDPOINT, reason=reason)
+        return failure(JsonRpcForwardingFailureCode.NO_ENDPOINT, reason)
 
     def _submit_tip(
         self,

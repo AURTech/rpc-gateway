@@ -16,7 +16,6 @@ AccountActiveCheck = Callable[[], Awaitable[None]]
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ProviderDiscoveryConfig:
-    name: str
     credential: str = field(repr=False)
     settings: ProviderSettingsParams
 
@@ -27,7 +26,6 @@ class DiscoveredEndpoint:
     chain: Chain
     network: Network
     url: str = field(repr=False)
-    label: str
     protocol: EndpointProtocol = EndpointProtocol.JSONRPC
     auth_type: EndpointAuthType = EndpointAuthType.NONE
     auth_name: str | None = None

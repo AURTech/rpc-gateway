@@ -55,7 +55,7 @@ async def _protocol_calls(client: httpx.AsyncClient) -> int:
         ReferenceBehavior.GOOD,
         ReferenceChain.ETHEREUM,
         'debug_traceBlockByNumber',
-        [hex(ethereum_head - 1), {'tracer': 'callTracer'}],
+        [hex(ethereum_head - 1), {'tracer': 'callTracer', 'tracerConfig': {'withLog': True}}],
         2,
     )
     evm_result = evm_block.json().get('result')
