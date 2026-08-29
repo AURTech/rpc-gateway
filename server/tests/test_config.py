@@ -41,11 +41,11 @@ def test_config_defaults_to_v2_control_plane_runtime() -> None:
     assert conf.PUBLIC_JSONRPC_RATE_LIMIT_SHADOW_WORKERS == 16
     assert conf.PUBLIC_JSONRPC_RATE_LIMIT_SHADOW_REDIS_TIMEOUT_MS == 10
     assert conf.PUBLIC_JSONRPC_RATE_LIMIT_SHADOW_SHUTDOWN_DRAIN_SECONDS == 1
-    assert conf.SYSTEM_JSONRPC_CACHE_ENABLED
-    assert conf.SYSTEM_JSONRPC_CACHE_POSTGRES_CLEANUP_BATCH_MAX_BYTES == 32 * 1024 * 1024
+    assert conf.SYSTEM_CACHE_ENABLED
+    assert conf.SYSTEM_CACHE_POSTGRES_CLEANUP_BATCH_MAX_BYTES == 32 * 1024 * 1024
     assert conf.ORM_POOL_MAX_SIZE == 5
-    assert conf.SYSTEM_JSONRPC_CACHE_POSTGRES_POOL_MAX_SIZE == 8
-    assert conf.SYSTEM_JSONRPC_CACHE_COORDINATION_POOL_MAX_SIZE == 8
+    assert conf.SYSTEM_CACHE_POSTGRES_POOL_MAX_SIZE == 8
+    assert conf.SYSTEM_CACHE_COORDINATION_POOL_MAX_SIZE == 8
 
 
 def test_admission_backends_are_configurable() -> None:
@@ -58,19 +58,14 @@ def test_admission_backends_are_configurable() -> None:
     assert conf.PUBLIC_HTTP_API_RATE_LIMIT_BACKEND is AdmissionBackend.LOCAL
 
 
-def test_system_jsonrpc_cache_can_be_disabled() -> None:
-    assert not make_config(SYSTEM_JSONRPC_CACHE_ENABLED=False).SYSTEM_JSONRPC_CACHE_ENABLED
+def test_system_cache_can_be_disabled() -> None:
+    assert not make_config(SYSTEM_CACHE_ENABLED=False).SYSTEM_CACHE_ENABLED
 
 
-def test_system_jsonrpc_cache_cleanup_byte_limit_is_bounded() -> None:
-    assert (
-        make_config(
-            SYSTEM_JSONRPC_CACHE_POSTGRES_CLEANUP_BATCH_MAX_BYTES=1024
-        ).SYSTEM_JSONRPC_CACHE_POSTGRES_CLEANUP_BATCH_MAX_BYTES
-        == 1024
-    )
+def test_system_cache_cleanup_byte_limit_is_bounded() -> None:
+    assert make_config(SYSTEM_CACHE_POSTGRES_CLEANUP_BATCH_MAX_BYTES=1024).SYSTEM_CACHE_POSTGRES_CLEANUP_BATCH_MAX_BYTES == 1024
     with pytest.raises(ValueError, match='greater than or equal to 1'):
-        make_config(SYSTEM_JSONRPC_CACHE_POSTGRES_CLEANUP_BATCH_MAX_BYTES=0)
+        make_config(SYSTEM_CACHE_POSTGRES_CLEANUP_BATCH_MAX_BYTES=0)
 
 
 def test_reload_rejects_multiple_workers() -> None:
@@ -87,8 +82,8 @@ def test_database_url_requires_postgresql() -> None:
     ('minimum_field', 'maximum_field'),
     [
         ('ORM_POOL_MIN_SIZE', 'ORM_POOL_MAX_SIZE'),
-        ('SYSTEM_JSONRPC_CACHE_POSTGRES_POOL_MIN_SIZE', 'SYSTEM_JSONRPC_CACHE_POSTGRES_POOL_MAX_SIZE'),
-        ('SYSTEM_JSONRPC_CACHE_COORDINATION_POOL_MIN_SIZE', 'SYSTEM_JSONRPC_CACHE_COORDINATION_POOL_MAX_SIZE'),
+        ('SYSTEM_CACHE_POSTGRES_POOL_MIN_SIZE', 'SYSTEM_CACHE_POSTGRES_POOL_MAX_SIZE'),
+        ('SYSTEM_CACHE_COORDINATION_POOL_MIN_SIZE', 'SYSTEM_CACHE_COORDINATION_POOL_MAX_SIZE'),
     ],
 )
 def test_database_pool_minimum_cannot_exceed_maximum(minimum_field: str, maximum_field: str) -> None:
@@ -101,10 +96,10 @@ def test_database_connections_have_independent_pool_capacity() -> None:
         make_config(
             ORM_POOL_MIN_SIZE=1,
             ORM_POOL_MAX_SIZE=5,
-            SYSTEM_JSONRPC_CACHE_POSTGRES_POOL_MIN_SIZE=2,
-            SYSTEM_JSONRPC_CACHE_POSTGRES_POOL_MAX_SIZE=7,
-            SYSTEM_JSONRPC_CACHE_COORDINATION_POOL_MIN_SIZE=3,
-            SYSTEM_JSONRPC_CACHE_COORDINATION_POOL_MAX_SIZE=6,
+            SYSTEM_CACHE_POSTGRES_POOL_MIN_SIZE=2,
+            SYSTEM_CACHE_POSTGRES_POOL_MAX_SIZE=7,
+            SYSTEM_CACHE_COORDINATION_POOL_MIN_SIZE=3,
+            SYSTEM_CACHE_COORDINATION_POOL_MAX_SIZE=6,
         )
     )
 

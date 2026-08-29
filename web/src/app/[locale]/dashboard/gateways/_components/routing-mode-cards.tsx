@@ -60,7 +60,7 @@ export function RoutingModeCards({
             />
             <span
               className={cn(
-                "flex min-h-32 cursor-pointer flex-col gap-4 rounded-lg bg-ink-wash px-4 py-4 text-left transition-colors",
+                "flex min-h-32 cursor-pointer flex-col gap-4 rounded-xl bg-ink-wash px-4 py-4 text-left transition-colors",
                 "peer-focus-visible:ring-2 peer-focus-visible:ring-brand/30",
                 active
                   ? "bg-brand-soft text-brand"

@@ -4,6 +4,7 @@
 # Reason: Tortoise migration values and layout are generated for stable schema-state serialization.
 
 import app.orm.mixin
+from enum import StrEnum
 from orjson import loads
 from tortoise import fields, migrations
 from tortoise.fields.base import OnDelete
@@ -20,11 +21,17 @@ from app.model.admission.runtime import AdmissionMode
 from app.model.application.application import AppAuditAction
 from app.model.auth.auth import AuthProvider
 from app.model.blockchain import Chain, Network
-from app.model.endpoint.endpoint import EndpointAuditAction, EndpointAuthType, EndpointProtocol, EndpointTrustLevel
+from app.model.endpoint.endpoint import EndpointAuditAction, EndpointAuthType, EndpointProtocol
 from app.model.http_api_route.route import HttpApiRetryPolicy, HttpApiRoutingStrategyType
 from app.model.jsonrpc_route.route import JsonRpcRetryPolicy, JsonRpcRoutingStrategyType
 from app.model.provider_state import ProviderSyncStatus, ProviderVendor
 from app.orm.mixin import NANOIDField
+
+
+class EndpointTrustLevel(StrEnum):
+    UNVERIFIED = 'unverified'
+    TRUSTED = 'trusted'
+    AUTHORITATIVE = 'authoritative'
 
 
 _USAGE_STATE_OPERATIONS = [
@@ -445,7 +452,9 @@ class Migration(migrations.Migration):
                 ('deleted_at', fields.DatetimeField(null=True, auto_now=False, auto_now_add=False)),
                 ('email', fields.CharField(unique=True, max_length=320)),
                 ('role', fields.CharEnumField(default=AccountRole.USER, description='ADMIN: admin\nUSER: user', enum_type=AccountRole, max_length=32)),
-                ('status', fields.CharEnumField(default=AccountStatus.UNACTIVATED, description='UNACTIVATED: unactivated\nACTIVE: active\nDISABLED: disabled\nARCHIVED: archived', enum_type=AccountStatus, max_length=32)),
+                # `unactivated` was dropped from AccountStatus in 0012; the default stays a
+                # literal so this historical migration keeps importing on a brand-new database.
+                ('status', fields.CharEnumField(default='unactivated', description='UNACTIVATED: unactivated\nACTIVE: active\nDISABLED: disabled\nARCHIVED: archived', enum_type=AccountStatus, max_length=32)),
                 ('password_hash', fields.CharField(null=True, max_length=255)),
                 ('name', fields.CharField(null=True, max_length=255)),
                 ('avatar_url', fields.CharField(null=True, max_length=1024)),

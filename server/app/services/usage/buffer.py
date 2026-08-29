@@ -151,11 +151,6 @@ class GatewayUsageBuffer(Manager):
         return await cls.delete(stream_ids)
 
     @classmethod
-    async def get_dropped_count(cls) -> int:
-        value = await cls.redis.get(cls.dropped_key())
-        return int(value or 0)
-
-    @classmethod
     async def get_backlog(cls) -> GatewayUsageBacklog:
         entries = int(await cls.redis.xlen(cls.stream_key()))
         if entries == 0:

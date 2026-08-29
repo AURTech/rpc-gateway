@@ -1,16 +1,12 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Link } from "@/i18n/navigation";
+import { cn } from "@/lib/utils";
 
 export const TABLE_VIEWPORT_ROWS = 10;
-
-/** Row-heights an expanded inline drawer occupies (mirrors the CSS
- *  `--spacing-table-drawer = --spacing-table-row * 2` cap). Subtract this many
- *  filler rows while a row is expanded so the drawer fits the fixed viewport
- *  without forcing a scroll. */
-export const TABLE_DRAWER_ROWS = 2;
 
 /** Placeholder skeleton rows while a table page loads. Renders one skeleton per
  *  column so the bars line up under the real (non-skeleton) header, and the last
@@ -102,7 +98,10 @@ function TableErrorRow({
   onRetry,
 }: TableErrorRowProps) {
   return (
-    <tr className="h-full">
+    // `data-enter` fades the row in via the `.ui-table` rule in globals.css —
+    // the same opacity-only entrance the data rows use. No index, so it lands
+    // without a stagger delay.
+    <tr className="h-full" data-enter="" data-table-state="error">
       <td className="h-full bg-surface px-4" colSpan={colSpan}>
         <div
           role="alert"
@@ -128,6 +127,7 @@ export type TableEmptyCopy = {
   body: string;
   cta: string;
   href?: string;
+  action?: ReactNode;
 };
 
 export type TableEmptyRowProps = {
@@ -136,6 +136,7 @@ export type TableEmptyRowProps = {
   empty: TableEmptyCopy;
   filtered: TableEmptyCopy;
   onClear: () => void;
+  cellClassName?: string;
 };
 
 function TableEmptyRow({
@@ -144,11 +145,16 @@ function TableEmptyRow({
   empty,
   filtered,
   onClear,
+  cellClassName,
 }: TableEmptyRowProps) {
   const copy = hasFilter ? filtered : empty;
   return (
-    <tr className="h-full">
-      <td className="h-full bg-surface px-4" colSpan={colSpan}>
+    // See TableErrorRow: `data-enter` reuses the opacity-only row entrance.
+    <tr className="h-full" data-enter="" data-table-state="empty">
+      <td
+        className={cn("h-full bg-surface px-4", cellClassName)}
+        colSpan={colSpan}
+      >
         <div className="mx-auto flex h-full max-w-prose-narrow flex-col items-center justify-center gap-2 text-center">
           <p className="text-lg font-semibold text-ink-900">{copy.title}</p>
           <p className="text-md text-ink-500">{copy.body}</p>
@@ -160,6 +166,8 @@ function TableEmptyRow({
             >
               {copy.cta}
             </button>
+          ) : copy.action ? (
+            <div className="mt-2">{copy.action}</div>
           ) : copy.href ? (
             <Link
               href={copy.href}

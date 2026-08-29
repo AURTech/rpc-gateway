@@ -1,6 +1,76 @@
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+
 import orjson
-from app.model.public import PublicHttpApiRequest, PublicHttpApiResult, TronHttpApiFamily
-from app.services.public.http_api import TronHttpApiAdapter
+import pytest
+from app.model.blockchain import Chain, Network
+from app.model.endpoint import EndpointHttpApiRequest
+from app.model.http_api_forwarding import HttpApiForwardingFailure, HttpApiRoutePlan
+from app.model.public import (
+    PublicGatewayAddress,
+    PublicGatewayContext,
+    PublicGatewayIdentity,
+    PublicHttpApiRequest,
+    PublicHttpApiResult,
+    TronHttpApiFamily,
+)
+from app.model.transport import Transport
+from app.services.admission import AdmissionDecision
+from app.services.public.http_api import PublicHttpApiManager, TronHttpApiAdapter
+
+
+class _RejectedAccess:
+    @staticmethod
+    def match_host(host: str | None, transport: Transport) -> PublicGatewayAddress:
+        del host
+        return PublicGatewayAddress(chain=Chain.TRON, network=Network.MAINNET, transport=transport)
+
+    @staticmethod
+    async def authenticate(path_key: str | None, authorization: str | None) -> PublicGatewayIdentity:
+        del path_key, authorization
+        raise AssertionError('A concurrency-limited request must not authenticate.')
+
+    @staticmethod
+    async def get_context(
+        address: PublicGatewayAddress,
+        identity: PublicGatewayIdentity,
+    ) -> PublicGatewayContext:
+        del address, identity
+        raise AssertionError('A concurrency-limited request must not load gateway context.')
+
+
+class _LimitedAdmission:
+    @staticmethod
+    @asynccontextmanager
+    async def acquire_inflight() -> AsyncGenerator[AdmissionDecision]:
+        yield AdmissionDecision(limited=True, enforced=True, retry_after_ms=1000)
+
+    @staticmethod
+    async def acquire_pre_auth(client_ip: str) -> AdmissionDecision:
+        del client_ip
+        raise AssertionError('A concurrency-limited request must not enter request-per-second admission.')
+
+    @staticmethod
+    async def acquire_post_auth(account_id: str, app_id: str) -> AdmissionDecision:
+        del account_id, app_id
+        raise AssertionError('A concurrency-limited request must not enter authenticated admission.')
+
+
+class _UnusedForwarding:
+    @staticmethod
+    async def load_plan(
+        *, account_id: str, gateway_id: str, chain: Chain, network: Network
+    ) -> HttpApiRoutePlan | HttpApiForwardingFailure:
+        del account_id, gateway_id, chain, network
+        raise AssertionError('A concurrency-limited request must not load a forwarding plan.')
+
+    @staticmethod
+    async def forward(
+        plan: HttpApiRoutePlan,
+        request: EndpointHttpApiRequest,
+    ) -> HttpApiForwardingFailure:
+        del plan, request
+        raise AssertionError('A concurrency-limited request must not access an endpoint.')
 
 
 def test_tron_adapter_parses_path_key_and_preserves_query_order() -> None:
@@ -48,3 +118,23 @@ def test_tron_adapter_rejects_unknown_paths_and_methods() -> None:
     assert missing.status_code == 404
     assert isinstance(method, PublicHttpApiResult)
     assert method.status_code == 405
+
+
+@pytest.mark.anyio
+async def test_inflight_limit_rejects_before_authentication_and_forwarding() -> None:
+    manager = PublicHttpApiManager(_RejectedAccess(), _LimitedAdmission(), _UnusedForwarding())
+
+    result = await manager.call(
+        host='tron-http-api.example.test',
+        method='POST',
+        raw_path='wallet/getnowblock',
+        headers=[],
+        query=[],
+        body=b'{}',
+        authorization=None,
+        client_ip='127.0.0.1',
+    )
+
+    assert result.status_code == 429
+    assert orjson.loads(result.body) == {'Error': 'Rate limit exceeded.'}
+    assert ('Retry-After', '1') in result.headers

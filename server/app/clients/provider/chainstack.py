@@ -93,7 +93,7 @@ class ChainstackProviderAdapter:
             pair = metadata[endpoint.id]
             if pair is None:
                 continue
-            items.extend(self._build_items(config.name, endpoint, pair))
+            items.extend(self._build_items(endpoint, pair))
         return ProviderDiscovery(items=items, failures=failures, complete=complete)
 
     async def _fetch_endpoints(
@@ -169,7 +169,6 @@ class ChainstackProviderAdapter:
 
     @staticmethod
     def _build_items(
-        name: str,
         endpoint: ChainstackEndpoint,
         pair: tuple[Chain, Network],
     ) -> list[DiscoveredEndpoint]:
@@ -189,7 +188,6 @@ class ChainstackProviderAdapter:
                     url=endpoint.url,
                     auth_type=EndpointAuthType.PATH_API_KEY if endpoint.path_secret else EndpointAuthType.NONE,
                     auth_secret=endpoint.path_secret,
-                    label=f'{name}-{chain.value}-{network.value}-{protocol.value}-{endpoint.id}',
                 )
             )
         return items

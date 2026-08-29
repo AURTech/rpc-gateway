@@ -7,8 +7,8 @@ import type {
   RpcGatewayBase,
   RpcGatewayTransport,
 } from "@/api/gateways/client";
+import { MotionListItem } from "@/components/patterns/motion-list";
 import { ChainIcon } from "@/components/ui/chain-icon";
-import { Time } from "@/components/ui/time";
 import { Link } from "@/i18n/navigation";
 import { networkLabel } from "@/lib/rpc-chain";
 import { endpointUsesPathKey, fillPathKeyTemplate } from "@/lib/rpc-endpoint";
@@ -61,7 +61,10 @@ export function GatewayNetworkRow({
     : null;
 
   return (
-    <li className="group flex flex-col gap-2 px-5 py-3 md:grid md:grid-cols-12 md:items-center md:gap-3">
+    <MotionListItem
+      as="li"
+      className="group flex flex-col gap-2 px-5 py-3 md:grid md:grid-cols-12 md:items-center md:gap-3"
+    >
       <div className="col-span-2 flex items-center gap-1.5">
         <ChainIcon
           chain={gateway.chain}
@@ -80,7 +83,7 @@ export function GatewayNetworkRow({
       {/* The selected protocol's endpoint. A disabled gateway serves no traffic,
        * so the URL reads as inert: muted text and a non-actionable copy. Chains
        * that don't expose the selected protocol show a muted placeholder. */}
-      <div className="col-span-6 flex min-w-0 items-center gap-1.5">
+      <div className="col-span-8 flex min-w-0 items-center gap-1.5">
         {accessPoint ? (
           <>
             <span
@@ -108,12 +111,6 @@ export function GatewayNetworkRow({
         )}
       </div>
 
-      <div
-        className={cn("col-span-2", !gateway.effective_enabled && "opacity-50")}
-      >
-        <Time value={gateway.created_at} mono />
-      </div>
-
       <div className="col-span-1">
         <StatePill
           enabled={gateway.effective_enabled}
@@ -132,6 +129,6 @@ export function GatewayNetworkRow({
           <ChevronRight className="size-4" aria-hidden />
         </Link>
       </div>
-    </li>
+    </MotionListItem>
   );
 }

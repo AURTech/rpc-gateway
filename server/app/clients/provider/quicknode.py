@@ -97,7 +97,7 @@ class QuicknodeProviderAdapter:
             if not endpoint.multichain:
                 pair = _network_pair(endpoint.chain_slug, endpoint.network_slug)
                 if pair is not None:
-                    items.extend(self._build_items(config.name, endpoint.id, endpoint.http_url, pair))
+                    items.extend(self._build_items(endpoint.id, endpoint.http_url, pair))
                 continue
             await check_account_active()
             try:
@@ -130,7 +130,6 @@ class QuicknodeProviderAdapter:
                 try:
                     endpoint_items.extend(
                         self._build_items(
-                            config.name,
                             endpoint.id,
                             network_url.http_url,
                             pair,
@@ -233,7 +232,6 @@ class QuicknodeProviderAdapter:
 
     def _build_items(
         self,
-        name: str,
         endpoint_id: str,
         http_url: str,
         pair: tuple[Chain, Network],
@@ -258,7 +256,6 @@ class QuicknodeProviderAdapter:
                 external_id = f'{external_id}:{_normalize_slug(network_key)}:{protocol.value}'
             elif protocol is EndpointProtocol.HTTP_API:
                 external_id = f'{external_id}:{protocol.value}'
-            label = f'{name}-{chain.value}-{network.value}-{protocol.value}-{endpoint_id}'
             items.append(
                 DiscoveredEndpoint(
                     external_id=external_id,
@@ -268,7 +265,6 @@ class QuicknodeProviderAdapter:
                     url=url,
                     auth_type=auth_type,
                     auth_secret=auth_secret,
-                    label=label,
                 )
             )
         return items

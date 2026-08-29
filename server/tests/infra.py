@@ -6,7 +6,6 @@ from urllib.parse import SplitResult, parse_qsl, urlencode, urlsplit, urlunsplit
 
 import asyncpg
 from app.core.config import CONF
-from app.infra.cache import init_cache
 from app.infra.db import (
     DEFAULT_DB_CONNECTION,
     SYSTEM_CACHE_COORDINATION_DB_CONNECTION,
@@ -24,7 +23,9 @@ from tortoise.models import Model
 TEST_SCHEMA_RE = re.compile(r'^test_[a-f0-9]{32}$')
 
 TEST_PROJECT_NAMESPACE = f'{CONF.PROJECT_NAME}-test'
-TRUNCATE_EXCLUDED_TABLES = frozenset({'aerich', 'gateway_usage_checkpoint', 'tortoise_migrations'})
+TRUNCATE_EXCLUDED_TABLES = frozenset(
+    {'aerich', 'gateway_usage_checkpoint', 'gateway_usage_metric_availability', 'tortoise_migrations'}
+)
 _migration_recorder_patched = False
 
 
@@ -71,7 +72,9 @@ def configure_test_runtime() -> None:
     CONF.AUTH_PAT_HASH_SECRET = 'test-pat-hash-secret-value-32-bytes'
 
 
-def _make_migration_record_model(_recorder: MigrationRecorder, table_name: str) -> type[Model]:
+def _make_migration_record_model(self: MigrationRecorder, table_name: str) -> type[Model]:
+    del self
+
     class MigrationRecord(Model):
         id = fields.IntField(primary_key=True)
         app = fields.CharField(max_length=255)
@@ -198,6 +201,10 @@ async def truncate_test_tables(schema: str) -> None:
     await _run_admin_sql(
         f"UPDATE {quoted_schema}.gateway_usage_checkpoint SET last_stream_id = '0-0', modified_at = CURRENT_TIMESTAMP"
     )
+    await _run_admin_sql(
+        f'UPDATE {quoted_schema}.gateway_usage_metric_availability '
+        'SET coverage_start_at = NULL, modified_at = CURRENT_TIMESTAMP'
+    )
 
 
 async def clear_test_redis_keys(redis: Redis) -> None:
@@ -219,5 +226,4 @@ async def setup_test_redis(app: FastAPI) -> Redis:
     await clear_test_redis_keys(redis)
     app.state.redis = redis
     Manager.set_redis(redis)
-    init_cache(CONF.TEST_REDIS_URL, TEST_PROJECT_NAMESPACE)
     return redis

@@ -12,7 +12,7 @@ from app.services.endpoint.crypto import (
     decrypt_endpoint_secret,
 )
 from app.services.provider.crypto import (
-    ProviderSecretConfigError,
+    ProviderCredentialConfigError,
     decrypt_provider_credential,
     encrypt_provider_credential,
     provider_cipher_info,
@@ -27,7 +27,7 @@ def test_provider_params_normalize_credentials_and_networks() -> None:
             'name': '  primary  ',
             'vendor': 'alchemy',
             'credential': {'secret': '  secret  '},
-            'only_networks': [
+            'networks': [
                 {'chain': 'ethereum', 'network': 'mainnet'},
                 {'chain': 'ethereum', 'network': 'mainnet'},
             ],
@@ -35,7 +35,8 @@ def test_provider_params_normalize_credentials_and_networks() -> None:
     )
     assert params.name == 'primary'
     assert params.credential.secret.get_secret_value() == 'secret'
-    assert len(params.only_networks) == 1
+    assert params.networks is not None
+    assert len(params.networks) == 1
 
 
 def test_provider_params_reject_error_text_as_credential() -> None:
@@ -57,7 +58,7 @@ def test_provider_params_validate_vendor_network_capabilities() -> None:
             'name': 'alchemy',
             'vendor': 'alchemy',
             'credential': {'secret': 'secret'},
-            'only_networks': [solana],
+            'networks': [solana],
         }
     )
     with pytest.raises(ValidationError, match='does not support'):
@@ -66,7 +67,7 @@ def test_provider_params_validate_vendor_network_capabilities() -> None:
                 'name': 'drpc',
                 'vendor': 'drpc',
                 'credential': {'secret': 'secret'},
-                'only_networks': [{'chain': 'bitcoin', 'network': 'testnet'}],
+                'networks': [{'chain': 'bitcoin', 'network': 'testnet'}],
             }
         )
 
@@ -83,20 +84,7 @@ def test_provider_capabilities_define_vendor_specific_transports() -> None:
                 'name': 'tenderly',
                 'vendor': 'tenderly',
                 'credential': {'secret': 'secret'},
-                'only_networks': [{'chain': 'bsc', 'network': 'mainnet'}],
-            }
-        )
-
-
-def test_provider_params_reject_conflicting_filters() -> None:
-    with pytest.raises(ValidationError, match='cannot both be set'):
-        CreateProviderParams.model_validate(
-            {
-                'name': 'primary',
-                'vendor': 'alchemy',
-                'credential': {'secret': 'secret'},
-                'only_networks': [{'chain': 'ethereum', 'network': 'mainnet'}],
-                'ignore_networks': [{'chain': 'polygon', 'network': 'mainnet'}],
+                'networks': [{'chain': 'bsc', 'network': 'mainnet'}],
             }
         )
 
@@ -109,7 +97,7 @@ def test_provider_update_requires_version_and_a_change() -> None:
     assert params.enabled is False
 
 
-def test_provider_update_allows_unrelated_changes_with_legacy_network_filters() -> None:
+def test_provider_update_allows_unrelated_changes_with_configured_networks() -> None:
     now = datetime.now(UTC)
     provider = Provider(
         id='provider-1',
@@ -120,16 +108,9 @@ def test_provider_update_allows_unrelated_changes_with_legacy_network_filters() 
         next_sync_at=None,
         encrypted_credential=encrypt_provider_credential('provider-secret'),
         settings={},
-        only_networks=[{'chain': 'bsc', 'network': 'mainnet'}],
-        ignore_networks=[],
+        networks=[{'chain': 'bsc', 'network': 'mainnet'}],
         last_sync_at=None,
         last_sync_status='never',
-        last_sync_error=None,
-        last_sync_created=0,
-        last_sync_updated=0,
-        last_sync_restored=0,
-        last_sync_archived=0,
-        last_sync_skipped=0,
         version=1,
         created_at=now,
         modified_at=now,
@@ -151,38 +132,5 @@ def test_provider_credentials_use_an_independent_endpoint_key_purpose(monkeypatc
     info = provider_cipher_info(encrypted)
     assert info is not None
     assert info.purpose == 'provider'
-    with pytest.raises(ProviderSecretConfigError):
+    with pytest.raises(ProviderCredentialConfigError):
         decrypt_endpoint_secret(encrypted)
-
-
-def test_provider_detail_exposes_encrypted_credential() -> None:
-    now = datetime.now(UTC)
-    provider = Provider(
-        id='provider-1',
-        name='primary',
-        vendor='alchemy',
-        enabled=True,
-        sync_enabled=False,
-        next_sync_at=None,
-        encrypted_credential=encrypt_provider_credential('provider-secret'),
-        settings={},
-        only_networks=[],
-        ignore_networks=[],
-        last_sync_at=None,
-        last_sync_status='never',
-        last_sync_error=None,
-        last_sync_created=0,
-        last_sync_updated=0,
-        last_sync_restored=0,
-        last_sync_archived=0,
-        last_sync_skipped=0,
-        version=1,
-        created_at=now,
-        modified_at=now,
-    )
-    provider.account_id = 'account-1'
-
-    detail = ProviderManager._to_detail(provider)
-
-    assert detail.credential.has_secret is True
-    assert detail.credential.secret == 'provider-secret'

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { getGoogleLoginUrl } from "./actions";
+import { getAurPayLoginUrl, getGoogleLoginUrl } from "./actions";
 
 const originalApiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -34,5 +34,31 @@ describe("getGoogleLoginUrl", () => {
     process.env.NEXT_PUBLIC_API_BASE_URL = "/api";
 
     expect(getGoogleLoginUrl()).toBe("/api/v2/auth/google/login");
+  });
+});
+
+describe("getAurPayLoginUrl", () => {
+  it("uses the normal SSO flow by default", () => {
+    process.env.NEXT_PUBLIC_API_BASE_URL = "https://api.example.test";
+
+    expect(getAurPayLoginUrl()).toBe(
+      "https://api.example.test/v2/auth/aurpay/login",
+    );
+  });
+
+  it("forwards the login prompt for fresh authentication", () => {
+    process.env.NEXT_PUBLIC_API_BASE_URL = "https://api.example.test";
+
+    expect(getAurPayLoginUrl({ prompt: "login" })).toBe(
+      "https://api.example.test/v2/auth/aurpay/login?prompt=login",
+    );
+  });
+
+  it("forwards the select-account prompt", () => {
+    process.env.NEXT_PUBLIC_API_BASE_URL = "https://api.example.test";
+
+    expect(getAurPayLoginUrl({ prompt: "select_account" })).toBe(
+      "https://api.example.test/v2/auth/aurpay/login?prompt=select_account",
+    );
   });
 });

@@ -27,7 +27,6 @@ async def test_chainstack_rejects_cross_origin_pagination_before_sending_credent
     async with httpx.AsyncClient(transport=httpx.MockTransport(send)) as client:
         adapter = ChainstackProviderAdapter(HttpTransport(client))
         config = ProviderDiscoveryConfig(
-            name='chainstack',
             credential='provider-secret',
             settings=ProviderSettingsParams(),
         )
@@ -42,6 +41,9 @@ async def test_chainstack_rejects_cross_origin_pagination_before_sending_credent
 @pytest.mark.anyio
 async def test_alchemy_builds_all_supported_catalog_protocols() -> None:
     async def send(request: httpx.Request) -> httpx.Response:
+        if request.url.host == 'eth-mainnet.g.alchemy.com':
+            assert request.url.path == '/v2/provider-secret'
+            return httpx.Response(200, json={'jsonrpc': '2.0', 'id': 1, 'result': '0x1'})
         assert request.url == 'https://app-api.alchemy.com/trpc/config.getNetworkConfig'
         return httpx.Response(200, json={'result': {'data': []}})
 
@@ -49,7 +51,6 @@ async def test_alchemy_builds_all_supported_catalog_protocols() -> None:
         adapter = AlchemyProviderAdapter(HttpTransport(client))
         discovery = await adapter.discover(
             ProviderDiscoveryConfig(
-                name='alchemy',
                 credential='provider-secret',
                 settings=ProviderSettingsParams(),
             ),
@@ -68,7 +69,10 @@ async def test_alchemy_builds_all_supported_catalog_protocols() -> None:
 
 @pytest.mark.anyio
 async def test_drpc_maps_supported_non_evm_networks_without_chain_ids() -> None:
-    async def send(_request: httpx.Request) -> httpx.Response:
+    async def send(request: httpx.Request) -> httpx.Response:
+        if request.url.host == 'lb.drpc.live':
+            assert request.url.path == '/ethereum/provider-secret'
+            return httpx.Response(200, json={'jsonrpc': '2.0', 'id': 1, 'result': '0x1'})
         return httpx.Response(
             200,
             json=[
@@ -107,7 +111,7 @@ async def test_drpc_maps_supported_non_evm_networks_without_chain_ids() -> None:
     async with httpx.AsyncClient(transport=httpx.MockTransport(send)) as client:
         adapter = DrpcProviderAdapter(HttpTransport(client))
         discovery = await adapter.discover(
-            ProviderDiscoveryConfig(name='drpc', credential='provider-secret', settings=ProviderSettingsParams()),
+            ProviderDiscoveryConfig(credential='provider-secret', settings=ProviderSettingsParams()),
             _account_is_active,
         )
 
@@ -128,7 +132,10 @@ async def test_drpc_maps_supported_non_evm_networks_without_chain_ids() -> None:
 
 @pytest.mark.anyio
 async def test_drpc_extracts_key_from_standard_endpoint_url() -> None:
-    async def send(_request: httpx.Request) -> httpx.Response:
+    async def send(request: httpx.Request) -> httpx.Response:
+        if request.url.host == 'lb.drpc.live':
+            assert request.url.path == '/ethereum/endpoint-secret'
+            return httpx.Response(200, json={'jsonrpc': '2.0', 'id': 1, 'result': '0x1'})
         return httpx.Response(
             200,
             json=[
@@ -148,7 +155,6 @@ async def test_drpc_extracts_key_from_standard_endpoint_url() -> None:
         adapter = DrpcProviderAdapter(HttpTransport(client))
         discovery = await adapter.discover(
             ProviderDiscoveryConfig(
-                name='drpc',
                 credential='https://lb.drpc.live/ethereum/endpoint-secret',
                 settings=ProviderSettingsParams(),
             ),
@@ -186,7 +192,7 @@ async def test_drpc_rejects_invalid_credentials_before_network_request(credentia
         adapter = DrpcProviderAdapter(HttpTransport(client))
         with pytest.raises(ProviderDiscoveryError, match='dRPC'):
             await adapter.discover(
-                ProviderDiscoveryConfig(name='drpc', credential=credential, settings=ProviderSettingsParams()),
+                ProviderDiscoveryConfig(credential=credential, settings=ProviderSettingsParams()),
                 _account_is_active,
             )
 
@@ -244,7 +250,6 @@ async def test_chainstack_joins_v1_credentials_with_v2_network_metadata() -> Non
         adapter = ChainstackProviderAdapter(HttpTransport(client))
         discovery = await adapter.discover(
             ProviderDiscoveryConfig(
-                name='chainstack',
                 credential='provider-secret',
                 settings=ProviderSettingsParams(project='project-1'),
             ),
@@ -264,7 +269,10 @@ async def test_chainstack_joins_v1_credentials_with_v2_network_metadata() -> Non
 
 @pytest.mark.anyio
 async def test_tenderly_filters_node_rpc_catalog_through_capabilities() -> None:
-    async def send(_request: httpx.Request) -> httpx.Response:
+    async def send(request: httpx.Request) -> httpx.Response:
+        if request.url.host == 'mainnet.gateway.tenderly.co':
+            assert request.url.path == '/provider-secret'
+            return httpx.Response(200, json={'jsonrpc': '2.0', 'id': 1, 'result': '0x1'})
         return httpx.Response(
             200,
             json=[
@@ -289,12 +297,27 @@ async def test_tenderly_filters_node_rpc_catalog_through_capabilities() -> None:
     async with httpx.AsyncClient(transport=httpx.MockTransport(send)) as client:
         adapter = TenderlyProviderAdapter(HttpTransport(client))
         discovery = await adapter.discover(
-            ProviderDiscoveryConfig(name='tenderly', credential='provider-secret', settings=ProviderSettingsParams()),
+            ProviderDiscoveryConfig(credential='provider-secret', settings=ProviderSettingsParams()),
             _account_is_active,
         )
 
     assert len(discovery.items) == 1
     assert discovery.items[0].chain.value == 'ethereum'
+
+
+@pytest.mark.anyio
+async def test_alchemy_rejects_invalid_provider_credential() -> None:
+    async def send(request: httpx.Request) -> httpx.Response:
+        assert request.url.host == 'eth-mainnet.g.alchemy.com'
+        return httpx.Response(200, json={'jsonrpc': '2.0', 'id': 1, 'error': {'code': -32600}})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(send)) as client:
+        adapter = AlchemyProviderAdapter(HttpTransport(client))
+        with pytest.raises(ProviderDiscoveryError, match='credential validation failed'):
+            await adapter.discover(
+                ProviderDiscoveryConfig(credential='invalid', settings=ProviderSettingsParams()),
+                _account_is_active,
+            )
 
 
 @pytest.mark.anyio
@@ -384,7 +407,6 @@ async def test_quicknode_expands_supported_multichain_urls_without_health_probes
         adapter = QuicknodeProviderAdapter(HttpTransport(client))
         discovery = await adapter.discover(
             ProviderDiscoveryConfig(
-                name='quicknode',
                 credential='admin-secret',
                 settings=ProviderSettingsParams(),
             ),

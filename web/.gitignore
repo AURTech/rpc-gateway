@@ -57,5 +57,5 @@ next-env.d.ts
 # uix design exploration artifacts
 .claude/uix/
 
-# impeccable design-system sidecar (local panel artifact)
+# impeccable design-system sidecar (local panel artifact; DESIGN.md is the tracked spec)
 .impeccable/

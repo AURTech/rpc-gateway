@@ -2,6 +2,7 @@ import type {
   RpcProviderNetworkPair,
   RpcProviderVendor,
 } from "@/api/providers/client";
+import { networksFor, RPC_CHAINS } from "@/lib/rpc-chain";
 
 const EVM_NETWORKS = [
   "ethereum:mainnet",
@@ -69,4 +70,17 @@ export function providerSupportsNetwork(
   pair: RpcProviderNetworkPair,
 ): boolean {
   return PROVIDER_NETWORKS[vendor].has(`${pair.chain}:${pair.network}`);
+}
+
+const ALL_PROVIDER_NETWORKS: RpcProviderNetworkPair[] = RPC_CHAINS.flatMap(
+  (chain) => networksFor(chain).map((network) => ({ chain, network })),
+);
+
+/** Every chain/network pair a vendor can discover, in catalog order. */
+export function providerNetworksForVendor(
+  vendor: RpcProviderVendor,
+): RpcProviderNetworkPair[] {
+  return ALL_PROVIDER_NETWORKS.filter((pair) =>
+    providerSupportsNetwork(vendor, pair),
+  );
 }

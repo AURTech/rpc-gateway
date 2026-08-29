@@ -96,7 +96,7 @@ async def test_delete_provider_retains_and_detaches_all_endpoints(app: FastAPI) 
     detail = await endpoint_manager.get_endpoint(inventory.account.id, inventory.referenced.id)
     assert detail.origin_type == 'manual'
     assert detail.provider is None
-    assert detail.configured_url == 'https://referenced.example.com/rpc'
+    assert detail.url == 'https://referenced.example.com/rpc'
     assert detail.auth.model_dump() == {
         'type': EndpointAuthType.BEARER,
         'has_secret': True,
@@ -137,7 +137,7 @@ async def test_delete_provider_only_archives_unreferenced_endpoints(app: FastAPI
     endpoint_manager = EndpointManager(DatabaseJsonRpcEndpointRouteReferenceLookup())
     detail = await endpoint_manager.get_endpoint(inventory.account.id, inventory.referenced.id)
     assert detail.origin_type == 'manual'
-    assert detail.configured_url == 'https://referenced.example.com/rpc'
+    assert detail.url == 'https://referenced.example.com/rpc'
     assert detail.auth.model_dump() == {
         'type': EndpointAuthType.BEARER,
         'has_secret': True,

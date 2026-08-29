@@ -1,28 +1,18 @@
 import type { AbstractIntlMessages } from "next-intl";
 
-const PAGE_NAMESPACES = ["home", "auth", "dashboard"] as const;
+import auth from "../locales/en/auth.json";
+import common from "../locales/en/common.json";
+import dashboard from "../locales/en/dashboard.json";
 
-/** Load an English message namespace. */
-async function loadJson(name: string) {
-  try {
-    const mod = await import(`../locales/en/${name}.json`);
-    return (mod.default ?? mod) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
-
-/** Load the complete English message bag. */
-async function loadBundle(): Promise<Record<string, unknown>> {
-  const common = (await loadJson("common")) ?? {};
-  const messages: Record<string, unknown> = { ...common };
-  for (const ns of PAGE_NAMESPACES) {
-    const data = await loadJson(ns);
-    if (data) messages[ns] = data;
-  }
-  return messages;
-}
-
-export async function loadMessages(): Promise<AbstractIntlMessages> {
-  return (await loadBundle()) as AbstractIntlMessages;
-}
+/**
+ * i18n contract: English is the console's only language.
+ *
+ * Every UI string lives in `src/locales/en/*.json`. `common.json` is spread at
+ * the root of the message bag; each page bundle is namespaced under its file
+ * name, so `dashboard.json` keys resolve as `dashboard.*`.
+ */
+export const messages = {
+  ...common,
+  auth,
+  dashboard,
+} satisfies AbstractIntlMessages;

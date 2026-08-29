@@ -40,16 +40,16 @@ def create_tortoise_orm(conf: Config) -> TortoiseConfig:
             SYSTEM_CACHE_RETENTION_DB_CONNECTION: DBUrlConfig(
                 _pooled_url(
                     conf.ORM_URL,
-                    minimum=conf.SYSTEM_JSONRPC_CACHE_POSTGRES_POOL_MIN_SIZE,
-                    maximum=conf.SYSTEM_JSONRPC_CACHE_POSTGRES_POOL_MAX_SIZE,
+                    minimum=conf.SYSTEM_CACHE_POSTGRES_POOL_MIN_SIZE,
+                    maximum=conf.SYSTEM_CACHE_POSTGRES_POOL_MAX_SIZE,
                     application_name=f'{conf.PROJECT_NAME}-cache-retention',
                 )
             ),
             SYSTEM_CACHE_COORDINATION_DB_CONNECTION: DBUrlConfig(
                 _pooled_url(
                     conf.ORM_URL,
-                    minimum=conf.SYSTEM_JSONRPC_CACHE_COORDINATION_POOL_MIN_SIZE,
-                    maximum=conf.SYSTEM_JSONRPC_CACHE_COORDINATION_POOL_MAX_SIZE,
+                    minimum=conf.SYSTEM_CACHE_COORDINATION_POOL_MIN_SIZE,
+                    maximum=conf.SYSTEM_CACHE_COORDINATION_POOL_MAX_SIZE,
                     application_name=f'{conf.PROJECT_NAME}-cache-coordination',
                 )
             ),

@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckIcon } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import {
   Children,
   type ComponentProps,
@@ -11,6 +12,8 @@ import {
   useState,
 } from "react";
 
+import { useMotionPreset } from "@/hooks/use-motion-preset";
+import { iconSwapTransition, iconSwapVariants } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 /**
@@ -254,6 +257,7 @@ const INDICATOR_STATUS: Record<StepStatus, string> = {
 function Indicator({ children, className, ...rest }: ComponentProps<"span">) {
   const { size } = useStepper();
   const { index, status } = useStepperStep();
+  const motionPreset = useMotionPreset();
 
   return (
     <span
@@ -267,12 +271,28 @@ function Indicator({ children, className, ...rest }: ComponentProps<"span">) {
       )}
       {...rest}
     >
-      {children ??
-        (status === "complete" ? (
-          <CheckIcon className="size-4" aria-hidden />
-        ) : (
-          index + 1
-        ))}
+      {/* The number-to-check swap animates in place — no wrapper is added
+          around the indicator itself, since the wizard's tests count
+          `[data-slot="stepper-indicator"]` nodes. */}
+      {children ?? (
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.span
+            key={status === "complete" ? "check" : "number"}
+            className="inline-flex items-center justify-center"
+            variants={iconSwapVariants}
+            initial={motionPreset.initial("initial")}
+            animate="animate"
+            exit="exit"
+            transition={motionPreset.transition(iconSwapTransition)}
+          >
+            {status === "complete" ? (
+              <CheckIcon className="size-4" aria-hidden />
+            ) : (
+              index + 1
+            )}
+          </motion.span>
+        </AnimatePresence>
+      )}
     </span>
   );
 }

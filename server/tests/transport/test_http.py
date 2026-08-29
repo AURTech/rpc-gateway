@@ -128,9 +128,14 @@ async def test_http_transport_only_limits_explicitly_bounded_chunked_responses()
             await HttpTransport(client).request('GET', 'https://rpc.example.test/', max_response_bytes=4)
 
 
-def test_endpoint_business_requests_default_to_unbounded_responses() -> None:
-    assert EndpointJsonRpcRequest(content=b'{}').max_response_bytes is None
-    assert EndpointHttpApiRequest(method='GET', path='/').max_response_bytes is None
+def test_endpoint_business_request_defaults() -> None:
+    jsonrpc_request = EndpointJsonRpcRequest(content=b'{}')
+    http_api_request = EndpointHttpApiRequest(method='GET', path='/')
+
+    assert jsonrpc_request.timeout == 6
+    assert http_api_request.timeout == 6
+    assert jsonrpc_request.max_response_bytes is None
+    assert http_api_request.max_response_bytes is None
 
 
 @pytest.mark.anyio

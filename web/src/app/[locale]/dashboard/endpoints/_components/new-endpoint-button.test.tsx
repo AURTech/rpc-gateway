@@ -69,12 +69,12 @@ describe("NewEndpointButton", () => {
     expect(sheet).toHaveAttribute("data-presentation", "dialog");
   });
 
-  it("keeps the endpoints-page presentation as a sheet by default", () => {
+  it("opens a centered dialog by default", () => {
     render(<NewEndpointButton label="New endpoint" />);
 
     expect(screen.getByTestId("create-endpoint-sheet")).toHaveAttribute(
       "data-presentation",
-      "sheet",
+      "dialog",
     );
   });
 });

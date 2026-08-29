@@ -12,7 +12,6 @@ from app.model.endpoint import (
     EndpointAuthType,
     EndpointOriginType,
     EndpointProtocol,
-    EndpointTrustLevel,
 )
 from app.model.provider_state import ProviderEndpointSyncStatus
 from app.orm.account.account import Account
@@ -59,7 +58,6 @@ class Endpoint(GuidMixin, TimestampMixin):
     protocol = fields.CharEnumField(EndpointProtocol, max_length=32)
     encrypted_url = fields.TextField()
     enabled = fields.BooleanField(default=True)
-    trust_level = fields.CharEnumField(EndpointTrustLevel, default=EndpointTrustLevel.UNVERIFIED, max_length=32)
     auth_type = fields.CharEnumField(EndpointAuthType, default=EndpointAuthType.NONE, max_length=32)
     auth_header_name = fields.CharField(max_length=128, null=True)
     auth_query_param = fields.CharField(max_length=128, null=True)
@@ -84,6 +82,7 @@ class Endpoint(GuidMixin, TimestampMixin):
         provider: Mapping[str, object] | None = None,
         provider_external_id: str | None = None,
         provider_last_seen_at: datetime | None = None,
+        provider_sync_status: ProviderEndpointSyncStatus | None = None,
     ) -> dict:
         provider_managed = provider is not None
         return {
@@ -94,18 +93,13 @@ class Endpoint(GuidMixin, TimestampMixin):
             'provider': provider,
             'provider_external_id': provider_external_id if provider_managed else None,
             'provider_sync_status': (
-                ProviderEndpointSyncStatus.MISSING
-                if provider_managed and self.deleted_at is not None
-                else ProviderEndpointSyncStatus.AVAILABLE
-                if provider_managed
-                else None
+                provider_sync_status or ProviderEndpointSyncStatus.AVAILABLE if provider_managed else None
             ),
             'provider_last_seen_at': provider_last_seen_at if provider_managed else None,
             'chain': Chain(self.chain),
             'network': Network(self.network),
             'protocol': EndpointProtocol(self.protocol),
             'enabled': self.enabled,
-            'trust_level': EndpointTrustLevel(self.trust_level),
             'auth': self._auth_dump(),
             'version': self.version,
             'created_at': self.created_at,

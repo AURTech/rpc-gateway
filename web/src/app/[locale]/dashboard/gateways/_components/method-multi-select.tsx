@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import {
   type KeyboardEvent,
+  type Ref,
   useCallback,
   useMemo,
   useRef,
@@ -53,6 +54,7 @@ export function MethodMultiSelect({
   assigned,
   onChange,
   disabled,
+  inputRef,
 }: {
   protocol: RpcMethodProtocol;
   value: string[];
@@ -60,6 +62,7 @@ export function MethodMultiSelect({
   assigned: ReadonlySet<string>;
   onChange: (next: string[]) => void;
   disabled?: boolean;
+  inputRef?: Ref<HTMLInputElement>;
 }) {
   const t = useTranslations("dashboard.gateways");
   const { data, isLoading, isError } = useRpcMethodsQuery({ protocol });
@@ -149,6 +152,7 @@ export function MethodMultiSelect({
           }
         </ComboboxValue>
         <ComboboxChipsInput
+          ref={inputRef}
           placeholder={t("methodRoutes.form.searchPlaceholder")}
           autoComplete="off"
           spellCheck={false}

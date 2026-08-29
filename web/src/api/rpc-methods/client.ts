@@ -6,7 +6,6 @@ export const RPC_METHOD_PROTOCOLS = ["evm", "svm", "utxo", "tron"] as const;
 export type RpcMethodProtocol = (typeof RPC_METHOD_PROTOCOLS)[number];
 
 export const RPC_METHOD_RISKS = ["read", "write", "sensitive"] as const;
-export type RpcMethodRisk = (typeof RPC_METHOD_RISKS)[number];
 
 const rpcMethodProtocolSchema = z.enum(RPC_METHOD_PROTOCOLS);
 const rpcMethodRiskSchema = z.enum(RPC_METHOD_RISKS);
@@ -40,11 +39,6 @@ const rpcMethodCatalogSchema = z.object({
 const envelope = <T extends z.ZodType>(data: T) =>
   z.object({ msg: z.string(), data });
 
-export type RpcMethodSource = z.infer<typeof rpcMethodSourceSchema>;
-export type RpcMethodItem = z.infer<typeof rpcMethodItemSchema>;
-export type RpcMethodProtocolGroup = z.infer<
-  typeof rpcMethodProtocolGroupSchema
->;
 export type RpcMethodCatalog = z.infer<typeof rpcMethodCatalogSchema>;
 
 export type ListRpcMethodsParams = {

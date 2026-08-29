@@ -20,11 +20,13 @@ function setup({
   mode,
   initial = "a",
   idBase,
+  panelIdForValue,
   disabled,
 }: {
   mode: "tab" | "segmented";
   initial?: V;
   idBase?: string;
+  panelIdForValue?: (value: V) => string;
   disabled?: boolean;
 }) {
   const onChange = vi.fn();
@@ -36,6 +38,7 @@ function setup({
       <Tabs
         mode={mode}
         idBase={idBase}
+        panelIdForValue={panelIdForValue}
         disabled={disabled}
         value={value}
         onChange={(next) => {
@@ -88,6 +91,24 @@ describe("Tabs — tab mode", () => {
     const tab = screen.getByRole("tab", { name: "Alpha" });
     expect(tab).toHaveAttribute("id", "usage-tab-a");
     expect(tab).toHaveAttribute("aria-controls", "usage-tab-panel");
+  });
+
+  it("supports a distinct panel id for each mounted tab panel", () => {
+    setup({
+      mode: "tab",
+      initial: "a",
+      idBase: "usage-tab",
+      panelIdForValue: (value) => `usage-panel-${value}`,
+    });
+
+    expect(screen.getByRole("tab", { name: "Alpha" })).toHaveAttribute(
+      "aria-controls",
+      "usage-panel-a",
+    );
+    expect(screen.getByRole("tab", { name: "Beta" })).toHaveAttribute(
+      "aria-controls",
+      "usage-panel-b",
+    );
   });
 });
 

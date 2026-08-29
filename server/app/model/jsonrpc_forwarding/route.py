@@ -22,12 +22,14 @@ class JsonRpcForwardingFailureReason(StrEnum):
 @dataclass(frozen=True, slots=True, kw_only=True)
 class JsonRpcForwardingSuccess:
     response: JsonRpcResponse | None
+    attempted_endpoint_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class JsonRpcForwardingFailure:
     code: JsonRpcForwardingFailureCode
     reason: JsonRpcForwardingFailureReason | None = field(default=None, compare=False)
+    attempted_endpoint_ids: tuple[str, ...] = field(default=(), compare=False)
 
 
 JsonRpcForwardingResult = JsonRpcForwardingSuccess | JsonRpcForwardingFailure

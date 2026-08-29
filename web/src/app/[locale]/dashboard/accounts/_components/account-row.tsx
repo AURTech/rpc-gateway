@@ -13,14 +13,16 @@ export function AccountRow({
   visibleColumns,
   selected,
   onSelect,
+  enterIndex,
 }: {
   account: AccountBase;
   visibleColumns: Set<AccountColumnKey>;
   selected: boolean;
   onSelect: (id: string) => void;
+  enterIndex?: number;
 }) {
   return (
-    <TableRow active={selected}>
+    <TableRow active={selected} enterIndex={enterIndex}>
       {visibleColumns.has("email") ? (
         <TableCell divider>
           <div className="flex min-w-0 flex-col">
@@ -42,10 +44,7 @@ export function AccountRow({
       ) : null}
       {visibleColumns.has("status") ? (
         <TableCell divider>
-          <AccountStatusPill
-            status={account.status}
-            label={account.status_label}
-          />
+          <AccountStatusPill account={account} />
         </TableCell>
       ) : null}
       {visibleColumns.has("created") ? (

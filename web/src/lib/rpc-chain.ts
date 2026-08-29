@@ -44,7 +44,13 @@ type ChainSpec = {
   short: string;
   /** URL slug used by the public JSON-RPC entry point. */
   slug: string;
+  /** Chain color as a reference to its `--chain-*` token in globals.css.
+   *  A `var()` ref rather than a literal so the token file stays the single
+   *  source of truth; anything needing a tint composes with `color-mix()`. */
   accent: string;
+  /** Lighter variant used when a series or badge stands for a testnet, so a
+   *  chain's mainnet and testnet stay distinguishable at the same hue. */
+  accentTestnet: string;
   networks: Partial<Record<RpcNetwork, NetworkSpec>>;
 };
 
@@ -53,7 +59,8 @@ export const RPC_CHAIN_REGISTRY: Record<RpcChain, ChainSpec> = {
     label: "Ethereum",
     short: "ETH",
     slug: "eth",
-    accent: "#627EEA",
+    accent: "var(--chain-ethereum)",
+    accentTestnet: "var(--chain-ethereum-testnet)",
     networks: {
       mainnet: { label: "Mainnet", chainId: 1 },
       sepolia: { label: "Sepolia", chainId: 11155111 },
@@ -63,7 +70,8 @@ export const RPC_CHAIN_REGISTRY: Record<RpcChain, ChainSpec> = {
     label: "Polygon",
     short: "POL",
     slug: "pol",
-    accent: "#8247E5",
+    accent: "var(--chain-polygon)",
+    accentTestnet: "var(--chain-polygon-testnet)",
     networks: {
       mainnet: { label: "Mainnet", chainId: 137 },
       amoy: { label: "Amoy", chainId: 80002 },
@@ -73,7 +81,8 @@ export const RPC_CHAIN_REGISTRY: Record<RpcChain, ChainSpec> = {
     label: "BNB Smart Chain",
     short: "BNB",
     slug: "bnb",
-    accent: "#F0B90B",
+    accent: "var(--chain-bsc)",
+    accentTestnet: "var(--chain-bsc-testnet)",
     networks: {
       mainnet: { label: "Mainnet", chainId: 56 },
       testnet: { label: "Testnet", chainId: 97 },
@@ -83,7 +92,8 @@ export const RPC_CHAIN_REGISTRY: Record<RpcChain, ChainSpec> = {
     label: "Arbitrum",
     short: "ARB",
     slug: "arb",
-    accent: "#28A0F0",
+    accent: "var(--chain-arbitrum)",
+    accentTestnet: "var(--chain-arbitrum-testnet)",
     networks: {
       mainnet: { label: "Mainnet", chainId: 42161 },
       sepolia: { label: "Sepolia", chainId: 421614 },
@@ -93,7 +103,8 @@ export const RPC_CHAIN_REGISTRY: Record<RpcChain, ChainSpec> = {
     label: "Optimism",
     short: "OP",
     slug: "op",
-    accent: "#FF0420",
+    accent: "var(--chain-optimism)",
+    accentTestnet: "var(--chain-optimism-testnet)",
     networks: {
       mainnet: { label: "Mainnet", chainId: 10 },
       sepolia: { label: "Sepolia", chainId: 11155420 },
@@ -103,7 +114,8 @@ export const RPC_CHAIN_REGISTRY: Record<RpcChain, ChainSpec> = {
     label: "Base",
     short: "BASE",
     slug: "base",
-    accent: "#0052FF",
+    accent: "var(--chain-base)",
+    accentTestnet: "var(--chain-base-testnet)",
     networks: {
       mainnet: { label: "Mainnet", chainId: 8453 },
       sepolia: { label: "Sepolia", chainId: 84532 },
@@ -113,7 +125,8 @@ export const RPC_CHAIN_REGISTRY: Record<RpcChain, ChainSpec> = {
     label: "Solana",
     short: "SOL",
     slug: "sol",
-    accent: "#14F195",
+    accent: "var(--chain-solana)",
+    accentTestnet: "var(--chain-solana-testnet)",
     networks: {
       // The wire identifier stays `mainnet-beta` — it is the API enum value and
       // the gateway URL segment — but the console always shows it as "Mainnet".
@@ -125,7 +138,8 @@ export const RPC_CHAIN_REGISTRY: Record<RpcChain, ChainSpec> = {
     label: "Bitcoin",
     short: "BTC",
     slug: "btc",
-    accent: "#F7931A",
+    accent: "var(--chain-bitcoin)",
+    accentTestnet: "var(--chain-bitcoin-testnet)",
     networks: {
       mainnet: { label: "Mainnet", chainId: null },
       testnet: { label: "Testnet", chainId: null },
@@ -135,7 +149,8 @@ export const RPC_CHAIN_REGISTRY: Record<RpcChain, ChainSpec> = {
     label: "Litecoin",
     short: "LTC",
     slug: "ltc",
-    accent: "#345D9D",
+    accent: "var(--chain-litecoin)",
+    accentTestnet: "var(--chain-litecoin-testnet)",
     networks: {
       mainnet: { label: "Mainnet", chainId: null },
       testnet: { label: "Testnet", chainId: null },
@@ -145,7 +160,8 @@ export const RPC_CHAIN_REGISTRY: Record<RpcChain, ChainSpec> = {
     label: "TRON",
     short: "TRX",
     slug: "tron",
-    accent: "#EF0027",
+    accent: "var(--chain-tron)",
+    accentTestnet: "var(--chain-tron-testnet)",
     networks: {
       mainnet: { label: "Mainnet", chainId: 728126428 },
       nile: { label: "Nile", chainId: 3448148188 },
@@ -182,8 +198,20 @@ export function chainLabel(chain: RpcChain): string {
   return RPC_CHAIN_REGISTRY[chain].label;
 }
 
-export function chainAccent(chain: RpcChain): string {
-  return RPC_CHAIN_REGISTRY[chain].accent;
+/**
+ * The chain's color, as a `var(--chain-*)` reference.
+ *
+ * Pass `network` wherever the color stands for a single (chain, network) pair
+ * — a by-network chart plots a chain's mainnet and testnet as two separate
+ * series, and without the lighter testnet variant they would draw in exactly
+ * the same color. Omit it in chain-only contexts — same convention as
+ * `ChainIcon`.
+ */
+export function chainAccent(chain: RpcChain, network?: RpcNetwork): string {
+  const spec = RPC_CHAIN_REGISTRY[chain];
+  return network !== undefined && isTestnetNetwork(network)
+    ? spec.accentTestnet
+    : spec.accent;
 }
 
 export function networksFor(chain: RpcChain): RpcNetwork[] {

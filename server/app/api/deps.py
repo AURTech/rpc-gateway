@@ -12,11 +12,11 @@ from app.services.auth.csrf import validate_csrf_request
 from app.services.auth.scope import validate_pat_scopes
 from app.services.auth.session import OAUTH_STATE_COOKIE_NAME, SESSION_COOKIE_NAME
 from app.services.auth.token import PersonalAccessTokenManager
-from app.services.endpoint import EndpointHealthCheckManager, EndpointManager
+from app.services.endpoint import EndpointHealthManager, EndpointManager
 from app.services.http_api_rate_limit import HttpApiRateLimitPolicyManager
 from app.services.jsonrpc_rate_limit.policy import JsonRpcRateLimitPolicyManager
 from app.services.provider import ProviderManager
-from app.services.public import PublicHttpApiManager, PublicJsonRpcManager
+from app.services.public import PublicJsonRpcManager
 
 session_cookie = APIKeyCookie(name=SESSION_COOKIE_NAME, scheme_name='SessionCookie', auto_error=False)
 pat_bearer = HTTPBearer(scheme_name='PersonalAccessToken', bearerFormat='PAT', auto_error=False)
@@ -33,8 +33,8 @@ def get_provider_manager(request: Request) -> ProviderManager:
     return request.app.state.provider_manager
 
 
-def get_health_check_manager(request: Request) -> EndpointHealthCheckManager:
-    return request.app.state.endpoint_health_check_manager
+def get_endpoint_health_manager(request: Request) -> EndpointHealthManager:
+    return request.app.state.endpoint_health_manager
 
 
 def get_endpoint_manager(request: Request) -> EndpointManager:
@@ -43,10 +43,6 @@ def get_endpoint_manager(request: Request) -> EndpointManager:
 
 def get_public_jsonrpc_manager(request: Request) -> PublicJsonRpcManager:
     return request.app.state.public_jsonrpc_manager
-
-
-def get_http_api_manager(request: Request) -> PublicHttpApiManager:
-    return request.app.state.public_http_api_manager
 
 
 def get_jsonrpc_rate_manager(request: Request) -> JsonRpcRateLimitPolicyManager:
@@ -59,10 +55,9 @@ def get_http_rate_manager(request: Request) -> HttpApiRateLimitPolicyManager:
 
 AuthManagerDep = Annotated[AuthManager, Depends(get_auth_manager)]
 ProviderManagerDep = Annotated[ProviderManager, Depends(get_provider_manager)]
-EndpointHealthCheckManagerDep = Annotated[EndpointHealthCheckManager, Depends(get_health_check_manager)]
+EndpointHealthManagerDep = Annotated[EndpointHealthManager, Depends(get_endpoint_health_manager)]
 EndpointManagerDep = Annotated[EndpointManager, Depends(get_endpoint_manager)]
 PublicJsonRpcManagerDep = Annotated[PublicJsonRpcManager, Depends(get_public_jsonrpc_manager)]
-PublicHttpApiManagerDep = Annotated[PublicHttpApiManager, Depends(get_http_api_manager)]
 JsonRpcRateLimitPolicyManagerDep = Annotated[JsonRpcRateLimitPolicyManager, Depends(get_jsonrpc_rate_manager)]
 HttpApiRateLimitPolicyManagerDep = Annotated[HttpApiRateLimitPolicyManager, Depends(get_http_rate_manager)]
 
@@ -126,5 +121,4 @@ AuthIdentityDep = Annotated[AuthIdentity, Depends(get_auth_identity)]
 SessionIdentityDep = Annotated[AuthIdentity, Depends(get_session_identity)]
 AdminIdentityDep = Annotated[AuthIdentity, Depends(get_admin_identity)]
 AccountIdentityDep = Annotated[AuthIdentity, Depends(get_account_identity)]
-UserIdentityDep = AccountIdentityDep
 LogoutCsrfDep = Annotated[None, Depends(validate_logout_csrf)]

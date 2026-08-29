@@ -11,6 +11,7 @@ import type {
   RpcGatewayTransport,
 } from "@/api/gateways/client";
 import { ConfirmDialog } from "@/components/patterns/confirm-dialog";
+import { MotionList } from "@/components/patterns/motion-list";
 import { Button } from "@/components/ui/button";
 import { ChainGroup } from "@/components/ui/chain-group";
 import { ChainIcon } from "@/components/ui/chain-icon";
@@ -42,8 +43,9 @@ type GatewayPathKeyState = ReturnType<typeof useGatewayPathKey>;
 // always covers the full set.
 const APP_GATEWAYS_SIZE = 50;
 
-// Canonical order for the per-chain protocol selector.
-type DisplayTransport = RpcGatewayTransport;
+// Canonical order for the per-chain protocol selector. gRPC is omitted on
+// purpose: rows only surface copy-and-go HTTP endpoints.
+type DisplayTransport = Exclude<RpcGatewayTransport, "grpc">;
 
 const DISPLAY_TRANSPORT_ORDER: readonly DisplayTransport[] = [
   "jsonrpc",
@@ -71,9 +73,9 @@ const GATEWAY_LIST_RETURN_STATE_PREFIX = "gateway-list-return:";
 /**
  * App detail body: the app's gateways grouped by chain as an Alchemy-style
  * "networks" view. Each gateway is a (chain, network) pair; rows surface the
- * HTTPS URL, a created timestamp, an enabled badge, and an inline Enable/Disable
- * toggle. The toolbar (search / status / sort) drives the backend list query;
- * grouping by chain is the only client-side step.
+ * selected endpoint and current status. The toolbar (search / status / sort)
+ * drives the backend list query; grouping by chain is the only client-side
+ * step.
  */
 export function AppNetworksPanel({
   appId,
@@ -456,7 +458,8 @@ function ChainCard({
   const tn = useTranslations("dashboard.apps.detail.networks");
 
   // Protocols this chain group actually exposes, in a canonical display order.
-  // The endpoint-column picker only appears when a group offers more than one.
+  // gRPC is intentionally excluded — it isn't a copy-and-go HTTP endpoint. The
+  // endpoint-column picker only appears when a group offers more than one.
   const transportOptions = useMemo(() => {
     const seen = new Set<RpcGatewayTransport>();
     for (const gw of gateways)
@@ -495,7 +498,7 @@ function ChainCard({
         <span className="hidden md:col-span-2 md:block">
           {tn("col.network")}
         </span>
-        <div className="md:col-span-6">
+        <div className="md:col-span-8">
           {transportOptions.length > 1 ? (
             <HeaderFilter
               label={transportLabels.jsonrpc}
@@ -509,16 +512,15 @@ function ChainCard({
             transportLabels[transport]
           )}
         </div>
-        <span className="hidden md:col-span-2 md:block">
-          {tn("col.created")}
-        </span>
         <span className="hidden md:col-span-1 md:block">
           {tn("col.status")}
         </span>
         <span className="hidden md:col-span-1 md:block" />
       </div>
 
-      <ul className="flex flex-col divide-y divide-ink-wash">
+      {/* `as="ul"` keeps the list semantic: a div between <ul> and <li> would
+          be invalid HTML and would break the divide-y hairlines. */}
+      <MotionList as="ul" className="flex flex-col divide-y divide-ink-wash">
         {gateways.map((gw) => (
           <GatewayNetworkRow
             key={gw.id}
@@ -531,7 +533,7 @@ function ChainCard({
             pathKeyCopyDisabled={pathKeyCopyDisabled}
           />
         ))}
-      </ul>
+      </MotionList>
     </section>
   );
 }

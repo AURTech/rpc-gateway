@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
 import type { RpcAppListItem } from "@/api/apps/client";
+import { MotionList, MotionListItem } from "@/components/patterns/motion-list";
 import { Button } from "@/components/ui/button";
 import { ChainGroup } from "@/components/ui/chain-group";
 import { Input } from "@/components/ui/input";
@@ -206,9 +207,15 @@ export function AppsContent() {
           </div>
         ) : null}
 
-        {!query.isLoading && !query.isError
-          ? items.map((app) => <AppListRow key={app.id} app={app} />)
-          : null}
+        {!query.isLoading && !query.isError ? (
+          <MotionList>
+            {items.map((app) => (
+              <MotionListItem key={app.id}>
+                <AppListRow app={app} />
+              </MotionListItem>
+            ))}
+          </MotionList>
+        ) : null}
 
         {/* Scroll-loading: a skeleton while the next page is in flight, plus a
          * sentinel the observer watches once the first page is on screen. */}

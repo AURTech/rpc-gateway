@@ -1,15 +1,18 @@
 from datetime import datetime
-from typing import Any, Self
+from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, computed_field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
 
 from app.model.blockchain import Chain, Network, validate_chain_network
-from app.model.endpoint import EndpointItem
+from app.model.endpoint import EndpointItem, EndpointProtocol
 from app.model.provider.capability import provider_networks
 from app.model.provider_state import (
     ProviderEndpointAction,
+    ProviderEndpointDiscoveryStatus,
     ProviderEndpointSyncStatus,
+    ProviderSyncRunState,
     ProviderSyncStatus,
+    ProviderSyncTrigger,
     ProviderVendor,
 )
 
@@ -39,9 +42,7 @@ class ProviderCredentialPublic(BaseModel):
     has_secret: bool
 
 
-class ProviderCredentialDetail(ProviderCredentialPublic):
-    # RPC dashboards commonly expose credentials to authenticated owners as operational configuration.
-    # They remain sensitive: never persist plaintext, log values, or use shared/persistent caches.
+class ProviderCredentialDetail(BaseModel):
     secret: str = Field(min_length=1, max_length=4096)
 
 
@@ -104,24 +105,21 @@ class CreateProviderParams(BaseModel):
     sync_enabled: bool = False
     credential: ProviderCredentialParams
     settings: ProviderSettingsParams = Field(default_factory=ProviderSettingsParams)
-    only_networks: list[ProviderNetworkPair] = Field(default_factory=list, max_length=50)
-    ignore_networks: list[ProviderNetworkPair] = Field(default_factory=list, max_length=50)
+    networks: list[ProviderNetworkPair] | None = Field(default=None, min_length=1, max_length=50)
 
     @field_validator('name')
     @classmethod
     def normalize_name(cls, value: str) -> str:
         return normalize_provider_name(value)
 
-    @field_validator('only_networks', 'ignore_networks')
+    @field_validator('networks')
     @classmethod
-    def normalize_networks(cls, value: list[ProviderNetworkPair]) -> list[ProviderNetworkPair]:
-        return _unique_networks(value)
+    def normalize_networks(cls, value: list[ProviderNetworkPair] | None) -> list[ProviderNetworkPair] | None:
+        return _unique_networks(value) if value is not None else None
 
     @model_validator(mode='after')
     def validate_network_filters(self) -> Self:
-        if self.only_networks and self.ignore_networks:
-            raise ValueError('Provider only_networks and ignore_networks cannot both be set.')
-        validate_provider_networks(self.vendor, [*self.only_networks, *self.ignore_networks])
+        validate_provider_networks(self.vendor, self.networks or [])
         return self
 
 
@@ -134,15 +132,14 @@ class UpdateProviderParams(BaseModel):
     sync_enabled: bool | None = None
     credential: ProviderCredentialParams | None = None
     settings: ProviderSettingsParams | None = None
-    only_networks: list[ProviderNetworkPair] | None = Field(default=None, max_length=50)
-    ignore_networks: list[ProviderNetworkPair] | None = Field(default=None, max_length=50)
+    networks: list[ProviderNetworkPair] | None = Field(default=None, min_length=1, max_length=50)
 
     @field_validator('name')
     @classmethod
     def normalize_name(cls, value: str | None) -> str | None:
         return normalize_provider_name(value) if value is not None else None
 
-    @field_validator('only_networks', 'ignore_networks')
+    @field_validator('networks')
     @classmethod
     def normalize_networks(cls, value: list[ProviderNetworkPair] | None) -> list[ProviderNetworkPair] | None:
         return _unique_networks(value) if value is not None else None
@@ -152,25 +149,33 @@ class UpdateProviderParams(BaseModel):
         if self.model_fields_set == {'expected_version'}:
             raise ValueError('At least one provider field must be updated.')
         update_values = self.model_dump(include=self.model_fields_set)
-        if any(value is None for name, value in update_values.items() if name != 'expected_version'):
+        if any(value is None for name, value in update_values.items() if name not in {'expected_version', 'networks'}):
             raise ValueError('Provider update fields cannot be null.')
-        only = self.only_networks
-        ignored = self.ignore_networks
-        if only and ignored:
-            raise ValueError('Provider only_networks and ignore_networks cannot both be set.')
         return self
 
 
 class ProviderListParams(BaseModel):
+    q: str | None = Field(default=None, min_length=1, max_length=320)
     vendor: list[ProviderVendor] | None = Field(default=None, max_length=20)
     enabled: bool | None = None
     sync_enabled: bool | None = None
+    last_sync_status: ProviderSyncStatus | None = None
     page: int = Field(default=1, ge=1)
     size: int = Field(default=20, ge=1, le=100)
 
 
 class ProviderEndpointListParams(BaseModel):
-    sync_status: ProviderEndpointSyncStatus | None = None
+    discovery_status: ProviderEndpointDiscoveryStatus | None = None
+    q: str | None = Field(default=None, min_length=1, max_length=320)
+    chain: Chain | None = None
+    network: Network | None = None
+    protocol: EndpointProtocol | None = None
+    retained_by_routes: bool | None = None
+    page: int = Field(default=1, ge=1)
+    size: int = Field(default=20, ge=1, le=100)
+
+
+class ProviderSyncRunListParams(BaseModel):
     page: int = Field(default=1, ge=1)
     size: int = Field(default=20, ge=1, le=100)
 
@@ -183,41 +188,41 @@ class ProviderItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    account_id: str
     name: str
     vendor: ProviderVendor
     enabled: bool
     sync_enabled: bool
     credential: ProviderCredentialPublic
-    settings: dict[str, Any]
-    only_networks: list[ProviderNetworkPair]
-    ignore_networks: list[ProviderNetworkPair]
+    networks: list[ProviderNetworkPair] | None
     last_sync_at: datetime | None
     last_sync_status: ProviderSyncStatus
-    last_sync_error: str | None
-    last_sync_created: int
-    last_sync_updated: int
-    last_sync_restored: int
-    last_sync_archived: int
-    last_sync_skipped: int
     version: int
-    created_at: datetime
-    modified_at: datetime
-
-    @computed_field
-    @property
-    def vendor_label(self) -> str:
-        return self.vendor.label
+    endpoint_counts: 'ProviderEndpointCounts' = Field(default_factory=lambda: ProviderEndpointCounts())
+    connected_app_count: int = Field(default=0, ge=0)
+    syncing: bool = False
 
 
-class ProviderDetail(ProviderItem):
-    credential: ProviderCredentialDetail
+class ProviderEndpointCounts(BaseModel):
+    present: int = Field(default=0, ge=0)
+    missing: int = Field(default=0, ge=0)
 
 
-def redact_provider_detail(value: ProviderDetail) -> ProviderItem:
-    fields = value.model_dump(exclude={'credential'})
-    credential = ProviderCredentialPublic(has_secret=value.credential.has_secret)
-    return ProviderItem(**fields, credential=credential)
+class ProviderSyncRunItem(BaseModel):
+    id: str
+    trigger: ProviderSyncTrigger
+    state: ProviderSyncRunState
+    queued_at: datetime
+    started_at: datetime | None
+    endpoint_changes: int = Field(default=0, ge=0)
+    error: str | None = None
+
+
+class ProviderSyncRunList(BaseModel):
+    page: int
+    size: int
+    total: int
+    max_page: int
+    items: list[ProviderSyncRunItem]
 
 
 class ProviderList(BaseModel):
@@ -254,9 +259,22 @@ class ProviderSyncResult(BaseModel):
 class ProviderEndpointItem(BaseModel):
     endpoint: EndpointItem
     sync_status: ProviderEndpointSyncStatus
+    discovery_status: ProviderEndpointDiscoveryStatus
+    registry_state: str
+    retained_by_routes: bool
     external_id: str
     last_seen_at: datetime | None
+    missing_since: datetime | None
     archived_at: datetime | None
+
+
+class ProviderDeleteImpact(BaseModel):
+    connected_apps: int = Field(ge=0)
+    automatic_route_targets: int = Field(ge=0)
+    managed_endpoints: int = Field(ge=0)
+    would_detach: int = Field(ge=0)
+    would_archive: int = Field(ge=0)
+    would_retain: int = Field(ge=0)
 
 
 class ProviderEndpointList(BaseModel):
@@ -274,3 +292,6 @@ class ProviderDeleteResult(BaseModel):
     archived_endpoints: int = Field(ge=0)
     retained_endpoints: int = Field(ge=0)
     detached_endpoints: int = Field(ge=0)
+
+
+ProviderItem.model_rebuild()

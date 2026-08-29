@@ -1,11 +1,13 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
 import { type ReactNode, useEffect, useState } from "react";
+import { useMotionPreset } from "@/hooks/use-motion-preset";
 import { cn } from "@/lib/utils";
 import { useDrawerPresenceStore } from "@/stores/drawer-presence-store";
 import { MobileSidebar } from "./mobile-sidebar";
 import type { NavItemDef } from "./nav-item";
+import { PageTransition } from "./page-transition";
 import { Sidebar } from "./sidebar";
 import { useSidebarPinned } from "./use-sidebar-pinned";
 
@@ -41,7 +43,7 @@ export function AppShell({
   // the visible viewport center — expressed in the element's own coordinate
   // space (top edge = page top) — so a scrolled-down page doesn't jump.
   const backgroundScaled = useDrawerPresenceStore((s) => s.openCount > 0);
-  const prefersReduced = useReducedMotion();
+  const motionPreset = useMotionPreset();
   const [scaleOrigin, setScaleOrigin] = useState<string | undefined>();
   useEffect(() => {
     if (!backgroundScaled) return;
@@ -61,11 +63,11 @@ export function AppShell({
         scale: backgroundScaled ? 0.95 : 1,
         borderRadius: backgroundScaled ? 24 : 0,
       }}
-      transition={
-        prefersReduced
-          ? { duration: 0 }
-          : { type: "spring", stiffness: 380, damping: 32 }
-      }
+      transition={motionPreset.transition({
+        type: "spring",
+        stiffness: 380,
+        damping: 32,
+      })}
     >
       <Sidebar
         navItems={navItems}
@@ -110,8 +112,10 @@ export function AppShell({
           pinned ? "md:pl-64" : "md:pl-0",
         )}
       >
+        {/* Inside the padded wrapper, so the page content travels on arrival
+            but the gutter stays put. */}
         <div className="mx-auto max-w-7xl px-4 pb-8 pt-20 sm:px-8 sm:pt-8">
-          {children}
+          <PageTransition>{children}</PageTransition>
         </div>
       </main>
     </motion.div>

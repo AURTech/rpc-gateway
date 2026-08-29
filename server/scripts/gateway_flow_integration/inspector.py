@@ -9,12 +9,13 @@ from app.model.blockchain import Chain, Network
 from app.model.runtime_state.circuit import CircuitSnapshot
 from app.model.runtime_state.endpoint.health import EndpointHealth
 from app.model.runtime_state.tip import Finality, TipUnit
+from app.model.transport import Transport
 from app.services.runtime_state.chain.tip import ChainTipManager, ChainTipStore
 from app.services.runtime_state.circuit import CircuitManager
 from app.services.runtime_state.endpoint.health import HealthManager
 from app.services.runtime_state.endpoint.tip import TipManager
 from app.services.runtime_state.endpoint.tip.store import TipStore
-from app.services.system_jsonrpc_cache.codec import PayloadCodec
+from app.services.system_cache.codec import PayloadCodec
 from redis.asyncio import Redis
 
 
@@ -48,6 +49,19 @@ class RedisTtlAuditSpec:
     expected_result: object
 
 
+def _redis_ttl_key(spec: RedisTtlAuditSpec) -> str:
+    return redis_keys.build_key(
+        'system_cache',
+        'v1',
+        'redis_ttl',
+        Transport.JSONRPC.value,
+        spec.chain.value,
+        spec.network.value,
+        spec.method,
+        spec.expected_cache_key,
+    )
+
+
 class RuntimeInspector:
     def __init__(self, redis_url: str, postgres_url: str) -> None:
         self._redis = Redis.from_url(redis_url, decode_responses=True, retry_on_timeout=False)
@@ -58,7 +72,7 @@ class RuntimeInspector:
         await self._redis.aclose()
 
     async def clear_redis_ttl(self) -> int:
-        pattern = redis_keys.build_pattern('system_jsonrpc_cache', 'v1', 'redis_ttl', '*')
+        pattern = redis_keys.build_pattern('system_cache', 'v1', 'redis_ttl', '*')
         keys = [str(key) async for key in self._redis.scan_iter(match=pattern, count=256)]
         return int(await self._redis.unlink(*keys)) if keys else 0
 
@@ -66,7 +80,7 @@ class RuntimeInspector:
         patterns = {
             'endpoint_tip': redis_keys.build_pattern('runtime_state', 'v2', 'tip', '*'),
             'chain_tip': redis_keys.build_pattern('runtime_state', 'v2', 'chain', 'tip', '*'),
-            'system_cache': redis_keys.build_pattern('system_jsonrpc_cache', 'v1', '*'),
+            'system_cache': redis_keys.build_pattern('system_cache', 'v1', '*'),
         }
         counts: dict[str, int] = {}
         found: dict[str, list[str]] = {}
@@ -78,7 +92,7 @@ class RuntimeInspector:
                 found[name] = keys
         connection = await asyncpg.connect(self._postgres_url)
         try:
-            retained_rows = int(await connection.fetchval('SELECT COUNT(*) FROM system_jsonrpc_cache_payload'))
+            retained_rows = int(await connection.fetchval('SELECT COUNT(*) FROM system_cache_payload'))
         finally:
             await connection.close()
         counts['system_cache_postgres_retention'] = retained_rows
@@ -156,7 +170,7 @@ class RuntimeInspector:
         return await self.audit_cache_flight_count(0)
 
     async def audit_cache_flight_count(self, expected: int) -> int:
-        pattern = redis_keys.build_pattern('system_jsonrpc_cache', 'v1', 'flight', '*')
+        pattern = redis_keys.build_pattern('system_cache', 'v1', 'flight', '*')
         keys = [str(key) async for key in self._redis.scan_iter(match=pattern, count=256)]
         if len(keys) != expected:
             raise RuntimeError(f'Expected {expected} System Cache flight keys, found {len(keys)}: {keys!r}.')
@@ -168,9 +182,10 @@ class RuntimeInspector:
             count = await connection.fetchval(
                 """
                 SELECT COUNT(*)
-                FROM system_jsonrpc_cache_payload
-                WHERE chain = $1 AND network = $2 AND method = $3 AND cache_key = $4
+                FROM system_cache_payload
+                WHERE transport = $1 AND chain = $2 AND network = $3 AND operation = $4 AND cache_key = $5
                 """,
+                Transport.JSONRPC.value,
                 spec.chain.value,
                 spec.network.value,
                 spec.method,
@@ -307,20 +322,9 @@ class RuntimeInspector:
         expected_postgres_retention: list[PostgresRetentionAuditSpec],
         expected_redis_ttl: list[RedisTtlAuditSpec],
     ) -> dict[str, object]:
-        redis_ttl_pattern = redis_keys.build_pattern('system_jsonrpc_cache', 'v1', 'redis_ttl', '*')
+        redis_ttl_pattern = redis_keys.build_pattern('system_cache', 'v1', 'redis_ttl', '*')
         redis_ttl_keys = [str(key) async for key in self._redis.scan_iter(match=redis_ttl_pattern, count=256)]
-        expected_redis_ttl_keys = {
-            redis_keys.build_key(
-                'system_jsonrpc_cache',
-                'v1',
-                'redis_ttl',
-                spec.chain.value,
-                spec.network.value,
-                spec.method,
-                spec.expected_cache_key,
-            ): spec
-            for spec in expected_redis_ttl
-        }
+        expected_redis_ttl_keys = {_redis_ttl_key(spec): spec for spec in expected_redis_ttl}
         if set(redis_ttl_keys) != set(expected_redis_ttl_keys):
             raise RuntimeError(
                 f'System Cache Redis TTL keys mismatch: expected {sorted(expected_redis_ttl_keys)!r}, '
@@ -343,7 +347,7 @@ class RuntimeInspector:
                 raise RuntimeError(f'System Cache Redis TTL payload mismatch for {key}.')
         if any(fence <= 0 for fence in redis_ttl_fences):
             raise RuntimeError('System Cache Redis TTL publisher fences must be positive.')
-        flight_pattern = redis_keys.build_pattern('system_jsonrpc_cache', 'v1', 'flight', '*')
+        flight_pattern = redis_keys.build_pattern('system_cache', 'v1', 'flight', '*')
         flight_keys = [str(key) async for key in self._redis.scan_iter(match=flight_pattern, count=256)]
         if flight_keys:
             raise RuntimeError(f'System Cache left {len(flight_keys)} flight keys behind.')
@@ -352,8 +356,9 @@ class RuntimeInspector:
         try:
             rows = await connection.fetch(
                 """
-                SELECT chain, network, method, cache_key, sequence, payload, payload_size, stored_size, publisher_fence
-                FROM system_jsonrpc_cache_payload
+                SELECT transport, chain, network, operation, cache_key, sequence, payload, payload_size, stored_size,
+                       publisher_fence
+                FROM system_cache_payload
                 """
             )
         finally:
@@ -367,9 +372,10 @@ class RuntimeInspector:
             matching = [
                 row
                 for row in rows
-                if str(row['chain']) == spec.chain.value
+                if str(row['transport']) == Transport.JSONRPC.value
+                and str(row['chain']) == spec.chain.value
                 and str(row['network']) == spec.network.value
-                and str(row['method']) == spec.method
+                and str(row['operation']) == spec.method
                 and str(row['cache_key']) == spec.expected_cache_key
             ]
             if len(matching) != 1:

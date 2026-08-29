@@ -18,6 +18,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { TableHead, type TableHeadProps } from "@/components/ui/table";
 import { useControllableState } from "@/hooks/use-controllable-state";
 import { cn } from "@/lib/utils";
 
@@ -315,6 +316,37 @@ function ColumnsToggle<T extends string>({
   );
 }
 
+export type TableColumnsHeadProps<T extends string> = ColumnsToggleProps<T> &
+  Omit<TableHeadProps, "children">;
+
+/**
+ * Standard trailing table header for row actions. It keeps the visual header
+ * free of an "Actions" label and hosts the shared column-visibility control.
+ */
+function TableColumnsHead<T extends string>({
+  label,
+  columns,
+  labels,
+  value,
+  defaultValue,
+  onValueChange,
+  align = "right",
+  ...headProps
+}: TableColumnsHeadProps<T>) {
+  return (
+    <TableHead align={align} {...headProps}>
+      <ColumnsToggle
+        label={label}
+        columns={columns}
+        labels={labels}
+        value={value}
+        defaultValue={defaultValue}
+        onValueChange={onValueChange}
+      />
+    </TableHead>
+  );
+}
+
 export type SortPickerProps<T extends string> = {
   label: string;
   options: { value: T; label: string }[];
@@ -421,6 +453,7 @@ export {
   HeaderFilter,
   ToolbarFilter,
   ColumnsToggle,
+  TableColumnsHead,
   SortPicker,
   SortableHeader,
   TOOLBAR_TRIGGER_CLASS,

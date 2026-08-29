@@ -43,9 +43,9 @@ export function AccountRowActions({
   const [disableOpen, setDisableOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
 
-  // Archived accounts never appear in the list; `active`/`disabled` flip, and
-  // `unactivated` can go either way.
-  const canActivate = account.status !== "active";
+  // Archived accounts never appear in the list, so only the active/disabled
+  // pair can be flipped here.
+  const canActivate = account.status === "disabled";
   const canDisable = account.status !== "disabled";
 
   return (
@@ -86,7 +86,9 @@ export function AccountRowActions({
               onSelect={() => setDisableOpen(true)}
             >
               <Ban aria-hidden />
-              <span>{t("actions.disable")}</span>
+              <span>
+                {account.activated ? t("actions.disable") : t("actions.revoke")}
+              </span>
             </DropdownMenuItem>
           ) : null}
           <DropdownMenuItem

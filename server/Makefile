@@ -7,7 +7,7 @@ PYTEST_ARGS ?=
 .PHONY: verify fix check format format-check type openapi openapi-check
 .PHONY: test cov
 .PHONY: build
-.PHONY: migrate makemigrations deploy taskiq-stream-cleanup usage-memory-stress usage-query-benchmark runtime-state-stress system-jsonrpc-cache-stress gateway-flow-integration circuit-flow-integration
+.PHONY: migrate makemigrations deploy taskiq-stream-cleanup usage-memory-stress usage-query-benchmark runtime-state-stress system-cache-stress solana-cache-probe gateway-flow-integration circuit-flow-integration
 .PHONY: commit
 .PHONY: ci changelog
 
@@ -19,13 +19,16 @@ help:
 	@echo "  make install         Alias for init"
 	@echo "  make run             Start the app (uv run app)"
 	@echo "  make worker          Start the TaskIQ worker"
+	@echo "  make scheduler       Start the TaskIQ scheduler (one instance per deployment)"
 	@echo ""
-	@echo "  make verify          Check only: format-check, check, type"
+	@echo "  make verify          Check only: format-check, check, type, openapi-check"
 	@echo "  make fix             Auto-fix lint and format"
 	@echo "  make check           Lint (ruff check)"
 	@echo "  make format          Format (ruff format)"
 	@echo "  make format-check    Check formatting only"
 	@echo "  make type            Type check (ty, basedpyright)"
+	@echo "  make openapi         Regenerate openapi/v2.json"
+	@echo "  make openapi-check   Fail if openapi/v2.json drifted from the code"
 	@echo ""
 	@echo "  make test            Run tests (optionally TESTS=tests/path PYTEST_ARGS='-k expr')"
 	@echo "  make cov             Run tests with coverage (optionally TESTS=tests/path)"
@@ -38,7 +41,8 @@ help:
 	@echo "  make usage-memory-stress  Measure Usage Stream memory against a dedicated Redis"
 	@echo "  make usage-query-benchmark  Compare wide and narrow Usage queries in a test PostgreSQL database"
 	@echo "  make runtime-state-stress  Stress Runtime State against a dedicated Redis DB (ARGS='...')"
-	@echo "  make system-jsonrpc-cache-stress  Stress System JSON-RPC Cache core and isolated Redis/PostgreSQL paths"
+	@echo "  make system-cache-stress  Stress System Cache core and isolated Redis/PostgreSQL paths"
+	@echo "  make solana-cache-probe  Verify Solana cache hits with two identical scanners"
 	@echo "  make gateway-flow-integration  Run the isolated real-environment Gateway flow"
 	@echo "  make circuit-flow-integration  Run the real Gateway flow including adaptive Circuit qualification"
 	@echo ""
@@ -123,8 +127,11 @@ usage-query-benchmark:
 runtime-state-stress:
 	uv run python -m scripts.runtime_state_stress $(ARGS)
 
-system-jsonrpc-cache-stress:
-	uv run python -m scripts.system_jsonrpc_cache_stress $(ARGS)
+system-cache-stress:
+	uv run python -m scripts.system_cache_stress $(ARGS)
+
+solana-cache-probe:
+	uv run python -m scripts.solana_cache_probe $(ARGS)
 
 gateway-flow-integration:
 	uv run python -m scripts.gateway_flow_integration.orchestrator $(ARGS)

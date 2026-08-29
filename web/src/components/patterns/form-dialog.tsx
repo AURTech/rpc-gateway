@@ -2,6 +2,7 @@
 
 import type { FormEvent, ReactNode } from "react";
 
+import { SwapLabel } from "@/components/patterns/swap-label";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -102,7 +103,9 @@ export function FormDialog({
               variant={submitVariant}
               disabled={!canSubmit || submitting}
             >
-              {submitting ? (submittingLabel ?? submitLabel) : submitLabel}
+              <SwapLabel swapKey={submitting ? "submitting" : "idle"}>
+                {submitting ? (submittingLabel ?? submitLabel) : submitLabel}
+              </SwapLabel>
             </Button>
           </DialogFooter>
         </form>

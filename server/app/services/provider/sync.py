@@ -8,6 +8,7 @@ from tortoise.backends.base.client import BaseDBAsyncClient
 from app.clients.provider import (
     DiscoveredEndpoint,
     ProviderDiscoveryConfig,
+    ProviderDiscoveryError,
     ProviderDiscoveryFailure,
     build_provider_adapter,
 )
@@ -23,6 +24,7 @@ from app.model.endpoint import (
     EndpointHeaderAuthCreateParams,
     EndpointNoAuthCreateParams,
     EndpointPathAuthCreateParams,
+    EndpointProtocol,
     EndpointQueryAuthCreateParams,
     ManagedEndpointChange,
     ManagedEndpointParams,
@@ -32,6 +34,7 @@ from app.model.endpoint import (
 )
 from app.model.provider import (
     ProviderEndpointAction,
+    ProviderEndpointDiscoveryStatus,
     ProviderNetworkPair,
     ProviderSettingsParams,
     ProviderSyncItem,
@@ -45,8 +48,10 @@ from app.orm.account import Account
 from app.orm.provider import Provider, ProviderEndpointBinding
 from app.services.application import AppProviderManager
 from app.services.endpoint import ManagedEndpointStore
-from app.services.provider.crypto import ProviderSecretConfigError, decrypt_provider_credential
+from app.services.provider.crypto import ProviderCredentialConfigError, decrypt_provider_credential
 from app.util import datetime as datetime_util
+
+PROVIDER_NAME_LENGTH = 24
 
 
 @dataclass(slots=True)
@@ -123,14 +128,16 @@ class ProviderSyncManager:
         try:
             credential = decrypt_provider_credential(provider.encrypted_credential)
             settings = ProviderSettingsParams.model_validate(provider.settings)
-        except (ProviderSecretConfigError, ValueError) as exc:
+        except (ProviderCredentialConfigError, ValueError) as exc:
             raise UnavailableError('Provider configuration is unavailable.') from exc
         adapter = build_provider_adapter(ProviderVendor(provider.vendor), self._transport)
-        config = ProviderDiscoveryConfig(name=provider.name, credential=credential, settings=settings)
+        config = ProviderDiscoveryConfig(credential=credential, settings=settings)
         try:
             discovery = await adapter.discover(config, lambda: self._check_account(account_id))
         except ForbiddenError:
             raise
+        except ProviderDiscoveryError as exc:
+            return await self._record_failed(provider, error=str(exc))
         except Exception:
             return await self._record_failed(provider, error='Provider discovery failed.')
 
@@ -215,7 +222,11 @@ class ProviderSyncManager:
                         await (
                             ProviderEndpointBinding.filter(endpoint_id=managed.endpoint.id)
                             .using_db(connection)
-                            .update(last_seen_at=now)
+                            .update(
+                                last_seen_at=now,
+                                discovery_status=ProviderEndpointDiscoveryStatus.PRESENT,
+                                missing_since=None,
+                            )
                         )
                         counters.skipped += 1
                         counters.items.append(
@@ -281,7 +292,7 @@ class ProviderSyncManager:
             status = ProviderSyncStatus.SUCCESS
             if counters.skipped or not discovery.complete:
                 status = ProviderSyncStatus.PARTIAL
-            await self._update_sync_state(provider, status=status, counters=counters, error=None, using_db=connection)
+            await self._update_sync_state(provider, status=status, using_db=connection)
         log.info(
             f'Provider synced | Account:{account_id} | Provider:{provider.id} | Status:{status.value} | '
             f'Created:{counters.created} | Updated:{counters.updated} | Restored:{counters.restored} | '
@@ -360,8 +371,7 @@ class ProviderSyncManager:
 
     @staticmethod
     def _filter_discovery(provider: Provider, items: list[DiscoveredEndpoint]) -> list[DiscoveredEndpoint]:
-        only = _network_filter(provider.only_networks)
-        ignored = _network_filter(provider.ignore_networks)
+        networks = _network_filter(provider.networks)
         vendor = ProviderVendor(provider.vendor)
         filtered: list[DiscoveredEndpoint] = []
         seen: set[str] = set()
@@ -369,7 +379,7 @@ class ProviderSyncManager:
             pair = (item.chain, item.network)
             transport = Transport(item.protocol.value)
             supported = transport in provider_transports(vendor, *pair)
-            if not supported or (only and pair not in only) or pair in ignored or item.external_id in seen:
+            if not supported or (networks and pair not in networks) or item.external_id in seen:
                 continue
             seen.add(item.external_id)
             filtered.append(item)
@@ -385,7 +395,7 @@ class ProviderSyncManager:
         name = await _unique_endpoint_name(
             self._endpoint_store,
             provider.account_id,
-            discovered.label,
+            _endpoint_name(provider.name, discovered),
             discovered.external_id,
             using_db=using_db,
         )
@@ -402,6 +412,8 @@ class ProviderSyncManager:
             provider_id=provider.id,
             external_id=discovered.external_id,
             last_seen_at=now,
+            discovery_status=ProviderEndpointDiscoveryStatus.PRESENT,
+            missing_since=None,
         )
         return _ManagedEndpoint(binding=binding, endpoint=endpoint)
 
@@ -414,8 +426,18 @@ class ProviderSyncManager:
         using_db: BaseDBAsyncClient,
     ) -> ProviderEndpointAction | None:
         now = datetime_util.now_utc()
-        await ProviderEndpointBinding.filter(endpoint_id=managed.endpoint.id).using_db(using_db).update(last_seen_at=now)
+        await (
+            ProviderEndpointBinding.filter(endpoint_id=managed.endpoint.id)
+            .using_db(using_db)
+            .update(
+                last_seen_at=now,
+                discovery_status=ProviderEndpointDiscoveryStatus.PRESENT,
+                missing_since=None,
+            )
+        )
         managed.binding.last_seen_at = now
+        managed.binding.discovery_status = ProviderEndpointDiscoveryStatus.PRESENT
+        managed.binding.missing_since = None
         _, change = await self._endpoint_store.reconcile(
             managed.endpoint,
             provider.id,
@@ -437,10 +459,17 @@ class ProviderSyncManager:
         using_db: BaseDBAsyncClient,
     ) -> int:
         archived = 0
+        missing_since = datetime_util.now_utc()
         for managed in managed_endpoints:
             endpoint = managed.endpoint
             external_id = managed.binding.external_id
-            if endpoint.deleted_at is not None or external_id in seen_external_ids or external_id in protected_external_ids:
+            if external_id in seen_external_ids or external_id in protected_external_ids:
+                continue
+            values: dict[str, object] = {'discovery_status': ProviderEndpointDiscoveryStatus.MISSING}
+            if managed.binding.missing_since is None:
+                values['missing_since'] = missing_since
+            await ProviderEndpointBinding.filter(endpoint_id=endpoint.id).using_db(using_db).update(**values)
+            if endpoint.deleted_at is not None:
                 continue
             try:
                 endpoint = await self._endpoint_store.archive(endpoint, provider.id, using_db=using_db)
@@ -474,21 +503,16 @@ class ProviderSyncManager:
         provider: Provider,
         *,
         status: ProviderSyncStatus,
-        counters: _SyncCounters,
-        error: str | None,
         using_db: BaseDBAsyncClient,
     ) -> None:
-        values = {
-            'last_sync_at': datetime_util.now_utc(),
-            'last_sync_status': status,
-            'last_sync_error': error,
-            'last_sync_created': counters.created,
-            'last_sync_updated': counters.updated,
-            'last_sync_restored': counters.restored,
-            'last_sync_archived': counters.archived,
-            'last_sync_skipped': counters.skipped,
-        }
-        await Provider.filter(id=provider.id).using_db(using_db).update(**values)
+        await (
+            Provider.filter(id=provider.id)
+            .using_db(using_db)
+            .update(
+                last_sync_at=datetime_util.now_utc(),
+                last_sync_status=status,
+            )
+        )
 
     async def _record_failed(self, provider: Provider, *, error: str) -> ProviderSyncResult:
         counters = _SyncCounters(skipped=1)
@@ -503,8 +527,6 @@ class ProviderSyncManager:
             await self._update_sync_state(
                 provider,
                 status=ProviderSyncStatus.FAILED,
-                counters=counters,
-                error=error,
                 using_db=connection,
             )
         log.warning(f'Provider sync failed | Account:{provider.account_id} | Provider:{provider.id}')
@@ -523,16 +545,27 @@ class ProviderSyncManager:
 async def _unique_endpoint_name(
     endpoint_store: ManagedEndpointStore,
     account_id: str,
-    label: str,
+    base_name: str,
     external_id: str,
     *,
     using_db: BaseDBAsyncClient,
 ) -> str:
-    name = label.strip().replace(':', '-').replace('/', '-')[:128] or 'provider-endpoint'
+    name = base_name.strip().replace(':', '-').replace('/', '-')[:128] or 'provider-endpoint'
     if not await endpoint_store.name_exists(account_id, name, using_db=using_db):
         return name
     suffix = sha256(external_id.encode()).hexdigest()[:8]
-    candidate = f'{name[:119]}-{suffix}'
+    candidate = f'{name[:117]} · {suffix}'
     if not await endpoint_store.name_exists(account_id, candidate, using_db=using_db):
         return candidate
-    return f'{name[:106]}-{sha256(f"{external_id}:{name}".encode()).hexdigest()[:21]}'
+    return f'{name[:104]} · {sha256(f"{external_id}:{name}".encode()).hexdigest()[:21]}'
+
+
+def _endpoint_name(provider_name: str, discovered: DiscoveredEndpoint) -> str:
+    name = provider_name.strip()
+    if len(name) > PROVIDER_NAME_LENGTH:
+        name = f'{name[: PROVIDER_NAME_LENGTH - 1].rstrip()}…'
+    network = f'{discovered.chain.value}-{discovered.network.value}'
+    parts = [name, network]
+    if discovered.protocol is EndpointProtocol.HTTP_API:
+        parts.append('HTTP API')
+    return ' · '.join(parts)

@@ -32,12 +32,7 @@ export function AccountCard({
           {account.role_label}
         </span>
       }
-      trailing={
-        <AccountStatusPill
-          status={account.status}
-          label={account.status_label}
-        />
-      }
+      trailing={<AccountStatusPill account={account} />}
       actions={
         <AccountRowActions
           account={account}

@@ -1,66 +1,48 @@
-# Component library rules
+# Component library
 
-This directory is the internal `web/` component library. Components are layered by abstraction, with dependencies
-flowing in one direction:
+Shared components are organized by abstraction level, with dependencies flowing in one direction:
 
 ```text
-layout/  ->  patterns/  ->  ui/  ->  lib/
+dashboard/ → layout/ → patterns/ → ui/ → lib/
 ```
 
-- **`ui/`** contains general token-driven primitives with no business dependencies. Adapt output from `shadcn add` to
-  these rules.
-- **`patterns/`** contains reusable compositions such as `form-dialog` and `data-table`. It may depend only on `ui/`
-  and `lib/`, never route `_components/`.
-- **`layout/`** contains generic application-shell structures such as `app-shell` and `sidebar`. Navigation, branding,
-  and user blocks enter through props rather than hard-coded routes or business data.
+| Directory | Responsibility | May depend on |
+| --- | --- | --- |
+| `ui/` | Token-driven primitives with no business semantics | `lib/` |
+| `patterns/` | Compositions shared across pages | `ui/`, `lib/` |
+| `layout/` | Application shell and navigation skeleton | `patterns/`, `ui/`, `lib/` |
+| `dashboard/` | Business components reused across dashboard pages | All layers above |
 
-Application-specific navigation, account blocks, and page components belong in `src/app/**/_components/` and enter
-these layers as data or slots. Each shared layer should be reusable in a template repository without modification.
+Single-route components belong in `src/app/**/_components/`. `ui/`, `patterns/`, and `layout/` must not depend on
+`dashboard/` or on route components. The root of the component directory keeps only full-page components that are
+shared by multiple App Router entries and do not belong to the layers above.
 
-## Component structure
+## Writing components
 
-- Use ordinary function components with `React.ComponentProps<...>` prop forwarding, including `ref`. React 19 treats
-  `ref` as a normal prop; do not use `forwardRef`.
-- Define variants with [CVA](https://cva.style) as `xxxVariants = cva(base, { variants, defaultVariants })` and export
-  both the component and its variants.
-- Add `data-slot="<name>"` to the root. Components with variants also expose `data-variant` and `data-size`.
-- Merge classes through `cn()` from `@/lib/utils`. Put caller-supplied `className` last so it can override defaults.
+- Use ordinary function components and `React.ComponentProps<...>` to forward native props; React 19 does not need
+  `forwardRef`.
+- Use kebab-case file names and named exports.
+- Set `data-slot` on the root element; components with variants also set `data-variant` and `data-size`.
+- Merge classes through `cn()`, with caller-supplied `className` passed last.
+- Use CVA for primitives with multiple variants; prefer reusing the `default`, `secondary`, `outline`, `ghost`,
+  `destructive`, and `soft` variants, and the `xs`, `sm`, `default`, `lg`, and `icon-*` sizes.
+- Primitives mainly use Radix; `combobox.tsx` uses Base UI. Check the existing primitives before adding a dependency.
 
-```tsx
-function Thing({ className, variant = "default", ...props }: ThingProps) {
-  return (
-    <div
-      data-slot="thing"
-      data-variant={variant}
-      className={cn(thingVariants({ variant }), className)}
-      {...props}
-    />
-  );
-}
-```
+## Visual constraints
 
-## Variant and size vocabulary
+- Arbitrary Tailwind values are prohibited; register new colors, sizes, radii, or shadows in `src/app/globals.css`
+  first.
+- Use the `positive`, `warning`, and `danger` tokens for states, and `--chart-N` for chart series.
+- Every background, radius, padding, and shadow must represent one semantic layer. Do not wrap a decorative surface
+  around a child of an existing surface.
+- Keep business actions close to their target, and collection actions close to the collection. Do not repeat titles,
+  descriptions, or actions between parent and child components.
+- Show a small number of important options directly; use Select, Popover, or Drawer for many or infrequent options.
+- Route-specific edit state, request logic, and copy stay in the route `_components/` and must not sink into
+  primitives.
 
-- **variant**: `default`, `secondary`, `outline`, `ghost`, and `destructive`, plus explicit business variants such as
-  `pill-primary`.
-- **size**: `xs`, `sm`, `default`, and `lg`, plus the `icon` family.
-- **semantic color**: map success, warning, and danger to `positive`, `warning`, and `danger` tokens from
-  `globals.css @theme`.
+## Delivery
 
-## Token constraints
-
-- Arbitrary Tailwind values such as `rounded-[..]`, `bg-[#..]`, and `text-[..]` are prohibited. Use named tokens from
-  `globals.css @theme`. `scripts/lint-no-arbitrary-tw.mjs` enforces this across the project during `pnpm lint`.
-- Register new color, radius, and shadow tokens in `globals.css @theme` before using their utilities.
-- Chart series colors must set `--chart-N` explicitly.
-
-## Files and exports
-
-- Put one component in each kebab-case file.
-- Use named exports, never default exports.
-- Use Radix as the only headless layer under the Shadcn/ui convention; do not add a second headless library.
-
-## Component gallery
-
-`src/app/[locale]/dev/components` is available only when `NODE_ENV !== "production"`. When adding a primitive or
-pattern, add a gallery example covering its variants, sizes, and relevant disabled, loading, and error states.
+When adding or changing a primitive, check keyboard focus, disabled, loading, error, long text, and reduced-motion
+states. The development component gallery lives in `src/app/[locale]/dev/components` and is reachable only outside
+production. See [`../../DESIGN.md`](../../DESIGN.md) for the complete visual rules.
