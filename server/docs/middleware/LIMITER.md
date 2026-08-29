@@ -1,133 +1,83 @@
 # Rate limiter
 
-`rpc-gateway-api` provides `pyrate-limiter` adapters in `app/middleware/limiter/`.
+`app/middleware/limiter/` provides generic `pyrate-limiter` adapters for **control-plane** interfaces. The public
+JSON-RPC and HTTP API data planes do not use them; see
+[The public data plane does not reuse this module](#the-public-data-plane-does-not-reuse-this-module) below.
 
 ## Components
 
-- `RateLimiter`: dependency-injected limiter backed by `pyrate_limiter.Limiter` for in-process counters.
-- `WebSocketRateLimiter`: WebSocket equivalent of `RateLimiter`.
-- `RedisRateLimiter`: dependency-injected limiter backed by `RedisBucket`; counters are stored in Valkey and shared
-  across processes.
-- `RedisWebSocketRateLimiter`: WebSocket equivalent of `RedisRateLimiter`.
-- `RateLimiterMiddleware`: global middleware that applies one limit to a complete request path.
+| Export | Form | Counter location |
+|------|------|----------|
+| `RateLimiter` / `WebSocketRateLimiter` | Dependency injection, receives a `pyrate_limiter.Limiter` directly | Current process only, not shared across workers |
+| `RedisRateLimiter` / `RedisWebSocketRateLimiter` | Dependency injection, lazily initializes a `RedisBucket` from `rates + bucket_key + redis client` | Redis, shared across processes and replicas |
+| `RateLimiterMiddleware` | Global middleware | Depends on the `Limiter` passed in |
 
-## Counter backends
+Constructor parameters, defaults, and types follow the signatures in `depends.py` and `limiter.py` and are not
+repeated here. Every form supports conditional `skip(request)` and a custom `callback`. The Redis forms depend on
+`request.app.state.redis` or `ws.app.state.redis`, which the default lifespan sets.
 
-`RateLimiter`, `WebSocketRateLimiter`, and `RateLimiterMiddleware` receive a `pyrate_limiter.Limiter` directly. Their
-counters remain in the current process, making them suitable for tests, single-process services, or quotas that do
-not need to span Uvicorn workers.
+The repository currently uses only `RedisRateLimiter`: password login and password change in
+`app/api/v2/auth/auth.py`, and the manual Endpoint health check in `app/api/v2/endpoint/endpoint.py`. The WebSocket
+variants and `RateLimiterMiddleware` are exported but have no call sites.
 
-`RedisRateLimiter` and `RedisWebSocketRateLimiter` lazily create a `Limiter` with `RedisBucket`. They store counters in
-Valkey through `request.app.state.redis` or `ws.app.state.redis`, so application lifecycle initialization must finish
-before use.
+## Default identifier and trust boundary
 
-## Dependency-injected interfaces
+The default identifier function uses `X-Real-IP`, then `request.client.host`, and finally `127.0.0.1`. The resulting
+key is `ip:path`, meaning counters are kept per source IP and path.
 
-`RateLimiter` accepts:
+This behavior requires the deployment to establish a single trusted ingress: the API may be reached only through a
+controlled reverse proxy such as Nginx or Traefik, and the proxy must overwrite caller-supplied `X-Real-IP` and
+`CF-IPCountry` values instead of forwarding or appending them. The API does not parse `X-Forwarded-For` or
+`CF-Connecting-IP` directly. Reassess the source-header trust mechanism before allowing clients or other untrusted
+services to reach the API directly without the proxy.
 
-- `limiter`: a `pyrate_limiter.Limiter`;
-- `identifier`: async identifier function, defaulting to `default_identifier`;
-- `callback`: over-limit callback, defaulting to `default_callback`;
-- `blocking`: whether to wait for a token, default `False`; and
-- `skip`: async predicate that bypasses this check when it returns `True`.
+## Over-limit response
 
-The default callback raises `RateLimitError`, which the global exception handler converts to the shared error format.
-
-`RedisRateLimiter` accepts `rates: list[Rate]`, `bucket_key`, `identifier`, `callback`, `blocking`, and `skip`. Unlike
-`RateLimiter`, it creates the underlying limiter lazily from rates, bucket key, and the Valkey-compatible client.
-
-## Default behavior
-
-The default identifier uses the proxy-sanitized `X-Real-IP`, then `request.client.host`, and finally `127.0.0.1`. The
-resulting key is `ip:path`.
-
-This requires a single trusted ingress. Nginx, Traefik, or another controlled reverse proxy must overwrite caller-
-supplied `X-Real-IP` and `CF-IPCountry` values instead of forwarding or appending them. The API does not parse
-`X-Forwarded-For` or `CF-Connecting-IP` directly. Reassess header trust before allowing untrusted clients or services
-to connect to the API without the proxy.
-
-Dependency-injected limiters and `RateLimiterMiddleware` return HTTP 429 with:
+The default callback raises `RateLimitError`, and `RateLimiterMiddleware` uses the equivalent
+`_default_middleware_callback`. Both return `429 Too Many Requests` with the shared error body:
 
 ```json
 { "success": false, "msg": "Request too fast, please try again later." }
 ```
 
-## Use in this repository
+## The public data plane does not reuse this module
 
-The generic `RedisRateLimiter` protects control-plane operations such as login and manual Endpoint Health checks.
-
-Public JSON-RPC and HTTP API do not reuse that dependency. Protocol-neutral runtime primitives live in
-`app/services/admission/`; policy and orchestration live in `app/services/jsonrpc_rate_limit/` and
-`app/services/http_api_rate_limit/`:
+Protocol-neutral runtime primitives live in `app/services/admission/`; protocol policy and orchestration live in
+`app/services/jsonrpc_rate_limit/` and `app/services/http_api_rate_limit/`:
 
 - Each `RateLimitPolicyManager` owns PostgreSQL policy, versions, audit, and periodic cross-process refresh.
-- `JsonRpcAdmissionManager` and `HttpApiAdmissionManager` define independent Inflight, Global/IP, and Account/App
-  stages.
+- `JsonRpcAdmissionManager` and `HttpApiAdmissionManager` define the Inflight, Global/IP, and Account/App stages of
+  their protocol.
 - `TokenBucketAdmissionEngine` and `InflightAdmissionLimiter` do not depend on ORM, FastAPI, Endpoint, or protocol
   forwarding.
-- Global/IP checks run atomically before authentication; Account/App checks run atomically after authentication.
-- Admission defaults to an all-or-none Lua token bucket in Valkey. When Valkey is unavailable, it uses a bounded local
-  bucket split conservatively by Worker and expected replica count.
-- Setting `PUBLIC_JSONRPC_RATE_LIMIT_BACKEND` or `PUBLIC_HTTP_API_RATE_LIMIT_BACKEND` to `local` bypasses shared Valkey
-  admission. Local state resets on restart and cannot span workers or replicas, so it is valid only for one Worker and
-  one replica.
-- Policy defaults to `shadow`. Requests submit observations without waiting to a bounded queue; queue saturation or a
-  Valkey error does not apply backpressure.
-- JSON-RPC `max_inflight_per_worker` is an independent process safety bound and always runs in `disabled`, `shadow`, or
-  `enforce`. The default is 64 concurrent requests per API process. Rejection maps to JSON-RPC `-32029` before Cache or
-  Endpoint access. HTTP API concurrency follows its policy mode.
-- JSON-RPC and HTTP API use separate namespaces, Valkey keys, queues, and fallback stores. Shadow and Enforce are also
-  isolated within each protocol. Enforce maps synchronously to JSON-RPC `-32029` or HTTP 429 with `Retry-After` and
-  starts with a fresh configured burst rather than inheriting Shadow tokens.
+- Global/IP is checked atomically before authentication; Account/App is checked atomically after authentication.
+- The admission backend defaults to an all-or-none Lua token bucket in Redis per stage. When Redis is unavailable it
+  switches to a bounded local token bucket split by Worker and expected replica count.
+- `PUBLIC_JSONRPC_RATE_LIMIT_BACKEND` and `PUBLIC_HTTP_API_RATE_LIMIT_BACKEND` may be set explicitly to `local`, fully
+  bypassing Redis admission. A local bucket exists only in the current API process, resets on restart, and cannot be
+  shared across workers or replicas, so it suits only single-worker, single-replica deployments.
+- Policy defaults to `shadow`. Requests submit observations to a bounded background queue without waiting; a full
+  queue or a Redis failure does not apply backpressure to user requests.
+- `max_inflight_per_worker` is an independent process safety bound for both JSON-RPC and HTTP API and is always
+  enforced whether policy is `disabled`, `shadow`, or `enforce`. By default each API process handles at most 64
+  concurrent requests per protocol. Requests over the limit do not reach authentication, cache, or Endpoint access and
+  map to JSON-RPC `-32029` or HTTP 429 respectively.
+- JSON-RPC and HTTP API use separate namespaces, Redis keys, queues, and fallback stores; Shadow and Enforce are also
+  isolated within each protocol. After switching to `enforce`, the decision is synchronous and the protocol layer maps
+  it to JSON-RPC `-32029` or HTTP 429 with `Retry-After`. Enforce does not inherit Shadow tokens and starts cold with
+  the configured burst.
 
-Administrators manage dynamic policies through `/v2/jsonrpc-rate-limit-policy` and
-`/v2/http-api-rate-limit-policy`. Each protocol has one global policy. `PUBLIC_JSONRPC_RATE_LIMIT_EXPECTED_REPLICAS`
-and `PUBLIC_HTTP_API_RATE_LIMIT_EXPECTED_REPLICAS` must match the deployed replica count.
+Administrators manage dynamic policies through `/v2/jsonrpc-rate-limit-policy` and `/v2/http-api-rate-limit-policy`.
+Each protocol currently has one global policy, with no plans, billing quotas, or tenant overrides.
+`PUBLIC_JSONRPC_RATE_LIMIT_EXPECTED_REPLICAS` and `PUBLIC_HTTP_API_RATE_LIMIT_EXPECTED_REPLICAS` must match the
+deployed replica count.
 
-Each Shadow dispatcher uses the matching `PUBLIC_*_RATE_LIMIT_SHADOW_*` settings. Queue drops, stale-policy drops, and
-Valkey fallback affect observation completeness only. They do not change the user response or Enforce state. Only
-background write failures and observations dropped during shutdown produce one warning each.
+The two Shadow dispatchers are bounded by the matching `PUBLIC_JSONRPC_RATE_LIMIT_SHADOW_*` and
+`PUBLIC_HTTP_API_RATE_LIMIT_SHADOW_*` settings. Queue drops, stale-policy drops, and Redis fallback affect observation
+completeness only. They do not change the user response or Enforce state and produce no logs; only background write
+errors and the number of observations dropped during shutdown produce one warning each.
 
-## Examples
+## Tests
 
-Dependency-injected shared limiting:
-
-```python
-from fastapi import Depends, FastAPI
-from pyrate_limiter import Duration, Rate
-
-from app.middleware.limiter import RedisRateLimiter
-
-app = FastAPI()
-limiter = RedisRateLimiter(
-    rates=[Rate(5, Duration.MINUTE)],
-    bucket_key="ratelimit:api:default",
-)
-
-
-@app.get("/ping", dependencies=[Depends(limiter)])
-async def ping():
-    return {"msg": "pong"}
-```
-
-The application lifecycle must set `app.state.redis` before this dependency runs.
-
-Global middleware limiting:
-
-```python
-from fastapi import FastAPI
-from pyrate_limiter import Duration, Limiter, Rate
-
-from app.middleware.limiter import RateLimiterMiddleware
-
-app = FastAPI()
-app.add_middleware(
-    RateLimiterMiddleware,
-    limiter=Limiter(Rate(2, Duration.SECOND * 60)),
-)
-```
-
-Both middleware and dependency-injected limiters accept `skip(request)` and a custom over-limit callback. Tests cover
-these contracts in `tests/test_limiter_middleware.py` and `tests/test_redis_limiter.py`.
-
-The package exports WebSocket limiter adapters, but the application does not register a WebSocket route.
+- `tests/test_limiter_middleware.py`: basic middleware behavior, `skip`, and custom callbacks.
+- `tests/test_redis_limiter.py`: Redis counters, cross-instance sharing, and isolation between buckets.
