@@ -15,7 +15,6 @@ export const personalAccessTokenScopes = [
   "endpoint-secrets:read",
   "providers:read",
   "providers:write",
-  "provider-secrets:read",
   "routes:read",
   "routes:write",
   "usage:read",
@@ -28,7 +27,6 @@ export const personalAccessTokenScopes = [
 
 export type PersonalAccessTokenScope =
   (typeof personalAccessTokenScopes)[number];
-export type PersonalAccessTokenState = "active" | "expired" | "revoked";
 
 const tokenItemSchema = z.object({
   id: z.string(),

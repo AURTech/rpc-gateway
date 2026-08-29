@@ -28,6 +28,12 @@ async def update_rate_limit_policy(
     manager: HttpApiRateLimitPolicyManagerDep,
     params: UpdateHttpApiRateLimitPolicyParams,
 ) -> HttpApiRateLimitPolicyItem:
+    """Update the public HTTP API admission policy using optimistic version control.
+
+    `max_inflight_per_worker` limits the simultaneous HTTP API requests handled by each API process and is always
+    enforced. `mode` controls only the request-per-second limits; disabling those limits does not disable the simultaneous
+    request limit.
+    """
     return await manager.update_policy(admin.id, params)
 
 

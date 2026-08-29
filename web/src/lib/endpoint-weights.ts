@@ -2,8 +2,8 @@
  * Helpers for the weighted endpoint pools used by the gateway JSON-RPC routing
  * editor. The v2 API models a load-balance weight as a plain integer 1–1000 per
  * target (no fixed pool total — a target's share is its weight over the sum of
- * weights). Users edit the raw weights; the normalized "% share" is a read-only
- * preview derived from them.
+ * weights). Users edit the raw weights; the normalized expected traffic share is
+ * a read-only preview derived from them.
  */
 
 /** Inclusive bounds of a single load-balance target weight (matches the API). */
@@ -57,8 +57,8 @@ export function weightsSum(
 
 /**
  * Normalize the given weights to integer percentages that total exactly 100,
- * for a read-only share preview. Uses the largest-remainder method so the parts
- * sum to 100 without drift. Returns `{}` when the pool is empty or invalid.
+ * for a read-only expected-share preview. Uses the largest-remainder method so
+ * the parts sum to 100 without drift. Returns `{}` when the pool is empty or invalid.
  */
 export function sharePercents(
   ids: readonly string[],

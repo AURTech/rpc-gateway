@@ -1,5 +1,5 @@
 from app.model.blockchain import Chain, Network
-from app.model.endpoint import EndpointDescriptor, EndpointProtocol, EndpointTrustLevel
+from app.model.endpoint import EndpointDescriptor, EndpointProtocol
 from app.model.jsonrpc_forwarding import JsonRpcRoutePlan, JsonRpcRouteTarget
 from app.model.jsonrpc_route import JsonRpcRetryPolicy, JsonRpcRoutingStrategyType
 from app.orm.jsonrpc_route import JsonRpcRouteScope
@@ -49,7 +49,6 @@ class DatabaseJsonRpcRoutePlanProvider:
                 network=Network(endpoint.network),
                 protocol=EndpointProtocol(endpoint.protocol),
                 enabled=endpoint.enabled,
-                trust_level=EndpointTrustLevel(endpoint.trust_level),
                 version=endpoint.version,
             )
             if descriptor.account_id != account_id or descriptor.chain is not chain or descriptor.network is not network:
@@ -64,8 +63,6 @@ class DatabaseJsonRpcRoutePlanProvider:
             chain=chain,
             network=network,
             strategy_type=strategy_type,
-            minimum_trust=EndpointTrustLevel(route.minimum_trust),
-            max_latency_ms=route.max_latency_ms,
             max_attempts=route.max_attempts,
             retry_policy=JsonRpcRetryPolicy(route.retry_policy),
             targets=tuple(targets),

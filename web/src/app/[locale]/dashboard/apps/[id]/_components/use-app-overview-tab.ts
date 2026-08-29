@@ -70,7 +70,8 @@ export function useAppOverviewTab({
     const seen = readVisited().includes(appId);
     // The URL is explicit intent; only fall back to the visit history when it
     // stayed silent.
-    if (!initialTab && seen) setTab("gateways");
+    if (initialTab) setTab(initialTab);
+    else if (seen) setTab("gateways");
     markVisited(appId);
   }, [appId, initialTab]);
 
@@ -78,7 +79,7 @@ export function useAppOverviewTab({
     setTab(next);
     // Mirror the tab into the URL so reloads and shared links keep it, matching
     // how the Endpoints page persists its own tab.
-    router.replace(next === "gateways" ? `${pathname}?tab=gateways` : pathname);
+    router.replace(`${pathname}?tab=${next}`);
   };
 
   return { tab, changeTab };

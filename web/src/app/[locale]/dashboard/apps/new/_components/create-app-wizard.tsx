@@ -1,5 +1,7 @@
 "use client";
 
+import { AlertTriangleIcon, CheckCircle2Icon } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { useTranslations } from "next-intl";
 import { type FormEvent, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -14,8 +16,9 @@ import { Stepper } from "@/components/ui/stepper";
 import { Switch } from "@/components/ui/switch";
 import { useCreateAppMutation } from "@/hooks/use-apps";
 import { useBulkUpdateGatewaysMutation } from "@/hooks/use-gateways";
-import { Link } from "@/i18n/navigation";
-import { cn } from "@/lib/utils";
+import { useMotionPreset } from "@/hooks/use-motion-preset";
+import { Link, useRouter } from "@/i18n/navigation";
+import { transitionEnter, wizardStepVariants } from "@/lib/motion";
 
 import { ALL_NETWORK_KEYS, CHAIN_CATALOG, networkKey } from "./chain-catalog";
 import { ChainSelectCard } from "./chain-select-card";
@@ -45,9 +48,7 @@ type SetupJournal = {
 type SetupSummary = {
   appId: string;
   appName: string;
-  providerConnected: boolean;
   errors: string[];
-  skipped: boolean;
 };
 
 function apiErrorMessage(error: unknown, fallback: string): string {
@@ -88,7 +89,16 @@ function setupError(error: unknown): string {
 export function CreateAppWizard() {
   const t = useTranslations("dashboard.apps");
   const tw = useTranslations("dashboard.apps.wizard");
+  const router = useRouter();
+  const motionPreset = useMotionPreset();
   const [step, setStep] = useState<Step>("details");
+  // +1 advancing, -1 going back. Drives which way the panels slide, so a "Back"
+  // button reverses the motion instead of repeating the forward one.
+  const [stepDirection, setStepDirection] = useState(1);
+  const goToStep = (next: Step) => {
+    setStepDirection(STEP_INDEX[next] >= STEP_INDEX[step] ? 1 : -1);
+    setStep(next);
+  };
   const [name, setName] = useState("");
   const [enabled, setEnabled] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -107,7 +117,7 @@ export function CreateAppWizard() {
   const submitDetails = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!name.trim()) return;
-    setStep("networks");
+    goToStep("networks");
   };
 
   const toggleOne = (key: string) =>
@@ -199,12 +209,14 @@ export function CreateAppWizard() {
     }
 
     if (skipUpstream) {
+      if (errors.length === 0) {
+        router.replace(`/dashboard/apps/${app.id}`);
+        return;
+      }
       setSummary({
         appId: app.id,
         appName: app.name,
-        providerConnected: false,
         errors,
-        skipped: true,
       });
       setFinishing(false);
       return;
@@ -214,9 +226,7 @@ export function CreateAppWizard() {
       setSummary({
         appId: app.id,
         appName: app.name,
-        providerConnected: false,
         errors,
-        skipped: false,
       });
       setFinishing(false);
       return;
@@ -229,18 +239,10 @@ export function CreateAppWizard() {
         state.providerAttached = true;
       }
       if (!state.providerSynced) {
-        const result = await syncProvider(state.providerId);
-        state.providerSynced = result.status === "success";
-        if (result.status !== "success") {
-          errors.push(
-            tw("summary.error", {
-              scope: tw("summary.provider"),
-              message: tw("summary.syncStatus", {
-                status: result.status_label,
-              }),
-            }),
-          );
-        }
+        // Provider discovery is a durable background run. Acceptance means the
+        // run was queued; its final outcome remains visible from Connections.
+        await syncProvider(state.providerId);
+        state.providerSynced = true;
       }
     } catch (error) {
       errors.push(
@@ -251,25 +253,20 @@ export function CreateAppWizard() {
       );
     }
 
-    setSummary({
-      appId: app.id,
-      appName: app.name,
-      providerConnected: state.providerAttached && state.providerSynced,
-      errors,
-      skipped: false,
-    });
-    setFinishing(false);
+    if (errors.length === 0) {
+      router.replace(`/dashboard/apps/${app.id}`);
+    } else {
+      setSummary({
+        appId: app.id,
+        appName: app.name,
+        errors,
+      });
+      setFinishing(false);
+    }
   };
 
   return (
-    <div
-      className={cn(
-        "mx-auto flex w-full flex-col gap-8 pt-2",
-        // The card grid needs more room than the single-column forms; widen the
-        // whole flow on the network step so the chains lay out in a tidy grid.
-        step === "details" ? "max-w-2xl" : "max-w-5xl",
-      )}
-    >
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 pt-2">
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-1.5">
           <h1 className="text-3xl font-bold tracking-tight text-ink-900">
@@ -302,226 +299,258 @@ export function CreateAppWizard() {
         </Stepper>
       </div>
 
-      {step === "details" ? (
-        <form
-          onSubmit={submitDetails}
-          className="flex flex-col gap-6 rounded-2xl bg-surface p-6 shadow-section"
+      {/* One panel is on screen at a time, so mode="wait" is what keeps the
+          outgoing step from overlapping the incoming one mid-slide. `custom`
+          carries the direction into the variants so Back reverses the travel.
+          The summary replaces the last step in place, hence its own key. */}
+      <AnimatePresence mode="wait" initial={false} custom={stepDirection}>
+        <motion.div
+          key={summary ? "summary" : step}
+          custom={stepDirection}
+          variants={wizardStepVariants}
+          initial={motionPreset.initial("initial")}
+          animate="animate"
+          exit="exit"
+          transition={motionPreset.transition(transitionEnter)}
         >
-          <div className="flex flex-col gap-1">
-            <h2 className="text-lg font-semibold text-ink-900">
-              {tw("steps.details.title")}
-            </h2>
-            <p className="text-sm text-ink-500">
-              {tw("steps.details.subtitle")}
-            </p>
-          </div>
-          <Field label={t("form.name")} htmlFor="app-name" required>
-            <Input
-              id="app-name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder={t("form.namePlaceholder")}
-              maxLength={128}
-              autoFocus
-            />
-          </Field>
-          <label
-            htmlFor="app-enabled"
-            className="flex items-center justify-between gap-4 rounded-md bg-ink-wash px-3 py-2.5"
-          >
-            <span className="text-md font-medium text-ink-900">
-              {t("form.enabled")}
-            </span>
-            <Switch
-              id="app-enabled"
-              checked={enabled}
-              onCheckedChange={setEnabled}
-            />
-          </label>
-          <div className="flex justify-end gap-3">
-            <Button type="button" variant="ghost" asChild>
-              <Link href="/dashboard/apps">{tw("nav.cancel")}</Link>
-            </Button>
-            <Button type="submit" disabled={!name.trim()}>
-              {tw("nav.next")}
-            </Button>
-          </div>
-        </form>
-      ) : null}
+          {step === "details" ? (
+            <form
+              onSubmit={submitDetails}
+              className="flex flex-col gap-6 rounded-2xl bg-surface p-6 shadow-section"
+            >
+              <div className="flex flex-col gap-1">
+                <h2 className="text-lg font-semibold text-ink-900">
+                  {tw("steps.details.title")}
+                </h2>
+                <p className="text-sm text-ink-500">
+                  {tw("steps.details.subtitle")}
+                </p>
+              </div>
+              <Field label={t("form.name")} htmlFor="app-name" required>
+                <Input
+                  id="app-name"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder={t("form.namePlaceholder")}
+                  maxLength={128}
+                  autoFocus
+                />
+              </Field>
+              <label
+                htmlFor="app-enabled"
+                className="flex items-center justify-between gap-4 rounded-md bg-ink-wash px-3 py-2.5"
+              >
+                <span className="text-md font-medium text-ink-900">
+                  {t("form.enabled")}
+                </span>
+                <Switch
+                  id="app-enabled"
+                  checked={enabled}
+                  onCheckedChange={setEnabled}
+                />
+              </label>
+              <div className="flex justify-end gap-3">
+                <Button type="button" variant="ghost" asChild>
+                  <Link href="/dashboard/apps">{tw("nav.cancel")}</Link>
+                </Button>
+                <Button type="submit" disabled={!name.trim()}>
+                  {tw("nav.next")}
+                </Button>
+              </div>
+            </form>
+          ) : null}
 
-      {step === "networks" ? (
-        <div className="flex flex-col gap-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex flex-col gap-1">
-              <h2 className="text-lg font-semibold text-ink-900">
-                {tw("steps.networks.title")}
-              </h2>
-              <p className="text-sm text-ink-500">
-                {tw("steps.networks.subtitle")}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={selectAll}
-                disabled={selected.size === ALL_NETWORK_KEYS.length}
-              >
-                {tw("networks.selectAll")}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={clearAll}
-                disabled={selected.size === 0}
-              >
-                {tw("networks.clear")}
-              </Button>
-            </div>
-          </div>
+          {step === "networks" ? (
+            <div className="flex flex-col gap-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex flex-col gap-1">
+                  <h2 className="text-lg font-semibold text-ink-900">
+                    {tw("steps.networks.title")}
+                  </h2>
+                  <p className="text-sm text-ink-500">
+                    {tw("steps.networks.subtitle")}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={selectAll}
+                    disabled={selected.size === ALL_NETWORK_KEYS.length}
+                  >
+                    {tw("networks.selectAll")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearAll}
+                    disabled={selected.size === 0}
+                  >
+                    {tw("networks.clear")}
+                  </Button>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {CHAIN_CATALOG.map((group) => (
-              <ChainSelectCard
-                key={group.chain}
-                group={group}
-                selected={selected}
-                onToggleNetwork={toggleOne}
-                onToggleChain={toggleChain}
-              />
-            ))}
-          </div>
-
-          <div className="flex items-center justify-between gap-3 rounded-2xl bg-surface px-5 py-4 shadow-section">
-            <span className="text-sm text-ink-500">
-              {selected.size === 0
-                ? tw("networks.requireOne")
-                : tw("networks.selectedCount", {
-                    count: selected.size,
-                    total: ALL_NETWORK_KEYS.length,
-                  })}
-            </span>
-            <div className="flex items-center gap-3">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setStep("details")}
-                disabled={finishing}
-              >
-                {tw("nav.back")}
-              </Button>
-              <Button
-                type="button"
-                onClick={() => setStep("rpcAccess")}
-                disabled={selected.size === 0 || finishing}
-              >
-                {tw("nav.next")}
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {step === "rpcAccess" && !summary ? (
-        <div className="flex flex-col gap-5">
-          <RpcAccessStep
-            value={providerId}
-            onChange={setProviderId}
-            disabled={finishing}
-          />
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-surface px-5 py-4 shadow-section">
-            <p className="max-w-xl text-sm text-ink-500">
-              {tw("rpcAccess.footerHint")}
-            </p>
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setStep("networks")}
-                disabled={finishing}
-              >
-                {tw("nav.back")}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => finish(true)}
-                disabled={finishing}
-              >
-                {finishing ? tw("nav.finishing") : tw("nav.skipCreate")}
-              </Button>
-              <Button
-                type="button"
-                onClick={() => finish(false)}
-                disabled={finishing || !providerId}
-              >
-                {finishing ? tw("nav.finishing") : tw("nav.createConnect")}
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {step === "rpcAccess" && summary ? (
-        <section className="rounded-2xl bg-surface p-6 shadow-section">
-          <div className="flex flex-col gap-2">
-            <span className="text-sm font-semibold text-brand">
-              {tw("summary.eyebrow")}
-            </span>
-            <h2 className="text-2xl font-bold text-ink-900">
-              {tw("summary.title", { name: summary.appName })}
-            </h2>
-            <p className="text-sm text-ink-500">
-              {summary.skipped
-                ? tw("summary.skipped")
-                : summary.providerConnected
-                  ? tw("summary.providerConnected")
-                  : tw("summary.providerPending")}
-            </p>
-          </div>
-
-          {summary.errors.length > 0 ? (
-            <div className="mt-5 rounded-xl bg-danger-soft p-4">
-              <h3 className="text-sm font-semibold text-danger">
-                {tw("summary.errorsTitle")}
-              </h3>
-              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-danger">
-                {[...new Set(summary.errors)].map((error) => (
-                  <li key={error}>{error}</li>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {CHAIN_CATALOG.map((group) => (
+                  <ChainSelectCard
+                    key={group.chain}
+                    group={group}
+                    selected={selected}
+                    onToggleNetwork={toggleOne}
+                    onToggleChain={toggleChain}
+                  />
                 ))}
-              </ul>
-            </div>
-          ) : !summary.providerConnected ? (
-            <p className="mt-5 rounded-xl bg-warning-soft p-4 text-sm text-warning">
-              {tw("summary.providerPending")}
-            </p>
-          ) : (
-            <p className="mt-5 rounded-xl bg-positive-soft p-4 text-sm text-positive">
-              {tw("summary.complete")}
-            </p>
-          )}
+              </div>
 
-          <div className="mt-6 flex flex-wrap justify-end gap-3">
-            {summary.errors.length > 0 ? (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => finish(journal.current.skipped)}
-                disabled={finishing}
-              >
-                {finishing ? tw("nav.finishing") : tw("summary.retry")}
-              </Button>
-            ) : null}
-            <Button asChild>
-              <Link href={`/dashboard/apps/${summary.appId}`}>
-                {tw("summary.openApp")}
-              </Link>
-            </Button>
-          </div>
-        </section>
-      ) : null}
+              <div className="flex items-center justify-between gap-3 rounded-2xl bg-surface px-5 py-4 shadow-section">
+                <span className="text-sm text-ink-500">
+                  {selected.size === 0
+                    ? tw("networks.requireOne")
+                    : tw("networks.selectedCount", {
+                        count: selected.size,
+                        total: ALL_NETWORK_KEYS.length,
+                      })}
+                </span>
+                <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => goToStep("details")}
+                    disabled={finishing}
+                  >
+                    {tw("nav.back")}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => goToStep("rpcAccess")}
+                    disabled={selected.size === 0 || finishing}
+                  >
+                    {tw("nav.next")}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {step === "rpcAccess" && !summary ? (
+            <RpcAccessStep
+              value={providerId}
+              onChange={setProviderId}
+              disabled={finishing}
+              footer={
+                <div className="flex flex-wrap items-center justify-end gap-3">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => goToStep("networks")}
+                    disabled={finishing}
+                  >
+                    {tw("nav.back")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => finish(true)}
+                    disabled={finishing}
+                  >
+                    {finishing ? tw("nav.finishing") : tw("nav.skipCreate")}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => finish(false)}
+                    disabled={finishing || !providerId}
+                  >
+                    {finishing ? tw("nav.finishing") : tw("nav.createConnect")}
+                  </Button>
+                </div>
+              }
+            />
+          ) : null}
+
+          {step === "rpcAccess" && summary ? (
+            <section className="rounded-2xl bg-surface p-6 shadow-section">
+              <output className="flex items-start gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-positive-soft text-positive">
+                  <CheckCircle2Icon className="size-5" aria-hidden />
+                </span>
+                <div className="min-w-0">
+                  <h2 className="text-2xl font-bold text-ink-900">
+                    {tw("summary.title", { name: summary.appName })}
+                  </h2>
+                  <p className="mt-1 text-sm text-ink-500">
+                    {tw("summary.description")}
+                  </p>
+                </div>
+              </output>
+
+              <div className="mt-6 divide-y divide-table-frame">
+                <div className="flex items-start gap-3 pb-4">
+                  <CheckCircle2Icon
+                    className="mt-0.5 size-5 shrink-0 text-positive"
+                    aria-hidden
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-4">
+                      <h3 className="text-sm font-semibold text-ink-900">
+                        {tw("summary.app")}
+                      </h3>
+                      <span className="text-sm font-semibold text-positive">
+                        {tw("summary.created")}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-ink-500">
+                      {tw("summary.appReady")}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 pt-4" role="alert">
+                  <AlertTriangleIcon
+                    className="mt-0.5 size-5 shrink-0 text-warning"
+                    aria-hidden
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-4">
+                      <h3 className="text-sm font-semibold text-ink-900">
+                        {tw("summary.remainingSetup")}
+                      </h3>
+                      <span className="text-sm font-semibold text-warning">
+                        {tw("summary.needsAttention")}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-ink-500">
+                      {tw("summary.setupDescription")}
+                    </p>
+                    <ul className="mt-3 list-disc space-y-1.5 pl-4 text-sm text-ink-700">
+                      {[...new Set(summary.errors)].map((error) => (
+                        <li key={error}>{error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-wrap justify-end gap-3">
+                <Button variant="ghost" asChild>
+                  <Link href={`/dashboard/apps/${summary.appId}`}>
+                    {tw("summary.openApp")}
+                  </Link>
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => finish(journal.current.skipped)}
+                  disabled={finishing}
+                >
+                  {finishing ? tw("nav.finishing") : tw("summary.retry")}
+                </Button>
+              </div>
+            </section>
+          ) : null}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

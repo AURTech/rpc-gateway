@@ -42,6 +42,12 @@
   --table-shade: 8%;
   --table-frame: color-mix(in oklab, var(--page-bg), #ccc var(--table-shade));
 
+  /* Dense table motion. TypeScript mirrors the disclosure values in
+   * src/lib/motion.ts for motion/react; CSS owns native row/body transitions. */
+  --motion-table-refresh: 160ms;
+  --motion-table-disclosure-enter: 280ms;
+  --motion-table-disclosure-exit: 180ms;
+
   --positive: #16a34a;
   --positive-soft: rgb(22 163 74 / 0.08);
   --warning: #d97706;
@@ -60,6 +66,37 @@
   --chart-6: #ec4899;
   --chart-7: #52bdfd;
   --chart-8: #facc15;
+  --chart-9: #6366f1;
+
+  /* Chain colors. Keep the hsl() literals as-is.
+   * `--chain-arbitrum` is the primary Arbitrum hue; Arbitrum Nova has no RPC
+   * chain here.
+   *
+   * Each chain also carries a `-testnet` variant: same hue and saturation with
+   * lightness raised 15 points. A by-network chart plots a chain's mainnet and
+   * testnet as two independent series, which would otherwise be pixel-identical.
+   * Written out as static values rather than color-mix() because these feed SVG
+   * stroke/stop-color presentation attributes through var(). */
+  --chain-ethereum: hsl(225 80% 66%);
+  --chain-ethereum-testnet: hsl(225 80% 81%);
+  --chain-polygon: hsl(0 0% 50%);
+  --chain-polygon-testnet: hsl(0 0% 65%);
+  --chain-bsc: hsl(46 91% 49%);
+  --chain-bsc-testnet: hsl(46 91% 64%);
+  --chain-arbitrum: hsl(202 90% 55%);
+  --chain-arbitrum-testnet: hsl(202 90% 70%);
+  --chain-optimism: hsl(0 100% 50%);
+  --chain-optimism-testnet: hsl(0 100% 65%);
+  --chain-base: hsl(217 100% 60%);
+  --chain-base-testnet: hsl(217 100% 75%);
+  --chain-solana: hsl(267 100% 64%);
+  --chain-solana-testnet: hsl(267 100% 79%);
+  --chain-bitcoin: hsl(33 100% 55%);
+  --chain-bitcoin-testnet: hsl(33 100% 70%);
+  --chain-litecoin: hsl(218 46% 41%);
+  --chain-litecoin-testnet: hsl(218 46% 56%);
+  --chain-tron: hsl(357 63% 48%);
+  --chain-tron-testnet: hsl(357 63% 63%);
 }
 
 /* =========================================================================
@@ -116,8 +153,10 @@
   --color-destructive-foreground: #ffffff;
   --color-border: transparent;
 
-  /* Fonts — self-hosted, all SIL OFL-1.1. GeistSans.variable sets
-   * --font-geist-sans on <html>; system fonts cover fallback rendering. */
+  /* Fonts — self-hosted, all SIL OFL-1.1. Latin/UI via Geist (--font-geist-sans
+   * is set by GeistSans.variable on <html>, see src/app/fonts), then system fonts
+   * while webfonts load. The console is English-only; glyphs Geist does not cover
+   * (e.g. CJK in user-entered names) fall through to the system stack. */
   --font-sans:
     var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "SF Pro Text",
     "SF Pro Display", "Segoe UI", system-ui, sans-serif;
@@ -182,9 +221,9 @@
   --container-prose-narrow: 580px;
   --container-dialog: 480px;
 
-  /* Data-table fixed geometry — a single row-height token drives the 10-row
-   * scroll viewport AND the 2-row expansion-drawer cap via calc(), so the
-   * "10 rows tall / drawer ≤ 2 rows" contract can never drift out of sync.
+  /* Data-table fixed geometry — a single row-height token drives the default
+   * 10-row viewport, the 12-row inventory viewport, and the 2-row expansion
+   * drawer cap via calc(), so their row geometry cannot drift.
    * --spacing-* exposes h-table-row / h-table-viewport / max-h-table-drawer etc. */
   --spacing-table-row: 3rem;
   --spacing-table-head: 2.75rem;
@@ -193,12 +232,30 @@
     var(--spacing-table-row) *
     10
   );
+  --spacing-table-viewport-12: calc(
+    var(--spacing-table-head) +
+    var(--spacing-table-row) *
+    12
+  );
+  --spacing-table-body-12: calc(var(--spacing-table-row) * 12);
   --spacing-table-drawer: calc(var(--spacing-table-row) * 2);
   /* Viewport height available to a dashboard detail page's scroll region:
    * 100dvh minus the main content's top+bottom chrome (py-8 = 2rem each, plus
    * the route wrapper's pt-2 = 0.5rem). Lets a page header + toolbar stay put
    * while only the body scrolls. Desktop (md+) only; mobile flows naturally. */
   --spacing-app-detail: calc(100dvh - 4.5rem);
+
+  /* Motion — see DESIGN.md §7. Enters use Tailwind's native `ease-out`, exits
+   * `ease-in`; this is the third curve, for anything that travels a page-scale
+   * distance (route arrival, auth card mount). Mirrored by `easeEmphasized` in
+   * src/lib/motion.ts so the CSS-driven and Motion-driven surfaces share one
+   * curve. Registered here because arbitrary Tailwind values are blocked by
+   * scripts/lint-no-arbitrary-tw.mjs. */
+  --ease-emphasized: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Sparkline draw-on. `backwards` holds the from-state through the delay so
+   * the line never flashes at full length before animating. */
+  --animate-spark-draw: spark-draw 700ms var(--ease-emphasized) backwards;
 }
 
 /* =========================================================================
@@ -213,6 +270,7 @@
   html,
   body {
     margin: 0;
+    overflow-x: clip;
     padding: 0;
   }
   body {
@@ -259,7 +317,7 @@
  * ========================================================================= */
 .ui-table {
   /* tbody is the white "pill" sitting inside the outer gray frame. Rounding
-     the four corner cells gives the pill its rounded edges; the cut-out areas
+     the top corner cells gives the pill its rounded leading edge; the cut-out areas
      fall through to the outer's bg-ink-wash, which is what makes the gray
      frame visible around the pill. */
   & tbody tr:first-child td:first-child {
@@ -267,19 +325,6 @@
   }
   & tbody tr:first-child td:last-child {
     border-top-right-radius: var(--radius-table-pill);
-  }
-  & tbody tr:last-child td:first-child {
-    border-bottom-left-radius: var(--radius-table-pill);
-  }
-  & tbody tr:last-child td:last-child {
-    border-bottom-right-radius: var(--radius-table-pill);
-  }
-  /* Last row of the pill: drop the bottom border so the body's bottom edge
-     stays clean against the gray frame below. Clip overflow so an expanded
-     drawer's inner panel is cut to the rounded bottom corners. */
-  & tbody tr:last-child td {
-    border-bottom-width: 0;
-    overflow: hidden;
   }
   /* Header is pinned while the body scrolls inside the fixed-height viewport.
      It must paint an opaque frame-colored band so scrolled rows don't bleed
@@ -313,109 +358,176 @@
   }
 }
 
-/* =========================================================================
- * Two distinct row-detail designs:
- *
- *  1. INLINE ROW-DRAWER (TableRow `expanded` → data-state="open" + a
- *     `TableExpandedRow`): the "spotlight" below — dim the rest to the frame
- *     colour and float the open row + its drawer as one card.
- *  2. SIDE SHEET (TableRow `active` → data-active="true"): detail lives in a
- *     separate Sheet, so the row keeps its normal appearance — no dimming and
- *     no grey wash. The Sheet itself signals which record is open, so the row
- *     is intentionally left un-styled (only the hover wash still applies).
- *
- * Keying the spotlight on data-state="open" keeps it exclusive to the inline
- * design; Sheet rows use data-active and are unaffected.
- * ========================================================================= */
-.ui-table tbody td {
-  transition:
-    background-color 220ms ease,
-    opacity 220ms ease,
-    box-shadow 220ms ease;
+/* State rows own the remaining fixed viewport so empty/error copy stays
+   centered below the header instead of floating near the top. */
+.ui-table:has(tbody > tr[data-table-state]:only-child) {
+  height: 100%;
 }
 
-/* Non-open rows (incl. filler rows, which carry no data-state) recede:
-   transparent background reveals the table-frame grey; opacity fades content.
-   Higher specificity than the group-hover:bg-row-hover utility, so it wins. */
-.ui-table tbody:has(> tr[data-state="open"])
-  tr:not([data-state="open"]):not([data-slot="table-expanded-row"])
+/* Inline row disclosure: keep the selected row and its detail white while
+   sibling rows recede into the table frame. */
+[data-slot="table-scroll"]:has(.ui-table[data-row-spotlight="true"]) {
+  transition: background-color var(--motion-table-disclosure-exit) ease-in;
+}
+
+[data-slot="table-scroll"]:has(
+    .ui-table[data-row-spotlight="true"] tbody > tr[data-state="open"]
+  ) {
+  background-color: var(--table-frame);
+  transition-duration: var(--motion-table-disclosure-enter);
+  transition-timing-function: var(--ease-emphasized);
+}
+
+/* A colspan disclosure must not contribute its content's intrinsic width to
+   the base table columns. Height remains measurable for the reveal motion. */
+[data-slot="table-expanded-content"] {
+  contain: inline-size;
+}
+
+.ui-table[data-row-spotlight="true"] tbody td {
+  transition:
+    background-color var(--motion-table-disclosure-exit) ease-in,
+    opacity var(--motion-table-disclosure-exit) ease-in,
+    box-shadow var(--motion-table-disclosure-exit) ease-in;
+}
+
+.ui-table[data-row-spotlight="true"] tbody:has(> tr[data-state="open"]) td {
+  transition-duration: var(--motion-table-disclosure-enter);
+  transition-timing-function: var(--ease-emphasized);
+}
+
+.ui-table[data-row-spotlight="true"]
+  tbody:has(> tr[data-state="open"])
+  tr:not([data-state="open"]):not([data-slot="table-expanded-row"]):not(
+    [data-disclosure-closing="true"]
+  )
   td {
   background-color: transparent;
-  opacity: 0.45;
+  opacity: 0.88;
 }
 
-/* Hover a dimmed row to hint it is still clickable (click toggles expansion). */
-.ui-table tbody:has(> tr[data-state="open"])
-  tr:not([data-state="open"]):not([data-slot="table-expanded-row"]):hover
+.ui-table[data-row-spotlight="true"]
+  tbody:has(> tr[data-state="open"])
+  tr:not([data-state="open"]):not([data-slot="table-expanded-row"]):not(
+    [data-disclosure-closing="true"]
+  ):hover
   td {
-  opacity: 0.7;
+  opacity: 1;
 }
 
-/* The open row + its drawer stay white and float above the dimmed siblings as
-   ONE card. A uniform per-cell box-shadow shows a seam on every column (equal
-   z-index + DOM order leaves each cell's left shadow unoccluded), so instead
-   the shadow is cast only outward from the group's outer edges: the open row
-   casts upward, the drawer row casts downward. A negative spread narrows the
-   horizontal bleed so adjacent cells merge into one continuous edge line
-   instead of per-column shadows. The shared inner edge (open-row bottom /
-   drawer top) gets no shadow, so the two rows read as one seamless block. */
-.ui-table tbody:has(> tr[data-state="open"]) tr[data-state="open"] td,
-.ui-table
+.ui-table[data-row-spotlight="true"]
+  tbody:has(> tr[data-state="open"])
+  tr[data-state="open"]
+  td,
+.ui-table[data-row-spotlight="true"]
   tbody:has(> tr[data-state="open"])
   tr[data-slot="table-expanded-row"]
+  td,
+.ui-table[data-row-spotlight="true"] tr[data-disclosure-closing="true"] td,
+.ui-table[data-row-spotlight="true"]
+  tr[data-disclosure-closing="true"]
+  + tr[data-slot="table-expanded-row"]
   td {
   position: relative;
   z-index: 1;
 }
-/* Open row: top-edge shadow only. spread == -blur zeroes the horizontal bleed
-   so no per-column seam appears between adjacent cells (the multi-cell row is
-   the only place a seam can form). */
-.ui-table tbody:has(> tr[data-state="open"]) tr[data-state="open"] td {
+
+.ui-table[data-row-spotlight="true"]
+  tbody:has(> tr[data-state="open"])
+  tr[data-state="open"]
+  td,
+.ui-table[data-row-spotlight="true"] tr[data-disclosure-closing="true"] td {
   box-shadow: 0 -7px 14px -14px rgb(15 23 42 / 0.2);
 }
-/* Drawer row is a SINGLE full-width cell — no adjacent columns, so a normal
-   four-way shadow is safe and carries the group's main lift (bottom + sides). */
-.ui-table tbody:has(> tr[data-state="open"])
+
+.ui-table[data-row-spotlight="true"]
+  tbody:has(> tr[data-state="open"])
   tr[data-slot="table-expanded-row"]
+  td,
+.ui-table[data-row-spotlight="true"]
+  tr[data-disclosure-closing="true"]
+  + tr[data-slot="table-expanded-row"]
   td {
+  border-bottom-right-radius: var(--radius-xl);
+  border-bottom-left-radius: var(--radius-xl);
   box-shadow: 0 8px 20px -8px rgb(15 23 42 / 0.12);
 }
 
-/* Round all four outer corners so the floating group reads as one card: the
-   open row rounds its TOP corners (first/last cell), the drawer row (a single
-   full-width cell) rounds its BOTTOM corners. The shared inner edge stays
-   square so the two rows still join seamlessly. */
-.ui-table tbody:has(> tr[data-state="open"])
+.ui-table[data-row-spotlight="true"]
+  tbody:has(> tr[data-state="open"])
   tr[data-state="open"]
+  td:first-child,
+.ui-table[data-row-spotlight="true"]
+  tr[data-disclosure-closing="true"]
   td:first-child {
-  border-top-left-radius: var(--radius-2xl);
-}
-.ui-table
-  tbody:has(> tr[data-state="open"])
-  tr[data-state="open"]
-  td:last-child {
-  border-top-right-radius: var(--radius-2xl);
-}
-.ui-table
-  tbody:has(> tr[data-state="open"])
-  tr[data-slot="table-expanded-row"]
-  td {
-  border-bottom-left-radius: var(--radius-2xl);
-  border-bottom-right-radius: var(--radius-2xl);
+  border-top-left-radius: var(--radius-xl);
 }
 
-/* Drawer content emerges: fade in + a slight downward slide on mount. */
-[data-slot="table-expanded-row"] > td > div {
-  animation: drawer-in 240ms ease;
+.ui-table[data-row-spotlight="true"]
+  tbody:has(> tr[data-state="open"])
+  tr[data-state="open"]
+  td:last-child,
+.ui-table[data-row-spotlight="true"]
+  tr[data-disclosure-closing="true"]
+  td:last-child {
+  border-top-right-radius: var(--radius-xl);
 }
-@keyframes drawer-in {
+
+/* The disclosure arrow follows the same directional clock as the content and
+ * spotlight. Closing starts immediately rather than waiting for row removal. */
+.ui-table .table-disclosure-chevron {
+  transition: transform var(--motion-table-disclosure-exit) ease-in;
+}
+
+.ui-table tr[data-state="open"] .table-disclosure-chevron {
+  transform: rotate(90deg);
+  transition-duration: var(--motion-table-disclosure-enter);
+  transition-timing-function: var(--ease-emphasized);
+}
+
+/* Query-key changes retain the previous dataset for spatial continuity. The
+ * body alone fades; the sticky header, frame, and pager remain fully stable. */
+.ui-table tbody.table-body-motion {
+  opacity: 1;
+  transition: opacity var(--motion-table-refresh) var(--ease-emphasized);
+}
+
+.ui-table tbody.table-body-motion[data-refreshing="true"] {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* Table row entrance (opt in via TableRow's `enterIndex`, see DESIGN.md §7).
+ * `backwards` holds opacity 0 through the delay so a row never flashes in
+ * before its turn. Duration and step arrive from src/lib/motion.ts;
+ * `--row-i` arrives clamped to STAGGER_MAX from TableRow. */
+.ui-table tbody tr[data-enter] {
+  animation: row-in var(--row-enter-duration, 200ms) var(--ease-emphasized)
+    backwards;
+  animation-delay: calc(var(--row-i, 0) * var(--row-stagger-step, 20ms));
+}
+
+/* Opacity ONLY — a transform on a <tr> creates a stacking context that can
+ * out-paint the spotlight's `td { z-index: 1 }` float above, so a staggering
+ * sibling row would flicker over the open row mid-animation. */
+@keyframes row-in {
   from {
     opacity: 0;
-    transform: translateY(-4px);
   }
   to {
     opacity: 1;
-    transform: none;
+  }
+}
+
+/* Sparkline draw-on. Paired with pathLength={1} + stroke-dasharray:1 so the
+ * dash offset is expressed in the same normalized unit regardless of the
+ * polyline's real length. */
+@keyframes spark-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
   }
 }
 
@@ -427,6 +539,29 @@
  * ========================================================================= */
 [data-slot="table-container"] {
   clip-path: inset(0 round var(--radius-3xl));
+}
+
+[data-slot="table-container"][data-compact="true"] {
+  clip-path: inset(0 round var(--radius-xl));
+}
+
+.ui-table[data-compact="true"] {
+  & tbody tr:first-child td:first-child {
+    border-top-left-radius: var(--radius-xl);
+  }
+  & tbody tr:first-child td:last-child {
+    border-top-right-radius: var(--radius-xl);
+  }
+  & tbody tr:last-child td:first-child {
+    border-bottom-left-radius: var(--radius-xl);
+  }
+  & tbody tr:last-child td:last-child {
+    border-bottom-right-radius: var(--radius-xl);
+  }
+  & tbody tr:last-child td {
+    border-bottom-width: 0;
+    overflow: hidden;
+  }
 }
 
 /* =========================================================================
@@ -483,7 +618,7 @@
 /* =========================================================================
  * Table scroll viewport — hide native scrollbar across all browsers
  * ========================================================================= */
-[data-slot="table-scroll"],
+[data-slot="table-scroll"]:not([data-compact="true"]),
 .no-scrollbar {
   scrollbar-width: none;
   &::-webkit-scrollbar {
@@ -491,47 +626,34 @@
   }
 }
 
+[data-slot="table-scroll"][data-compact="true"] {
+  scrollbar-color: var(--ink-400) var(--ink-wash);
+  scrollbar-width: thin;
+  &::-webkit-scrollbar {
+    height: 8px;
+  }
+  &::-webkit-scrollbar-track {
+    background: var(--ink-wash);
+  }
+  &::-webkit-scrollbar-thumb {
+    border-radius: var(--radius-full);
+    background: var(--ink-400);
+  }
+}
+
 /* =========================================================================
  * ChainIcon testnet mark — the chain logo CDN has one artwork per chain, so a
  * mainnet and its testnet would otherwise be pixel-identical.
  *
- * Amber hazard tape laid diagonally over the disc. The metaphor is the point:
- * a corner dot or a ring is an arbitrary mark you have to be told the meaning
- * of, whereas striped tape reads as "cordoned off, not the real thing" without
- * being taught. It is also a repeating texture rather than one small glyph,
- * which is what lets it survive the size range here — callers run from
- * size-3.5 combobox chips to size-7 drawer headers, and any legible glyph
- * (letter, beaker, wordmark) turns to mush at 14px.
- *
- * The stripe period is fixed in px, not a percentage: a percentage would keep
- * the stripe count constant and shrink each band to sub-pixel widths on the
- * small end, where it would alias into a smear. Fixed 6px bands give roughly
- * 3 stripes at 14px and 7 at 28px — denser on big icons, which is the right
- * way round, since that is where there is room for the detail.
- *
- * Each amber band is edged with a hairline of `surface`, and that pairing is
- * what makes it work across the registry rather than on the light chains
- * only. Amber alone vanishes on the warm logos — it is yellow-on-yellow over
- * BNB and orange-on-orange over BTC. A white or dark stripe alone fails at
- * the other end: white disappears into Ethereum's pale disc, dark disappears
- * into Solana's black one. Carrying both means every logo, whatever its hue,
- * contrasts against one half of the stripe. Both are held at partial alpha so
- * the logo reads through; those two percentages are the knobs to turn if the
- * tape lands too heavy or too faint.
- *
- * Covers the icon's own box, so an overflow-hidden row can't clip it.
+ * A dark neutral dashed outline distinguishes testnets without covering or muting the
+ * chain artwork. It sits just outside the disc so the chain remains easy to
+ * recognise at every supported icon size.
  * ========================================================================= */
 [data-slot="chain-testnet-mark"] {
   position: absolute;
-  inset: 0;
+  inset: -2px;
+  border: 1px dashed var(--ink-700);
   border-radius: 9999px;
-  background-image: repeating-linear-gradient(
-    45deg,
-    transparent 0 3px,
-    color-mix(in oklab, var(--surface) 62%, transparent) 3px 4px,
-    color-mix(in oklab, var(--warning) 65%, transparent) 4px 6px,
-    color-mix(in oklab, var(--surface) 62%, transparent) 6px 7px
-  );
   pointer-events: none;
 }
 
@@ -587,7 +709,10 @@
 }
 
 /* =========================================================================
- * Reduced motion
+ * Reduced motion — layer 1 of 3. This block only reaches CSS animations and
+ * transitions; JS-driven Motion animations are unaffected by it and opt out
+ * via useMotionPreset() (layer 2), and recharts resolves the same media query
+ * itself through `isAnimationActive: "auto"` (layer 3). See DESIGN.md §7.
  * ========================================================================= */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -595,7 +720,18 @@
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+    /* Zeroing the duration alone is not enough for a staggered entrance: the
+       delay would still hold each element at its from-state (opacity 0) before
+       snapping it in, turning "no animation" into "content pops in late". */
+    animation-delay: 0ms !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
     scroll-behavior: auto !important;
+  }
+
+  /* Retain non-spatial async feedback so reduced motion does not make a table
+   * refresh look like an unexplained content swap. */
+  .ui-table tbody.table-body-motion {
+    transition-duration: 100ms !important;
   }
 }

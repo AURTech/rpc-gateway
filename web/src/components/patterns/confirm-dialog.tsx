@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 
+import { SwapLabel } from "@/components/patterns/swap-label";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -99,7 +100,9 @@ export function ConfirmDialog({
             onClick={onConfirm}
             disabled={confirming}
           >
-            {confirming ? (confirmingLabel ?? confirmLabel) : confirmLabel}
+            <SwapLabel swapKey={confirming ? "confirming" : "idle"}>
+              {confirming ? (confirmingLabel ?? confirmLabel) : confirmLabel}
+            </SwapLabel>
           </Button>
         </DialogFooter>
       </DialogContent>

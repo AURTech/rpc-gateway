@@ -41,9 +41,9 @@ const APP_GATEWAYS_SIZE = 50;
 /**
  * App "Overview" sub-page - the app home at the bare `/apps/<id>` route, and
  * the app's landing surface: two tabs split it into "Quick Start" (a first-
- * request guide built from the app's endpoint templates) and "Gateways" (the
+ * request guide built from the app's endpoint templates) and "Gateway" (the
  * per-network management surface). A fresh app opens on Quick Start; later
- * visits open Gateways. App Usage lives at its own sidebar route.
+ * visits open Gateway. App Usage lives at its own sidebar route.
  */
 export function AppOverviewContent({
   appId,
@@ -129,7 +129,7 @@ function AppOverviewBody({
 
 /**
  * The "Quick Start" tab: the first-request quickstart, or a pointer at the
- * Gateways section while the app has no endpoint to call yet.
+ * Gateway section while the app has no endpoint to call yet.
  */
 function AppSetupPanel({
   appId,
@@ -169,16 +169,22 @@ function AppSetupPanel({
   );
 }
 
-// Both HTTP transports take the key in the path or a Bearer header.
+// Which auth methods a transport can demonstrate. gRPC carries the key as
+// call metadata; the HTTP transports take it in the path or a Bearer header.
 const TRANSPORT_AUTH_MODES = {
   jsonrpc: ["apiKey", "httpBearer"],
   http_api: ["apiKey", "httpBearer"],
+  grpc: ["grpcBearer"],
 } as const satisfies Record<RpcGatewayTransport, readonly string[]>;
 
 type AuthMode = (typeof TRANSPORT_AUTH_MODES)[RpcGatewayTransport][number];
 
-// Order the picker by how most users start: JSON-RPC first.
-const TRANSPORT_ORDER: readonly RpcGatewayTransport[] = ["jsonrpc", "http_api"];
+// Order the picker by how most users start: JSON-RPC first, gRPC last.
+const TRANSPORT_ORDER: readonly RpcGatewayTransport[] = [
+  "jsonrpc",
+  "http_api",
+  "grpc",
+];
 
 const SAMPLE_METHOD: Record<RpcMethodProtocol, string> = {
   evm: "eth_blockNumber",
@@ -241,6 +247,13 @@ function bearerCurl(
   ].join("\n");
 }
 
+function grpcConfig(url: string, apiKey: string | null): string {
+  return `endpoint: ${url}
+metadata:
+  authorization: Bearer ${apiKey ?? "{api_key}"}
+method: {service}/{method}`;
+}
+
 function networkDisplayName(gateway: RpcGatewayBase): string {
   return `${chainLabel(gateway.chain)} ${networkLabel(gateway.chain, gateway.network)}`;
 }
@@ -280,6 +293,7 @@ function QuickstartCard({
     ? TRANSPORT_AUTH_MODES[transport]
     : [];
   const [authChoice, setAuthChoice] = useState<AuthMode | undefined>(undefined);
+  // Same for auth: gRPC and the HTTP transports share no auth method.
   const authMode =
     authChoice && authModes.includes(authChoice) ? authChoice : authModes[0];
 
@@ -299,9 +313,11 @@ function QuickstartCard({
 
   const example = !urlTemplate
     ? t("unavailable")
-    : authMode === "httpBearer"
-      ? bearerCurl(urlTemplate, method, apiKey)
-      : apiKeyCurl(endpointWithApiKey(urlTemplate, apiKey), method);
+    : authMode === "grpcBearer"
+      ? grpcConfig(urlTemplate, apiKey)
+      : authMode === "httpBearer"
+        ? bearerCurl(urlTemplate, method, apiKey)
+        : apiKeyCurl(endpointWithApiKey(urlTemplate, apiKey), method);
 
   const resetCopied = () => setCopied(false);
 
@@ -456,7 +472,7 @@ function QuickstartCard({
                 <CodeBlock
                   code={example}
                   copied={copied}
-                  language="cURL"
+                  language={authMode === "grpcBearer" ? "CONFIG" : "cURL"}
                   onCopy={handleCopyExample}
                   title={t(`auth.${authMode}.exampleTitle`)}
                 />
@@ -568,7 +584,7 @@ function EndpointRow({
 
 /**
  * Shown instead of the quickstart while the app has no gateway at all - there's
- * no endpoint to call yet, so point at the Gateways section to add one.
+ * no endpoint to call yet, so point at the Gateway section to add one.
  */
 function GetStartedCard({ appId }: { appId: string }) {
   const t = useTranslations("dashboard.apps.detail.overview.empty");
@@ -579,7 +595,7 @@ function GetStartedCard({ appId }: { appId: string }) {
       <p className="text-lg font-semibold text-ink-900">{t("title")}</p>
       <p className="max-w-prose-narrow text-md text-ink-500">{t("body")}</p>
       <Link
-        href={`/dashboard/apps/${appId}/gateways`}
+        href={`/dashboard/apps/${appId}?tab=gateways`}
         className="mt-2 inline-flex h-9 items-center rounded-md bg-brand-soft px-4 text-sm font-semibold text-brand transition-colors hover:bg-brand hover:text-white"
       >
         {t("cta")}

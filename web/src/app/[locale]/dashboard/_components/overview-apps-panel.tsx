@@ -4,6 +4,7 @@ import { ArrowRight, ChevronRight, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import type { RpcAppListItem } from "@/api/apps/client";
+import { MotionList, MotionListItem } from "@/components/patterns/motion-list";
 import { Button } from "@/components/ui/button";
 import { ChainGroup } from "@/components/ui/chain-group";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -71,11 +72,11 @@ export function OverviewAppsPanel({ className }: { className?: string }) {
                 to the Resources card's height, so when the rows fill it the
                 auto margin collapses to 0 and the last row's hover fill — which
                 covers its whole padded box — runs straight into the button. */}
-            <ul className="mb-4 flex flex-col gap-1">
+            <MotionList as="ul" className="mb-4 flex flex-col gap-1">
               {items.map((app) => (
                 <AppRow key={app.id} app={app} />
               ))}
-            </ul>
+            </MotionList>
             <Button asChild size="sm" className="mt-auto self-start">
               <Link href="/dashboard/apps">
                 {t("manageAll")}
@@ -93,7 +94,7 @@ function AppRow({ app }: { app: RpcAppListItem }) {
   // Server may send chain slugs the frontend doesn't know yet; drop those.
   const chains = app.chains.filter(isRpcChain);
   return (
-    <li>
+    <MotionListItem as="li">
       <Link
         href={`/dashboard/apps/${app.id}`}
         className="group flex items-center gap-3 rounded-lg px-3 py-3 transition-colors hover:bg-row-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40"
@@ -107,7 +108,7 @@ function AppRow({ app }: { app: RpcAppListItem }) {
           aria-hidden
         />
       </Link>
-    </li>
+    </MotionListItem>
   );
 }
 

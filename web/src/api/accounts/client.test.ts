@@ -9,6 +9,7 @@ const accountFixture = {
   email: "member@example.com",
   role: "user",
   status: "disabled",
+  activated: true,
   name: null,
   avatar_url: null,
   created_at: "2026-03-14T00:00:00Z",

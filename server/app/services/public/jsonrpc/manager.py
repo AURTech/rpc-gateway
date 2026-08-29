@@ -165,6 +165,8 @@ class _GatewayCallResult:
     successful: bool
     cache_eligible: bool = False
     cache_hit: bool = False
+    route_id: str | None = None
+    attempted_endpoint_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -329,36 +331,64 @@ class PublicJsonRpcManager:
                     successful=True,
                     cache_eligible=cache_result.eligible,
                     cache_hit=cache_result.hit,
+                    route_id=plan.id if isinstance(plan, JsonRpcRoutePlan) else None,
                 )
             if cached is not None:
-                return self._with_cache(self._forwarded_result(cached, call), cache_result)
+                route_id = plan.id if isinstance(plan, JsonRpcRoutePlan) else None
+                return self._with_cache(self._forwarded_result(cached, call, route_id=route_id), cache_result)
         if isinstance(plan, JsonRpcRoutePlan) and not plan.targets:
             failure = JsonRpcForwardingFailure(code=JsonRpcForwardingFailureCode.NO_ENDPOINT)
-            return self._with_cache(self._forwarding_failure(failure, call), cache_result)
+            return self._with_cache(self._forwarding_failure(failure, call, route_id=plan.id), cache_result)
         if isinstance(plan, JsonRpcForwardingFailure):
             return self._with_cache(self._forwarding_failure(plan, call), cache_result)
         result = await forwarding.forward(plan, call)
-        return self._with_cache(self._forwarded_result(result, call), cache_result)
+        return self._with_cache(self._forwarded_result(result, call, route_id=plan.id), cache_result)
 
     @classmethod
-    def _forwarded_result(cls, result: JsonRpcForwardingResult, call: JsonRpcCall) -> _GatewayCallResult:
+    def _forwarded_result(
+        cls,
+        result: JsonRpcForwardingResult,
+        call: JsonRpcCall,
+        *,
+        route_id: str | None = None,
+    ) -> _GatewayCallResult:
         if isinstance(result, JsonRpcForwardingFailure):
-            return cls._forwarding_failure(result, call)
+            return cls._forwarding_failure(result, call, route_id=route_id)
         response = result.response
         if isinstance(response, JsonRpcSuccessResponse):
-            return _GatewayCallResult(response=response.result, successful=True)
+            return _GatewayCallResult(
+                response=response.result,
+                successful=True,
+                route_id=route_id,
+                attempted_endpoint_ids=result.attempted_endpoint_ids,
+            )
         if response is not None and response.id != call.request_id():
             response = response.model_copy(update={'id': call.request_id()})
-        return _GatewayCallResult(response=response, successful=response is None)
+        return _GatewayCallResult(
+            response=response,
+            successful=response is None,
+            route_id=route_id,
+            attempted_endpoint_ids=result.attempted_endpoint_ids,
+        )
 
     @staticmethod
-    def _forwarding_failure(result: JsonRpcForwardingFailure, call: JsonRpcCall) -> _GatewayCallResult:
+    def _forwarding_failure(
+        result: JsonRpcForwardingFailure,
+        call: JsonRpcCall,
+        *,
+        route_id: str | None = None,
+    ) -> _GatewayCallResult:
         code = {
             JsonRpcForwardingFailureCode.NO_ENDPOINT: RPC_NO_ENDPOINT,
             JsonRpcForwardingFailureCode.ATTEMPTS_FAILED: RPC_ENDPOINT_FAILED,
             JsonRpcForwardingFailureCode.INTERNAL: RPC_INTERNAL_ERROR,
         }[result.code]
-        return _GatewayCallResult(response=_gateway_error(code, call.request_id()), successful=False)
+        return _GatewayCallResult(
+            response=_gateway_error(code, call.request_id()),
+            successful=False,
+            route_id=route_id,
+            attempted_endpoint_ids=result.attempted_endpoint_ids,
+        )
 
     @staticmethod
     def _with_cache(result: _GatewayCallResult, cache: SystemJsonRpcCacheResult | None) -> _GatewayCallResult:
@@ -369,6 +399,8 @@ class PublicJsonRpcManager:
             successful=result.successful,
             cache_eligible=cache.eligible,
             cache_hit=cache.hit,
+            route_id=result.route_id,
+            attempted_endpoint_ids=result.attempted_endpoint_ids,
         )
 
     async def _record_usage(
@@ -390,6 +422,8 @@ class PublicJsonRpcManager:
                 account_id=context.account_id,
                 app_id=context.app_id,
                 gateway_id=context.gateway_id,
+                route_id=gateway_result.route_id,
+                attempted_endpoint_ids=gateway_result.attempted_endpoint_ids,
                 chain=context.chain,
                 network=context.network,
                 method=call.method,

@@ -25,6 +25,7 @@ import {
   weightsValid,
 } from "@/lib/endpoint-weights";
 
+import { NewEndpointButton } from "../../endpoints/_components/new-endpoint-button";
 import { EndpointPoolField } from "./endpoint-pool-field";
 import { GatewaySectionGroup } from "./gateway-section";
 import { RoutingModeCards } from "./routing-mode-cards";
@@ -128,6 +129,10 @@ export function HttpApiRoutingSection({
     });
   };
 
+  const cancelChanges = () => {
+    if (server) applyDraft(server);
+  };
+
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     if (!server || !dirty || !weightsOk || replaceRoute.isPending) return;
@@ -135,8 +140,6 @@ export function HttpApiRoutingSection({
       {
         gatewayId: gateway.id,
         input: {
-          minimum_trust: server.minimum_trust,
-          max_latency_ms: server.max_latency_ms,
           max_attempts: server.max_attempts,
           retry_policy: server.retry_policy,
           strategy: buildStrategy(mode, endpointIds, weights),
@@ -160,13 +163,6 @@ export function HttpApiRoutingSection({
 
   return (
     <section className="flex flex-col gap-5">
-      <header className="flex min-w-0 flex-col gap-1">
-        <h2 className="text-xl font-bold tracking-tight text-ink-900">
-          {t("routing.title")}
-        </h2>
-        <p className="text-sm text-ink-500">{t("httpApiRouting.subtitle")}</p>
-      </header>
-
       {routeQuery.isError ? (
         <p className="rounded-md bg-danger-soft px-3 py-3 text-sm text-danger">
           {t("httpApiRouting.error")}
@@ -183,8 +179,23 @@ export function HttpApiRoutingSection({
           className="flex flex-col gap-5"
         >
           <GatewaySectionGroup
-            title={t("form.routingMode")}
-            description={t(`routingModeHint.${mode}`)}
+            title={t("routing.title")}
+            description={t("routing.description")}
+            bodyClassName="flex flex-col gap-4"
+            action={
+              <NewEndpointButton
+                label={t("endpointTable.createEndpoint")}
+                size="sm"
+                variant="soft"
+                showIcon={false}
+                className="rounded-xl"
+                disabled={replaceRoute.isPending}
+                initialChain={gateway.chain}
+                initialNetwork={gateway.network}
+                initialProtocol="http_api"
+                presentation="dialog"
+              />
+            }
           >
             <RoutingModeCards
               value={mode}
@@ -197,36 +208,41 @@ export function HttpApiRoutingSection({
               ariaLabel={t("form.routingMode")}
               disabled={replaceRoute.isPending}
             />
+            <EndpointPoolField
+              chain={gateway.chain}
+              network={gateway.network}
+              protocol="http_api"
+              embedded
+              value={endpointIds}
+              onChange={handlePoolChange}
+              disabled={replaceRoute.isPending}
+              weighted={weighted}
+              weights={weights}
+              onWeightChange={(id, value) =>
+                setWeights((previous) => ({ ...previous, [id]: value }))
+              }
+            />
+            {dirty ? (
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={cancelChanges}
+                  disabled={replaceRoute.isPending}
+                >
+                  {t("dialog.cancel")}
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={!weightsOk || replaceRoute.isPending}
+                >
+                  {replaceRoute.isPending
+                    ? t("dialog.saving")
+                    : t("httpApiRouting.save")}
+                </Button>
+              </div>
+            ) : null}
           </GatewaySectionGroup>
-
-          <EndpointPoolField
-            chain={gateway.chain}
-            network={gateway.network}
-            protocol="http_api"
-            title={t("endpointTable.defaultTitle")}
-            description={t("httpApiRouting.endpointDescription")}
-            value={endpointIds}
-            onChange={handlePoolChange}
-            disabled={replaceRoute.isPending}
-            weighted={weighted}
-            weights={weights}
-            onWeightChange={(id, value) =>
-              setWeights((previous) => ({ ...previous, [id]: value }))
-            }
-          />
-
-          {dirty ? (
-            <div className="flex justify-end">
-              <Button
-                type="submit"
-                disabled={!weightsOk || replaceRoute.isPending}
-              >
-                {replaceRoute.isPending
-                  ? t("dialog.saving")
-                  : t("httpApiRouting.save")}
-              </Button>
-            </div>
-          ) : null}
         </form>
       )}
     </section>

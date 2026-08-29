@@ -4,8 +4,6 @@ from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.model.endpoint import EndpointTrustLevel
-
 
 class HttpApiRoutingStrategyType(StrEnum):
     LOAD_BALANCE = 'load_balance'
@@ -67,8 +65,6 @@ HttpApiRoutingStrategyParams = Annotated[
 class HttpApiRouteValues(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
-    minimum_trust: EndpointTrustLevel = EndpointTrustLevel.UNVERIFIED
-    max_latency_ms: float | None = Field(default=None, gt=0, le=120_000, allow_inf_nan=False)
     max_attempts: int = Field(default=3, ge=1, le=10, strict=True)
     retry_policy: HttpApiRetryPolicy = HttpApiRetryPolicy.SAFE_ONLY
     strategy: HttpApiRoutingStrategyParams
@@ -108,8 +104,6 @@ HttpApiRoutingStrategyItem = Annotated[
 class HttpApiRouteItem(BaseModel):
     id: str
     gateway_id: str
-    minimum_trust: EndpointTrustLevel
-    max_latency_ms: float | None
     max_attempts: int
     retry_policy: HttpApiRetryPolicy
     strategy: HttpApiRoutingStrategyItem

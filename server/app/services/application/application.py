@@ -131,6 +131,7 @@ class ApplicationManager:
         *,
         search: str | None = None,
         enabled: bool | None = None,
+        provider_id: str | None = None,
         start_at: datetime | None = None,
         end_at: datetime | None = None,
         sort: ListSort = 'DESC',
@@ -142,6 +143,8 @@ class ApplicationManager:
             query = query.filter(Q(name__icontains=search.strip()) | Q(id__icontains=search.strip()))
         if enabled is not None:
             query = query.filter(enabled=enabled)
+        if provider_id is not None:
+            query = query.filter(provider_id=provider_id)
         if start_at is not None:
             query = query.filter(created_at__gte=start_at)
         if end_at is not None:
@@ -392,7 +395,8 @@ class ApplicationManager:
 
     @staticmethod
     def _to_list_item(app: App, gateways: list[Gateway]) -> AppListItem:
-        chains = list(dict.fromkeys(Chain(gateway.chain) for gateway in gateways))
+        # Only enabled Gateways contribute a Chain badge: a disabled Gateway serves no traffic.
+        chains = list(dict.fromkeys(Chain(gateway.chain) for gateway in gateways if gateway.enabled))
         item = ApplicationManager._to_item(app)
         return AppListItem(
             **item.model_dump(),

@@ -1,10 +1,15 @@
 "use client";
 
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useEffect, useMemo } from "react";
 import { AppShell } from "@/components/layout/app-shell";
+import { useAppsQuery } from "@/hooks/use-apps";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useRequireAuth } from "@/hooks/use-require-auth";
-import { usePathname } from "@/i18n/navigation";
+import { usePathname, useRouter } from "@/i18n/navigation";
+import {
+  hasSeenAppOnboarding,
+  markAppOnboardingSeen,
+} from "@/lib/app-onboarding";
 import { appIdFromPathname, buildDashboardNav } from "./nav-items";
 import { UserIdentityBlock } from "./user-identity-block";
 
@@ -15,7 +20,9 @@ import { UserIdentityBlock } from "./user-identity-block";
  */
 export function DashboardShell({ children }: { children: ReactNode }) {
   // Verify the session is valid; bounces stale cookies back to /login.
-  useRequireAuth();
+  const auth = useRequireAuth();
+  const apps = useAppsQuery({ size: 1 });
+  const router = useRouter();
 
   // The admin experience now shares the regular dashboard; the only difference
   // is a small set of admin-only entries appended to the top-level sidebar.
@@ -26,6 +33,18 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     () => buildDashboardNav({ isAdmin, appId }),
     [isAdmin, appId],
   );
+
+  useEffect(() => {
+    const identity = auth.data;
+    if (!apps.isSuccess || !identity) return;
+
+    if (apps.data.total > 0) {
+      markAppOnboardingSeen(identity);
+    } else if (pathname === "/dashboard" && !hasSeenAppOnboarding(identity)) {
+      markAppOnboardingSeen(identity);
+      router.replace("/dashboard/apps/new");
+    }
+  }, [apps.data?.total, apps.isSuccess, auth.data, pathname, router]);
 
   return (
     <AppShell

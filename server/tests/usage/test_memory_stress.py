@@ -1,4 +1,4 @@
-from app.core.usage import DEFAULT_USAGE_STREAM_MAX_LENGTH
+from app.model.usage import DEFAULT_USAGE_STREAM_MAX_LENGTH
 from scripts.usage_memory_stress import _max_event
 
 

@@ -19,10 +19,10 @@ export function chainIconUrl(chain: RpcChain): string {
  *
  * The CDN has one artwork per chain, so a mainnet and its testnet would
  * otherwise be pixel-identical. Pass `network` wherever the icon stands for a
- * single (chain, network) pair: a testnet is then muted and laid over with
- * amber hazard tape (see `chain-testnet-mark` in globals.css). Omit it in
- * chain-only contexts (filters, `ChainGroup`) where the icon means "the chain"
- * and a testnet marker would be wrong.
+ * single (chain, network) pair: a testnet is then wrapped in a dark dashed
+ * outline (see `chain-testnet-mark` in globals.css). Omit it in chain-only
+ * contexts (filters, `ChainGroup`) where the icon means "the chain" and a
+ * testnet marker would be wrong.
  *
  * Plain <img> on purpose — these are tiny, decorative SVGs and routing them
  * through next/image would force us to register the CDN as a remotePatterns
@@ -57,11 +57,8 @@ export function ChainIcon({
       // On the testnet path the caller's className sizes the wrapper instead,
       // so the image just fills it. Merging the two would let tailwind-merge
       // drop `size-full` in favour of the caller's `size-4`.
-      // The logo keeps its own colour on the testnet path. Desaturating it was
-      // tried and rejected: it turns TRON brick-brown and Bitcoin tan, which
-      // reads as a disabled control rather than a test network, and it costs
-      // the chain recognition the logo exists for. The tape carries the
-      // signal on its own.
+      // The logo keeps its own colour on the testnet path. The dashed outline
+      // carries the network signal without reducing chain recognition.
       className={
         testnet
           ? "size-full rounded-full"
@@ -84,12 +81,9 @@ export function ChainIcon({
       )}
     >
       {image}
-      {/* Amber hazard tape marking a testnet — striped rather than a dot or a
-       * ring because tape reads as "not the real thing" on sight, where an
-       * abstract mark has to be learned. Decorative: every call site that
-       * passes `network` also renders that network's name as adjacent text, so
-       * the tape speeds up sighted scanning rather than carrying the only copy
-       * of the signal. Drawn in globals.css. */}
+      {/* Dark dashed outline marking a testnet. Decorative: every call site
+       * that passes `network` also renders that network's name as adjacent
+       * text, so this only speeds up sighted scanning. Drawn in globals.css. */}
       <span aria-hidden data-slot="chain-testnet-mark" />
     </span>
   );

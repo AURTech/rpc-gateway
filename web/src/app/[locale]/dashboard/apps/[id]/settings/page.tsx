@@ -20,9 +20,5 @@ export default async function AppSettingsPage({
 }) {
   const { id } = await params;
 
-  return (
-    <div className="flex flex-col gap-7 pt-2">
-      <AppSettingsContent appId={id} />
-    </div>
-  );
+  return <AppSettingsContent appId={id} />;
 }

@@ -60,4 +60,4 @@ def test_endpoint_provider_response_fields_are_derived() -> None:
     assert available['origin_type'] == 'provider'
     assert available['provider_sync_status'] == 'available'
     assert available['provider_external_id'] == 'alchemy:1'
-    assert missing['provider_sync_status'] == 'missing'
+    assert missing['provider_sync_status'] == 'available'

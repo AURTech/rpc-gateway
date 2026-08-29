@@ -3,8 +3,8 @@
 // side effects and re-exports GeistSans, whose `.variable` className defines the
 // `--font-geist-sans` custom property consumed by `--font-sans` in globals.css.
 //
-// - Geist (Latin/UI)       — OFL-1.1, self-hosted via next/font.
-// - Maple Mono (mono/code) — OFL-1.1, weights 400/700.
+// - Geist (Latin/UI)         — OFL-1.1, self-hosted via next/font.
+// - Maple Mono (mono/code)   — OFL-1.1, weights 400/700.
 import { GeistSans } from "geist/font/sans";
 
 import "@fontsource/maple-mono/400.css";

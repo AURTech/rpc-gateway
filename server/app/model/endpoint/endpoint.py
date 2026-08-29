@@ -6,6 +6,7 @@ from urllib.parse import urlsplit
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
 
 from app.model.blockchain import Chain, Network, validate_chain_network
+from app.model.endpoint.health import EndpointHealthItem
 from app.model.http_auth import PATH_API_KEY_PLACEHOLDER, validate_auth_header_name, validate_auth_query_param
 from app.model.provider_state import ProviderEndpointSyncStatus, ProviderVendor
 
@@ -18,12 +19,6 @@ class EndpointOriginType(StrEnum):
 class EndpointProtocol(StrEnum):
     JSONRPC = 'jsonrpc'
     HTTP_API = 'http_api'
-
-
-class EndpointTrustLevel(StrEnum):
-    UNVERIFIED = 'unverified'
-    TRUSTED = 'trusted'
-    AUTHORITATIVE = 'authoritative'
 
 
 class EndpointAuthType(StrEnum):
@@ -49,7 +44,7 @@ def normalize_endpoint_name(value: str) -> str:
     return name
 
 
-def validate_endpoint_url(value: str, protocol: EndpointProtocol) -> str:
+def validate_endpoint_url(value: str) -> str:
     url = value.strip()
     parts = urlsplit(url)
     if parts.scheme not in {'http', 'https'} or not parts.netloc:
@@ -270,7 +265,6 @@ class EndpointValues(BaseModel):
     protocol: EndpointProtocol
     url: str = Field(min_length=1, max_length=4096)
     enabled: bool = True
-    trust_level: EndpointTrustLevel = EndpointTrustLevel.UNVERIFIED
     auth: EndpointCreateAuthParams = Field(default_factory=EndpointNoAuthCreateParams)
 
     @field_validator('name')
@@ -281,7 +275,7 @@ class EndpointValues(BaseModel):
     @model_validator(mode='after')
     def validate_endpoint_values(self) -> Self:
         validate_chain_network(self.chain, self.network)
-        self.url = validate_endpoint_url(self.url, self.protocol)
+        self.url = validate_endpoint_url(self.url)
         validate_endpoint_auth_url(self.url, self.auth.type)
         return self
 
@@ -297,7 +291,6 @@ class UpdateEndpointParams(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=128)
     url: str | None = Field(default=None, min_length=1, max_length=4096)
     enabled: bool | None = None
-    trust_level: EndpointTrustLevel | None = None
     auth: EndpointUpdateAuthParams | None = None
 
     @field_validator('name')
@@ -313,7 +306,6 @@ class UpdateEndpointParams(BaseModel):
             ('name' in self.model_fields_set and self.name is None)
             or ('url' in self.model_fields_set and self.url is None)
             or ('enabled' in self.model_fields_set and self.enabled is None)
-            or ('trust_level' in self.model_fields_set and self.trust_level is None)
             or ('auth' in self.model_fields_set and self.auth is None)
         )
         if null_field_submitted:
@@ -322,6 +314,7 @@ class UpdateEndpointParams(BaseModel):
 
 
 class EndpointListParams(BaseModel):
+    q: str | None = Field(default=None, min_length=1, max_length=320)
     chain: list[Chain] | None = None
     network: list[Network] | None = None
     protocol: EndpointProtocol | None = None
@@ -359,9 +352,10 @@ class EndpointItem(BaseModel):
     network: Network
     protocol: EndpointProtocol
     url: str
+    effective_url: str | None = None
     enabled: bool
-    trust_level: EndpointTrustLevel
     auth: EndpointAuthPublic
+    health: EndpointHealthItem | None = None
     version: int
     created_at: datetime
     modified_at: datetime
@@ -373,24 +367,23 @@ class EndpointItem(BaseModel):
 
 
 class EndpointDetail(EndpointItem):
-    configured_url: str
-    auth: EndpointAuthDetail
+    auth: EndpointAuthDetail | EndpointAuthPublic
 
 
 def redact_endpoint_detail(value: EndpointDetail) -> EndpointItem:
     auth = value.auth
-    if isinstance(auth, EndpointHeaderAuthDetail):
+    if isinstance(auth, EndpointHeaderAuthPublic):
         public_auth: EndpointAuthPublic = EndpointHeaderAuthPublic(header_name=auth.header_name)
-    elif isinstance(auth, EndpointQueryAuthDetail):
+    elif isinstance(auth, EndpointQueryAuthPublic):
         public_auth = EndpointQueryAuthPublic(query_param=auth.query_param)
-    elif isinstance(auth, EndpointPathAuthDetail):
+    elif isinstance(auth, EndpointPathAuthPublic):
         public_auth = EndpointPathAuthPublic()
-    elif isinstance(auth, EndpointBearerAuthDetail):
+    elif isinstance(auth, EndpointBearerAuthPublic):
         public_auth = EndpointBearerAuthPublic()
     else:
         public_auth = EndpointNoAuthPublic()
-    fields = value.model_dump(exclude={'auth', 'configured_url'})
-    return EndpointItem(**fields, auth=public_auth)
+    fields = value.model_dump(exclude={'auth', 'effective_url'})
+    return EndpointItem(**fields, effective_url=None, auth=public_auth)
 
 
 class EndpointList(BaseModel):
@@ -423,7 +416,6 @@ class BulkDeleteEndpointParams(BaseModel):
 class BulkDeleteEndpointResult(BaseModel):
     total: int
     deleted: list[EndpointDeleteResult]
-    referenced_ids: list[str]
 
 
 class EndpointAuditEventItem(BaseModel):

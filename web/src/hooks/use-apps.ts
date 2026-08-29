@@ -39,6 +39,7 @@ function normalizeListParams(params: ListAppsParams) {
   return {
     search: params.search ?? "",
     enabled: params.enabled ?? null,
+    provider_id: params.provider_id ?? "",
     start_at: params.start_at ?? "",
     end_at: params.end_at ?? "",
     sort: params.sort ?? "DESC",

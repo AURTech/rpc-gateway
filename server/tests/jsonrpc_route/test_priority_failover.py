@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 from app.core.errors import UnavailableError
 from app.model.blockchain import Chain, Network
-from app.model.endpoint import EndpointProtocol, EndpointTrustLevel
+from app.model.endpoint import EndpointProtocol
 from app.model.jsonrpc_route import (
     JsonRpcLoadBalanceItem,
     JsonRpcLoadBalanceTargetItem,
@@ -52,8 +52,6 @@ def _route(strategy_type: JsonRpcRoutingStrategyType) -> SimpleNamespace:
         id='route-a',
         gateway_id='gateway-a',
         strategy_type=strategy_type,
-        minimum_trust=EndpointTrustLevel.UNVERIFIED,
-        max_latency_ms=None,
         max_attempts=3,
         retry_policy='safe_only',
         version=1,
@@ -70,7 +68,6 @@ def _target(weight: int | None) -> SimpleNamespace:
         network=Network.MAINNET,
         protocol=EndpointProtocol.JSONRPC,
         enabled=True,
-        trust_level=EndpointTrustLevel.UNVERIFIED,
         version=1,
     )
     return SimpleNamespace(endpoint_id='endpoint-a', position=0, weight=weight, endpoint=endpoint)

@@ -2,6 +2,8 @@
 
 import { Fragment, type ReactNode } from "react";
 
+import { MotionList, MotionListItem } from "@/components/patterns/motion-list";
+import { StatusFade } from "@/components/patterns/status-fade";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { TableEmptyCopy } from "@/components/ui/table-states";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
@@ -102,7 +104,7 @@ export function CardGridView<T>({
 
   if (isError) {
     return (
-      <div
+      <StatusFade
         role="alert"
         className="mx-auto flex max-w-prose-narrow flex-col items-center gap-2 py-14 text-center"
       >
@@ -117,13 +119,13 @@ export function CardGridView<T>({
         >
           {states.error.retry}
         </button>
-      </div>
+      </StatusFade>
     );
   }
 
   if (showEmpty) {
     return (
-      <div className="mx-auto flex max-w-prose-narrow flex-col items-center gap-2 py-14 text-center">
+      <StatusFade className="mx-auto flex max-w-prose-narrow flex-col items-center gap-2 py-14 text-center">
         <p className="text-lg font-semibold text-ink-900">
           {states.hasActiveFilter ? filtered.title : states.empty.title}
         </p>
@@ -139,21 +141,25 @@ export function CardGridView<T>({
             {filtered.cta}
           </button>
         ) : null}
-      </div>
+      </StatusFade>
     );
   }
 
   return (
     <>
-      <div className={cn(GRID, gridClassName)}>
+      {/* MotionList absorbs the grid element rather than nesting inside it —
+          an extra level would collapse every card into a single grid cell. */}
+      <MotionList className={cn(GRID, gridClassName)}>
         {showItems
           ? items.map((item) => (
-              <div key={getKey(item)}>{renderCard(item)}</div>
+              <MotionListItem key={getKey(item)}>
+                {renderCard(item)}
+              </MotionListItem>
             ))
           : null}
         {/* Fetching-more skeleton fills the next grid cell. */}
         {infinite?.isFetchingMore ? skeleton() : null}
-      </div>
+      </MotionList>
 
       {/* Infinite-scroll sentinel, only once a first page is on screen. */}
       {showItems && infinite?.hasMore ? (

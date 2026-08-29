@@ -60,10 +60,6 @@ class HealthDispatcher:
     def pending_batches(self) -> int:
         return len(self._pending) + len(self._active)
 
-    @property
-    def pending_waiters(self) -> int:
-        return self._waiter_count
-
     async def start(self) -> None:
         if self._worker is not None:
             return

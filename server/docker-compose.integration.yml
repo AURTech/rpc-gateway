@@ -18,8 +18,8 @@ x-api-environment: &api-environment
   ADMIN_ALLOWED_EMAILS: '["admin@example.test"]'
   CORS_ORIGINS: '["http://console.integration.test"]'
   OUTBOUND_PRIVATE_NETWORK_CIDRS: '["${INTEGRATION_SUBNET}"]'
-  SYSTEM_JSONRPC_CACHE_ENABLED: "true"
-  SYSTEM_JSONRPC_CACHE_REDIS_TTL_MS: "1000"
+  SYSTEM_CACHE_ENABLED: "true"
+  SYSTEM_CACHE_REDIS_TTL_MS: "1000"
   PUBLIC_JSONRPC_RATE_LIMIT_POLICY_REFRESH_SECONDS: "1"
   PUBLIC_HTTP_API_RATE_LIMIT_POLICY_REFRESH_SECONDS: "1"
 
@@ -174,8 +174,8 @@ services:
       INTEGRATION_CACHE_POSTGRES_URL: postgres://rpc_gateway:${INTEGRATION_POSTGRES_PASSWORD}@postgres:5432/rpc_gateway_cache_test
       INTEGRATION_REDIS_URL: redis://redis:6379/0
       RUNTIME_STATE_STRESS_REDIS_URL: redis://runtime-redis:6379/14
-      SYSTEM_JSONRPC_CACHE_STRESS_REDIS_URL: redis://cache-redis:6379/15
-      SYSTEM_JSONRPC_CACHE_STRESS_POSTGRES_URL: postgres://rpc_gateway:${INTEGRATION_POSTGRES_PASSWORD}@postgres:5432/rpc_gateway_cache_test
+      SYSTEM_CACHE_STRESS_REDIS_URL: redis://cache-redis:6379/15
+      SYSTEM_CACHE_STRESS_POSTGRES_URL: postgres://rpc_gateway:${INTEGRATION_POSTGRES_PASSWORD}@postgres:5432/rpc_gateway_cache_test
     command: [uv, run, --no-sync, python, -m, scripts.gateway_flow_integration.runner]
     volumes:
       - ./scripts:/rpc-gateway-api/scripts:ro

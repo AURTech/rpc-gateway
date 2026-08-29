@@ -1,5 +1,6 @@
 import asyncio
-from collections.abc import Mapping
+import random
+from unittest.mock import Mock
 
 import pytest
 from app.core.errors import UnavailableError
@@ -12,26 +13,24 @@ from app.model.endpoint import (
     EndpointProtocol,
     EndpointRequest,
     EndpointResponse,
-    EndpointTrustLevel,
 )
 from app.model.http_api_forwarding import HttpApiForwardingSuccess, HttpApiRoutePlan, HttpApiRouteTarget
 from app.model.http_api_route import HttpApiRetryPolicy, HttpApiRoutingStrategyType
 from app.model.runtime_state.circuit import CircuitDecision, CircuitObservation, CircuitOutcome, CircuitState
-from app.model.runtime_state.endpoint.health import EndpointHealth, HealthFailure, HealthObservation
+from app.model.runtime_state.endpoint.health import HealthFailure, HealthObservation
 from app.services.http_api_forwarding import HttpApiForwardingManager
 from app.services.runtime_state.circuit import CircuitManager
 from app.services.runtime_state.endpoint.health import HealthDispatcher
 
 
-def _endpoint(endpoint_id: str) -> EndpointDescriptor:
+def _endpoint(endpoint_id: str, *, enabled: bool = True) -> EndpointDescriptor:
     return EndpointDescriptor(
         id=endpoint_id,
         account_id='account-1',
         chain=Chain.TRON,
         network=Network.MAINNET,
         protocol=EndpointProtocol.HTTP_API,
-        enabled=True,
-        trust_level=EndpointTrustLevel.TRUSTED,
+        enabled=enabled,
         version=1,
     )
 
@@ -95,9 +94,6 @@ class _HealthStub(HealthDispatcher):
     def __init__(self) -> None:
         self.observations: list[HealthObservation] = []
 
-    async def get_many(self, endpoints: list[tuple[str, int]]) -> Mapping[str, EndpointHealth | None]:
-        return {}
-
     def submit(self, observation: HealthObservation) -> bool:
         self.observations.append(observation)
         return True
@@ -127,6 +123,28 @@ class _CircuitStub(CircuitManager):
         return True
 
 
+def test_load_balance_selects_once_by_weight() -> None:
+    random_source: random.Random = Mock(spec=random.Random)
+    health = _HealthStub()
+    manager = HttpApiForwardingManager(
+        endpoint_access=_EndpointAccessStub([]),
+        route_plans=_RoutePlanStub(),
+        circuit=_CircuitStub(set()),
+        health=health,
+        max_attempts=1,
+        random_source=random_source,
+    )
+    first = HttpApiRouteTarget(endpoint=_endpoint('first'), position=0, weight=20)
+    second = HttpApiRouteTarget(endpoint=_endpoint('second'), position=1, weight=80)
+    candidates = [first, second]
+    random_source.choices.return_value = [first]
+
+    selected = manager._select_next(HttpApiRoutingStrategyType.LOAD_BALANCE, candidates)
+
+    assert selected is first
+    random_source.choices.assert_called_once_with(candidates, weights=[20, 80], k=1)
+
+
 @pytest.mark.anyio
 async def test_priority_failover_bypasses_unavailable_circuit_admission() -> None:
     access = _EndpointAccessStub([_response(503, b'unavailable'), _response(200, b'{"ok":true}')])
@@ -143,8 +161,6 @@ async def test_priority_failover_bypasses_unavailable_circuit_admission() -> Non
         chain=Chain.TRON,
         network=Network.MAINNET,
         strategy_type=HttpApiRoutingStrategyType.PRIORITY_FAILOVER,
-        minimum_trust=EndpointTrustLevel.TRUSTED,
-        max_latency_ms=None,
         max_attempts=2,
         retry_policy=HttpApiRetryPolicy.IDEMPOTENT,
         targets=targets,
@@ -152,7 +168,6 @@ async def test_priority_failover_bypasses_unavailable_circuit_admission() -> Non
     manager = HttpApiForwardingManager(
         endpoint_access=access,
         route_plans=_RoutePlanStub(),
-        health_reader=health,
         circuit=circuit,
         health=health,
         max_attempts=2,
@@ -169,6 +184,40 @@ async def test_priority_failover_bypasses_unavailable_circuit_admission() -> Non
 
 
 @pytest.mark.anyio
+async def test_forwarding_skips_disabled_endpoint_before_circuit_admission() -> None:
+    access = _EndpointAccessStub([_response(200, b'{"ok":true}')])
+    health = _HealthStub()
+    circuit = _CircuitStub(set())
+    plan = HttpApiRoutePlan(
+        id='route-1',
+        account_id='account-1',
+        gateway_id='gateway-1',
+        chain=Chain.TRON,
+        network=Network.MAINNET,
+        strategy_type=HttpApiRoutingStrategyType.PRIORITY_FAILOVER,
+        max_attempts=2,
+        retry_policy=HttpApiRetryPolicy.IDEMPOTENT,
+        targets=(
+            HttpApiRouteTarget(endpoint=_endpoint('primary', enabled=False), position=0, weight=None),
+            HttpApiRouteTarget(endpoint=_endpoint('backup'), position=1, weight=None),
+        ),
+    )
+    manager = HttpApiForwardingManager(
+        endpoint_access=access,
+        route_plans=_RoutePlanStub(),
+        circuit=circuit,
+        health=health,
+        max_attempts=2,
+    )
+
+    result = await manager.forward(plan, EndpointHttpApiRequest(method='POST', path='/wallet/getnodeinfo'))
+
+    assert isinstance(result, HttpApiForwardingSuccess)
+    assert access.attempted == ['backup']
+    assert circuit.before_calls == ['backup']
+
+
+@pytest.mark.anyio
 async def test_forwarding_bypasses_unavailable_circuit_for_healthy_endpoint() -> None:
     access = _EndpointAccessStub([_response(200, b'{"ok":true}')])
     health = _HealthStub()
@@ -180,8 +229,6 @@ async def test_forwarding_bypasses_unavailable_circuit_for_healthy_endpoint() ->
         chain=Chain.TRON,
         network=Network.MAINNET,
         strategy_type=HttpApiRoutingStrategyType.PRIORITY_FAILOVER,
-        minimum_trust=EndpointTrustLevel.TRUSTED,
-        max_latency_ms=None,
         max_attempts=1,
         retry_policy=HttpApiRetryPolicy.SAFE_ONLY,
         targets=(HttpApiRouteTarget(endpoint=_endpoint('primary'), position=0, weight=None),),
@@ -189,7 +236,6 @@ async def test_forwarding_bypasses_unavailable_circuit_for_healthy_endpoint() ->
     manager = HttpApiForwardingManager(
         endpoint_access=access,
         route_plans=_RoutePlanStub(),
-        health_reader=health,
         circuit=circuit,
         health=health,
         max_attempts=1,
@@ -217,8 +263,6 @@ async def test_cancellation_skips_health_failure_and_closes_circuit_attempt() ->
         chain=Chain.TRON,
         network=Network.MAINNET,
         strategy_type=HttpApiRoutingStrategyType.PRIORITY_FAILOVER,
-        minimum_trust=EndpointTrustLevel.TRUSTED,
-        max_latency_ms=None,
         max_attempts=1,
         retry_policy=HttpApiRetryPolicy.SAFE_ONLY,
         targets=(HttpApiRouteTarget(endpoint=_endpoint('primary'), position=0, weight=None),),
@@ -226,7 +270,6 @@ async def test_cancellation_skips_health_failure_and_closes_circuit_attempt() ->
     manager = HttpApiForwardingManager(
         endpoint_access=access,
         route_plans=_RoutePlanStub(),
-        health_reader=health,
         circuit=circuit,
         health=health,
         max_attempts=1,

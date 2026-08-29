@@ -2,9 +2,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from app.model.blockchain import Chain, Network
-from app.model.endpoint import EndpointDescriptor, EndpointResponse, EndpointTrustLevel
+from app.model.endpoint import EndpointDescriptor, EndpointResponse
 from app.model.http_api_route import HttpApiRetryPolicy, HttpApiRoutingStrategyType
-from app.model.runtime_state.endpoint.health import EndpointHealth
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -22,17 +21,9 @@ class HttpApiRoutePlan:
     chain: Chain
     network: Network
     strategy_type: HttpApiRoutingStrategyType
-    minimum_trust: EndpointTrustLevel
-    max_latency_ms: float | None
     max_attempts: int
     retry_policy: HttpApiRetryPolicy
     targets: tuple[HttpApiRouteTarget, ...]
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class HttpApiRouteCandidate:
-    target: HttpApiRouteTarget
-    health: EndpointHealth | None
 
 
 class HttpApiForwardingFailureCode(StrEnum):
@@ -44,6 +35,7 @@ class HttpApiForwardingFailureCode(StrEnum):
 @dataclass(frozen=True, slots=True, kw_only=True)
 class HttpApiForwardingSuccess:
     response: EndpointResponse
+    attempted_endpoint_ids: tuple[str, ...] = ()
     ok: bool = True
 
 
@@ -51,6 +43,7 @@ class HttpApiForwardingSuccess:
 class HttpApiForwardingFailure:
     code: HttpApiForwardingFailureCode
     response: EndpointResponse | None = None
+    attempted_endpoint_ids: tuple[str, ...] = ()
     ok: bool = False
 
 

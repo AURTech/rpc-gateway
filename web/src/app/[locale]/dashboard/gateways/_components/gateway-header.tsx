@@ -1,20 +1,26 @@
 "use client";
 
-import { ChevronLeftIcon, PencilIcon } from "lucide-react";
+import { BookOpenIcon, CheckIcon, CopyIcon, PencilIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { isApiError } from "@/api/client";
-import type { RpcGatewayDetail } from "@/api/gateways/client";
+import type {
+  RpcGatewayDetail,
+  RpcGatewayTransport,
+} from "@/api/gateways/client";
 import { ConfirmDialog } from "@/components/patterns/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { ChainIcon } from "@/components/ui/chain-icon";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import type { GatewayPathKeyStatus } from "@/hooks/use-gateway-path-key";
 import { useUpdateGatewayMutation } from "@/hooks/use-gateways";
-import { Link } from "@/i18n/navigation";
+import { copyToClipboard } from "@/lib/clipboard";
 import { chainLabel, networkLabel } from "@/lib/rpc-chain";
+import { fillPathKeyTemplate } from "@/lib/rpc-endpoint";
 import { cn } from "@/lib/utils";
 
 import { IconButton } from "../../_components/compact-drawer";
@@ -27,10 +33,14 @@ const NAME_MAX = 128;
  */
 export function GatewayHeader({
   gateway,
-  backHref,
+  transport,
+  pathKey,
+  pathKeyStatus,
 }: {
   gateway: RpcGatewayDetail;
-  backHref: string;
+  transport: RpcGatewayTransport;
+  pathKey: string | null;
+  pathKeyStatus: GatewayPathKeyStatus;
 }) {
   const t = useTranslations("dashboard.gateways");
   const update = useUpdateGatewayMutation();
@@ -38,10 +48,29 @@ export function GatewayHeader({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(gateway.name);
   const [pendingEnabled, setPendingEnabled] = useState<boolean | null>(null);
+  const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
+  const copiedResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const trimmedName = name.trim();
   const nameValid = trimmedName.length > 0 && trimmedName.length <= NAME_MAX;
   const nameDirty = nameValid && trimmedName !== gateway.name;
+  const accessPoint = gateway.access_points.find(
+    (point) => point.transport === transport,
+  );
+  const accessPointUrl =
+    accessPoint && pathKey
+      ? fillPathKeyTemplate(accessPoint.url, pathKey)
+      : accessPoint?.url;
+  const transportLabel = t(
+    `apiTypes.${transport === "http_api" ? "httpapi" : transport}`,
+  );
+
+  useEffect(
+    () => () => {
+      if (copiedResetTimer.current) clearTimeout(copiedResetTimer.current);
+    },
+    [],
+  );
 
   const startEdit = () => {
     setName(gateway.name);
@@ -99,81 +128,97 @@ export function GatewayHeader({
     );
   };
 
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
-        <div className="flex min-w-0 flex-1 basis-72 flex-col gap-2">
-          {editing ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <Input
-                autoFocus
-                type="text"
-                autoComplete="off"
-                maxLength={NAME_MAX}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                disabled={update.isPending}
-                aria-label={t("form.name")}
-                className="h-10 max-w-xs text-lg font-semibold"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") saveName();
-                  if (e.key === "Escape") cancelEdit();
-                }}
-              />
-              <Button
-                type="button"
-                size="sm"
-                onClick={saveName}
-                disabled={!nameDirty || update.isPending}
-              >
-                {update.isPending ? t("dialog.saving") : t("dialog.save")}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={cancelEdit}
-                disabled={update.isPending}
-              >
-                {t("dialog.cancel")}
-              </Button>
-            </div>
-          ) : (
-            <div className="flex min-w-0 items-center gap-2">
-              <Link
-                href={backHref}
-                aria-label={t("page.back")}
-                title={t("page.back")}
-                className="-ml-1.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-ink-wash hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
-              >
-                <ChevronLeftIcon className="size-5" aria-hidden />
-              </Link>
-              <ChainIcon
-                chain={gateway.chain}
-                network={gateway.network}
-                className="size-6 shrink-0"
-              />
-              <h1 className="min-w-0 truncate text-2xl font-bold tracking-tight text-ink-900">
-                {gateway.name}
-              </h1>
-              <IconButton
-                ariaLabel={t("actions.rename")}
-                onClick={startEdit}
-                className="size-8"
-              >
-                <PencilIcon className="size-4" aria-hidden />
-              </IconButton>
-            </div>
-          )}
+  const copyAccessPoint = async (url: string) => {
+    const copied = await copyToClipboard(url);
+    if (!copied) {
+      toast.error(t("toast.copyError"));
+      return;
+    }
+    setCopiedUrl(url);
+    toast.success(t("toast.copyOk"));
+    if (copiedResetTimer.current) clearTimeout(copiedResetTimer.current);
+    copiedResetTimer.current = setTimeout(() => setCopiedUrl(null), 1800);
+  };
 
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-500">
-            <span>{chainLabel(gateway.chain)}</span>
-            <span aria-hidden>·</span>
-            <span>{networkLabel(gateway.chain, gateway.network)}</span>
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+        <div className="flex min-w-0 flex-1 basis-72 items-center gap-3">
+          <ChainIcon
+            chain={gateway.chain}
+            network={gateway.network}
+            className="size-8 shrink-0"
+          />
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            {editing ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  autoFocus
+                  type="text"
+                  autoComplete="off"
+                  maxLength={NAME_MAX}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={update.isPending}
+                  aria-label={t("form.name")}
+                  className="h-9 max-w-xs text-md font-semibold"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveName();
+                    if (e.key === "Escape") cancelEdit();
+                  }}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={saveName}
+                  disabled={!nameDirty || update.isPending}
+                >
+                  {update.isPending ? t("dialog.saving") : t("dialog.save")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={cancelEdit}
+                  disabled={update.isPending}
+                >
+                  {t("dialog.cancel")}
+                </Button>
+              </div>
+            ) : (
+              <div className="flex min-w-0 items-center gap-2">
+                <p className="min-w-0 truncate text-xl font-bold tracking-tight text-ink-900">
+                  {gateway.name}
+                </p>
+                <IconButton
+                  ariaLabel={t("actions.rename")}
+                  onClick={startEdit}
+                  className="size-7"
+                >
+                  <PencilIcon className="size-3.5" aria-hidden />
+                </IconButton>
+              </div>
+            )}
+            <div className="flex flex-wrap items-center gap-x-1.5 text-xs text-ink-500">
+              <span>{chainLabel(gateway.chain)}</span>
+              <span aria-hidden>·</span>
+              <span>{networkLabel(gateway.chain, gateway.network)}</span>
+              <span aria-hidden>·</span>
+              <span>{transportLabel}</span>
+            </div>
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-2 sm:shrink-0">
+          <a
+            href="https://rpc.aurpay.net"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-brand transition-colors hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+          >
+            <BookOpenIcon className="size-4" aria-hidden />
+            {t("cta.viewDocs")}
+          </a>
           <span
             className={cn(
               "text-sm font-medium",
@@ -196,6 +241,33 @@ export function GatewayHeader({
           />
         </div>
       </div>
+
+      {accessPoint && pathKeyStatus === "metadata-loading" ? (
+        <Skeleton className="h-11 w-full rounded-xl" />
+      ) : accessPointUrl ? (
+        <div className="flex min-w-0 items-center gap-2 rounded-xl bg-ink-wash p-1.5 pl-3">
+          <div className="min-w-0 flex-1">
+            <span className="sr-only">{transportLabel}</span>
+            <code className="block break-all whitespace-normal font-mono text-sm text-ink-700">
+              {accessPointUrl}
+            </code>
+          </div>
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="soft"
+            className="rounded-lg"
+            aria-label={t("table.copyEndpoint", { name: transportLabel })}
+            onClick={() => copyAccessPoint(accessPointUrl)}
+          >
+            {copiedUrl === accessPointUrl ? (
+              <CheckIcon aria-hidden />
+            ) : (
+              <CopyIcon aria-hidden />
+            )}
+          </Button>
+        </div>
+      ) : null}
 
       <ConfirmDialog
         open={pendingEnabled !== null}
@@ -226,6 +298,6 @@ export function GatewayHeader({
         destructive={pendingEnabled === false}
         contentClassName="sm:max-w-dialog"
       />
-    </div>
+    </section>
   );
 }

@@ -17,8 +17,14 @@ class HttpApiRateLimitBucket(BaseModel):
 class HttpApiRateLimitPolicyItem(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    mode: AdmissionMode
-    max_inflight_per_worker: int = Field(ge=1, le=100_000)
+    mode: AdmissionMode = Field(
+        description='Controls request-per-second limits; the per-process simultaneous request limit is always enforced.'
+    )
+    max_inflight_per_worker: int = Field(
+        ge=1,
+        le=100_000,
+        description='Maximum simultaneous HTTP API requests handled by one API process.',
+    )
     redis_timeout_ms: int = Field(ge=1, le=5000)
     redis_admission_per_worker: int = Field(ge=1, le=100_000)
     fallback_max_keys_per_worker: int = Field(ge=1000, le=10_000_000)

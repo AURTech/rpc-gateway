@@ -3,7 +3,6 @@ from app.model.http_api_forwarding.plan import (
     HttpApiForwardingFailureCode,
     HttpApiForwardingResult,
     HttpApiForwardingSuccess,
-    HttpApiRouteCandidate,
     HttpApiRoutePlan,
     HttpApiRouteTarget,
 )
@@ -13,7 +12,6 @@ __all__ = [
     'HttpApiForwardingFailureCode',
     'HttpApiForwardingResult',
     'HttpApiForwardingSuccess',
-    'HttpApiRouteCandidate',
     'HttpApiRoutePlan',
     'HttpApiRouteTarget',
 ]

@@ -4,7 +4,7 @@ from fastapi import Depends, Query, Request, Response, status
 from pyrate_limiter import Duration, Rate
 
 from app.api import BaseRouter, DashRouter
-from app.api.deps import AccountIdentityDep, EndpointHealthCheckManagerDep, EndpointManagerDep
+from app.api.deps import AccountIdentityDep, EndpointHealthManagerDep, EndpointManagerDep
 from app.core import context
 from app.core.private_cache import apply_private_cache
 from app.middleware.limiter import RedisRateLimiter
@@ -13,6 +13,7 @@ from app.model.endpoint import (
     BulkDeleteEndpointParams,
     BulkDeleteEndpointResult,
     CreateEndpointParams,
+    DeleteEndpointRouteBindingParams,
     EndpointAuditEventList,
     EndpointAuditListParams,
     EndpointDeleteResult,
@@ -21,9 +22,13 @@ from app.model.endpoint import (
     EndpointItem,
     EndpointList,
     EndpointListParams,
+    EndpointRouteBindingDeleteResult,
+    EndpointRouteBindingList,
+    EndpointRouteType,
     UpdateEndpointParams,
     redact_endpoint_detail,
 )
+from app.services.endpoint import EndpointRouteBindingManager
 
 router = BaseRouter(prefix='/endpoints', route_class=DashRouter)
 
@@ -67,11 +72,14 @@ async def list_endpoints(
     response: Response,
     account: AccountIdentityDep,
     manager: EndpointManagerDep,
+    health_manager: EndpointHealthManagerDep,
     params: Annotated[EndpointListParams, Query()],
 ) -> EndpointList:
     """List endpoint registry entries owned by the authenticated account."""
     value = await manager.list_endpoints(
         account.id,
+        include_effective_url=(not account.uses_pat or PersonalAccessTokenScope.ENDPOINT_SECRETS_READ in account.pat_scopes),
+        q=params.q,
         chain=params.chain,
         network=params.network,
         protocol=params.protocol,
@@ -81,6 +89,7 @@ async def list_endpoints(
         page=params.page,
         size=params.size,
     )
+    value = await health_manager.add_list_health(value)
     apply_private_cache(response.headers)
     return value
 
@@ -100,14 +109,50 @@ async def get_endpoint(
     response: Response,
     account: AccountIdentityDep,
     manager: EndpointManagerDep,
+    health_manager: EndpointHealthManagerDep,
     endpoint_id: str,
 ) -> EndpointDetail | EndpointItem:
     """Return one owned endpoint with its displayable URL."""
     value = await manager.get_endpoint(account.id, endpoint_id)
+    value = await health_manager.add_item_health(value)
     apply_private_cache(response.headers)
     if account.uses_pat and PersonalAccessTokenScope.ENDPOINT_SECRETS_READ not in account.pat_scopes:
         return redact_endpoint_detail(value)
     return value
+
+
+@router.get('/{endpoint_id}/route-bindings', response_model=EndpointRouteBindingList)
+async def list_endpoint_route_bindings(
+    response: Response,
+    account: AccountIdentityDep,
+    endpoint_id: str,
+) -> EndpointRouteBindingList:
+    """List active Gateway routes that target one owned Endpoint."""
+    value = await EndpointRouteBindingManager.list_bindings(account.id, endpoint_id)
+    apply_private_cache(response.headers)
+    return value
+
+
+@router.delete(
+    '/{endpoint_id}/route-bindings/{route_type}/{route_id}',
+    response_model=EndpointRouteBindingDeleteResult,
+)
+async def delete_endpoint_route_binding(
+    account: AccountIdentityDep,
+    endpoint_id: str,
+    route_type: EndpointRouteType,
+    route_id: str,
+    params: Annotated[DeleteEndpointRouteBindingParams, Query()],
+) -> EndpointRouteBindingDeleteResult:
+    """Remove one Endpoint target, deleting an empty JSON-RPC method route."""
+    return await EndpointRouteBindingManager.delete_binding(
+        account.id,
+        account.id,
+        endpoint_id,
+        route_type,
+        route_id,
+        params.expected_version,
+    )
 
 
 @router.patch('/{endpoint_id}', response_model=EndpointDetail | EndpointItem)
@@ -141,7 +186,7 @@ async def check_endpoint_health(
     request: Request,
     response: Response,
     account: AccountIdentityDep,
-    health_manager: EndpointHealthCheckManagerDep,
+    health_manager: EndpointHealthManagerDep,
     endpoint_id: str,
 ) -> EndpointHealthCheck:
     """Run the fixed, single-request health probe for an owned Endpoint."""

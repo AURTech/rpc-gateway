@@ -1,6 +1,6 @@
 "use client";
 
-import { RefreshCw } from "lucide-react";
+import { Eye, EyeOff, RefreshCw } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -8,19 +8,16 @@ import { toast } from "sonner";
 import { isApiError } from "@/api/client";
 import {
   type CreateEndpointInput,
-  ENDPOINT_AUTH_TYPES,
   ENDPOINT_PROTOCOLS,
   type Endpoint,
-  type EndpointAuthType,
-  type EndpointCreateAuth,
-  type EndpointDetail,
   type EndpointProtocol,
-  type EndpointUpdateAuth,
-  type UpdateEndpointInput,
 } from "@/api/endpoints/client";
+import {
+  ALL_CHAIN_NETWORK_PAIRS,
+  ChainNetworkSelect,
+} from "@/components/patterns/chain-network-select";
 import { Field } from "@/components/patterns/form-field";
 import { Button } from "@/components/ui/button";
-import { ChainIcon } from "@/components/ui/chain-icon";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +27,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import {
   Select,
   SelectContent,
@@ -44,136 +46,19 @@ import {
   useEndpointQuery,
   useUpdateEndpointMutation,
 } from "@/hooks/use-endpoints";
+import type { Chain, Network } from "@/lib/blockchain";
 import {
-  CHAIN_CATALOG,
-  CHAINS,
-  type Chain,
-  type Network,
-} from "@/lib/blockchain";
+  buildEndpointUpdateInput,
+  EMPTY_ENDPOINT_FORM,
+  type EndpointFormState,
+  endpointFormFromDetail,
+  isEndpointHeaderValid,
+  isEndpointVersionConflict,
+  isValidEndpointUrl,
+  makeEndpointCreateAuth,
+} from "./endpoint-form-model";
 
 const FORM_ID = "endpoint-form";
-
-type EndpointFormState = {
-  name: string;
-  chain: Chain;
-  network: Network;
-  protocol: EndpointProtocol;
-  url: string;
-  enabled: boolean;
-  authType: EndpointAuthType;
-  headerName: string;
-  queryParam: string;
-  secret: string;
-};
-
-const EMPTY_FORM: EndpointFormState = {
-  name: "",
-  chain: "ethereum",
-  network: "mainnet",
-  protocol: "jsonrpc",
-  url: "",
-  enabled: true,
-  authType: "none",
-  headerName: "",
-  queryParam: "",
-  secret: "",
-};
-
-const AUTH_FIELDS: Record<
-  EndpointAuthType,
-  { secret: boolean; headerName: boolean; queryParam: boolean }
-> = {
-  none: { secret: false, headerName: false, queryParam: false },
-  bearer: { secret: true, headerName: false, queryParam: false },
-  header_api_key: { secret: true, headerName: true, queryParam: false },
-  query_api_key: { secret: true, headerName: false, queryParam: true },
-  path_api_key: { secret: true, headerName: false, queryParam: false },
-};
-
-function endpointForm(endpoint: EndpointDetail): EndpointFormState {
-  const headerName =
-    endpoint.auth.type === "header_api_key" ? endpoint.auth.header_name : "";
-  const queryParam =
-    endpoint.auth.type === "query_api_key" ? endpoint.auth.query_param : "";
-  return {
-    name: endpoint.name,
-    chain: endpoint.chain,
-    network: endpoint.network,
-    protocol: endpoint.protocol,
-    url: endpoint.configured_url,
-    enabled: endpoint.enabled,
-    authType: endpoint.auth.type,
-    headerName,
-    queryParam,
-    secret: endpoint.auth.type === "none" ? "" : endpoint.auth.secret,
-  };
-}
-
-function isValidUrl(value: string): boolean {
-  try {
-    const parsed = new URL(value.trim());
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-function makeCreateAuth(form: EndpointFormState): EndpointCreateAuth {
-  switch (form.authType) {
-    case "none":
-      return { type: "none" };
-    case "header_api_key":
-      return {
-        type: "header_api_key",
-        header_name: form.headerName.trim(),
-        secret: form.secret.trim(),
-      };
-    case "query_api_key":
-      return {
-        type: "query_api_key",
-        query_param: form.queryParam.trim(),
-        secret: form.secret.trim(),
-      };
-    case "bearer":
-      return { type: "bearer", secret: form.secret.trim() };
-    case "path_api_key":
-      return { type: "path_api_key", secret: form.secret.trim() };
-  }
-}
-
-function makeUpdateAuth(
-  form: EndpointFormState,
-  includeSecret: boolean,
-): EndpointUpdateAuth {
-  const secret = includeSecret ? form.secret.trim() : undefined;
-  switch (form.authType) {
-    case "none":
-      return { type: "none" };
-    case "header_api_key":
-      return {
-        type: "header_api_key",
-        header_name: form.headerName.trim(),
-        ...(secret ? { secret } : {}),
-      };
-    case "query_api_key":
-      return {
-        type: "query_api_key",
-        query_param: form.queryParam.trim(),
-        ...(secret ? { secret } : {}),
-      };
-    case "bearer":
-      return { type: "bearer", ...(secret ? { secret } : {}) };
-    case "path_api_key":
-      return { type: "path_api_key", ...(secret ? { secret } : {}) };
-  }
-}
-
-function isVersionConflict(error: unknown): boolean {
-  return (
-    isApiError(error) &&
-    error.message.toLowerCase().includes("version conflict")
-  );
-}
 
 /** Lightweight form section: an uppercase eyebrow heading over a stacked group
  *  of fields. File-local — matches the detail sheet's section-label token. */
@@ -214,13 +99,10 @@ function EnabledRow({
 }
 
 /**
- * Shared create + edit form for endpoints. It uses a right-side sheet by
- * default (the same chrome as {@link EndpointDetailSheet}) and can render in a
- * modal dialog for contextual creation flows. On edit it fetches the full
- * record, masks the stored URL until the field is focused, sends only changed
+ * Shared create + edit form for endpoints. It supports centered dialogs and
+ * right-side sheets. On edit it fetches the full record, maps legacy auth
+ * configurations into a URL plus optional request header, sends only changed
  * fields, and surfaces optimistic-concurrency conflicts via `expected_version`.
- * Provider-synced endpoints are provider-managed: their connection (chain /
- * network / protocol / URL / auth) is locked; only name + enabled are editable.
  */
 export function EditEndpointSheet({
   endpoint,
@@ -242,8 +124,9 @@ export function EditEndpointSheet({
   const t = useTranslations("dashboard.endpoints");
   const detailQuery = useEndpointQuery(open && endpoint ? endpoint.id : null);
   const detail = detailQuery.data ?? null;
-  const [form, setForm] = useState<EndpointFormState>(EMPTY_FORM);
+  const [form, setForm] = useState<EndpointFormState>(EMPTY_ENDPOINT_FORM);
   const [conflict, setConflict] = useState(false);
+  const [showHeaderValue, setShowHeaderValue] = useState(false);
   const createMutation = useCreateEndpointMutation();
   const updateMutation = useUpdateEndpointMutation();
   const editing = endpoint !== undefined && endpoint !== null;
@@ -252,32 +135,24 @@ export function EditEndpointSheet({
   useEffect(() => {
     if (!open) return;
     if (editing) {
-      setForm(detail ? endpointForm(detail) : EMPTY_FORM);
+      setForm(detail ? endpointFormFromDetail(detail) : EMPTY_ENDPOINT_FORM);
     } else {
       setForm({
-        ...EMPTY_FORM,
-        chain: initialChain ?? EMPTY_FORM.chain,
-        network: initialNetwork ?? EMPTY_FORM.network,
-        protocol: initialProtocol ?? EMPTY_FORM.protocol,
+        ...EMPTY_ENDPOINT_FORM,
+        chain: initialChain ?? EMPTY_ENDPOINT_FORM.chain,
+        network: initialNetwork ?? EMPTY_ENDPOINT_FORM.network,
+        protocol: initialProtocol ?? EMPTY_ENDPOINT_FORM.protocol,
       });
     }
     setConflict(false);
+    setShowHeaderValue(false);
   }, [detail, editing, initialChain, initialNetwork, initialProtocol, open]);
 
-  const authFields = AUTH_FIELDS[form.authType];
-  const authTypeChanged = detail ? form.authType !== detail.auth.type : false;
-  const secretRequired = !providerManaged && authFields.secret;
   const valid =
     (!editing || detail !== null) &&
     form.name.trim().length > 0 &&
-    (providerManaged || isValidUrl(form.url)) &&
-    (!secretRequired || form.secret.trim().length > 0) &&
-    (providerManaged ||
-      !authFields.headerName ||
-      form.headerName.trim().length > 0) &&
-    (providerManaged ||
-      !authFields.queryParam ||
-      form.queryParam.trim().length > 0);
+    (providerManaged || isValidEndpointUrl(form.url)) &&
+    (providerManaged || isEndpointHeaderValid(form));
   const busy = createMutation.isPending || updateMutation.isPending;
 
   const set = <K extends keyof EndpointFormState>(
@@ -296,7 +171,7 @@ export function EditEndpointSheet({
         protocol: form.protocol,
         url: form.url.trim(),
         enabled: form.enabled,
-        auth: makeCreateAuth(form),
+        auth: makeEndpointCreateAuth(form),
       };
       createMutation.mutate(input, {
         onSuccess: () => {
@@ -311,29 +186,9 @@ export function EditEndpointSheet({
       return;
     }
 
-    const input: UpdateEndpointInput = {
-      expected_version: detail.version,
-      name: form.name.trim(),
-      enabled: form.enabled,
-    };
-    if (!providerManaged) {
-      if (form.url.trim() !== detail.configured_url) {
-        input.url = form.url.trim();
-      }
-      const detailHeaderName =
-        detail.auth.type === "header_api_key" ? detail.auth.header_name : "";
-      const detailQueryParam =
-        detail.auth.type === "query_api_key" ? detail.auth.query_param : "";
-      const authMetadataChanged =
-        form.headerName.trim() !== detailHeaderName ||
-        form.queryParam.trim() !== detailQueryParam;
-      const detailSecret =
-        detail.auth.type === "none" ? "" : detail.auth.secret;
-      const secretChanged = form.secret.trim() !== detailSecret;
-      if (authTypeChanged || authMetadataChanged || secretChanged) {
-        input.auth = makeUpdateAuth(form, authTypeChanged || secretChanged);
-      }
-    }
+    const input = buildEndpointUpdateInput(form, detail);
+    input.name = form.name.trim();
+    input.enabled = form.enabled;
     updateMutation.mutate(
       { id: detail.id, input },
       {
@@ -342,7 +197,7 @@ export function EditEndpointSheet({
           onOpenChange(false);
         },
         onError: (error) => {
-          if (isVersionConflict(error)) setConflict(true);
+          if (isEndpointVersionConflict(error)) setConflict(true);
           toast.error(
             isApiError(error) ? error.message : t("toast.updateError"),
           );
@@ -353,7 +208,7 @@ export function EditEndpointSheet({
 
   const reload = async () => {
     const result = await detailQuery.refetch();
-    if (result.data) setForm(endpointForm(result.data));
+    if (result.data) setForm(endpointFormFromDetail(result.data));
     setConflict(false);
   };
 
@@ -396,11 +251,6 @@ export function EditEndpointSheet({
         footer={footer}
       >
         <div className="flex flex-col gap-6">
-          {providerManaged ? (
-            <div className="rounded-lg bg-ink-wash p-3 text-sm text-ink-600">
-              {t("form.providerManaged")}
-            </div>
-          ) : null}
           {conflict ? (
             <div className="flex items-center justify-between gap-3 rounded-lg bg-warning-soft p-3 text-sm text-warning">
               <span>{t("form.conflict")}</span>
@@ -457,55 +307,15 @@ export function EditEndpointSheet({
                 htmlFor="endpoint-chain-network"
                 required
               >
-                <Select
-                  // Value pairs chain + network so the two live in one control;
-                  // the separator is safe because chain/network slugs never
-                  // contain a colon.
-                  value={`${form.chain}:${form.network}`}
-                  onValueChange={(value) => {
-                    const [chain, network] = value.split(":") as [
-                      Chain,
-                      Network,
-                    ];
+                <ChainNetworkSelect
+                  inputId="endpoint-chain-network"
+                  options={ALL_CHAIN_NETWORK_PAIRS}
+                  value={{ chain: form.chain, network: form.network }}
+                  onChange={({ chain, network }) => {
                     setForm((prev) => ({ ...prev, chain, network }));
                   }}
                   disabled={editing}
-                >
-                  <SelectTrigger
-                    id="endpoint-chain-network"
-                    aria-label={t("fields.chainNetwork")}
-                  >
-                    {/* Mirror the chain icon into the trigger — SelectValue only
-                        echoes the item's text, never its leading icon. */}
-                    <span className="flex min-w-0 items-center gap-2">
-                      <ChainIcon
-                        chain={form.chain}
-                        network={form.network}
-                        className="size-4"
-                      />
-                      <SelectValue />
-                    </span>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CHAINS.flatMap((chain) =>
-                      CHAIN_CATALOG[chain].networks.map((network) => (
-                        <SelectItem
-                          key={`${chain}:${network}`}
-                          value={`${chain}:${network}`}
-                          icon={
-                            <ChainIcon
-                              chain={chain}
-                              network={network}
-                              className="size-4"
-                            />
-                          }
-                        >
-                          {`${t(`chain.${chain}`)} · ${t(`network.${network}`)}`}
-                        </SelectItem>
-                      )),
-                    )}
-                  </SelectContent>
-                </Select>
+                />
               </Field>
             </FormSection>
 
@@ -519,8 +329,10 @@ export function EditEndpointSheet({
                   <Input
                     id="endpoint-url"
                     maxLength={4096}
+                    mono
                     value={form.url}
                     onChange={(event) => set("url", event.target.value)}
+                    placeholder={t("fields.urlPlaceholder")}
                   />
                 </Field>
               </FormSection>
@@ -529,82 +341,68 @@ export function EditEndpointSheet({
             {providerManaged ? null : (
               <FormSection>
                 <Field
-                  label={t("fields.authType")}
-                  htmlFor="endpoint-auth-type"
+                  label={t("fields.headerName")}
+                  htmlFor="endpoint-header-name"
+                  error={
+                    form.headerValue.trim() && !form.headerName.trim()
+                      ? t("fields.headerNameRequired")
+                      : undefined
+                  }
                 >
-                  <Select
-                    value={form.authType}
-                    onValueChange={(value) =>
-                      set("authType", value as EndpointAuthType)
-                    }
-                  >
-                    <SelectTrigger
-                      id="endpoint-auth-type"
-                      aria-label={t("fields.authType")}
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ENDPOINT_AUTH_TYPES.map((authType) => (
-                        <SelectItem key={authType} value={authType}>
-                          {t(`auth.${authType}`)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Input
+                    id="endpoint-header-name"
+                    maxLength={128}
+                    mono
+                    value={form.headerName}
+                    onChange={(event) => set("headerName", event.target.value)}
+                    placeholder={t("fields.headerNamePlaceholder")}
+                  />
                 </Field>
-                {authFields.headerName ? (
-                  <Field
-                    label={t("fields.headerName")}
-                    htmlFor="endpoint-header"
-                    required
-                  >
-                    <Input
-                      id="endpoint-header"
-                      maxLength={128}
-                      value={form.headerName}
-                      onChange={(event) =>
-                        set("headerName", event.target.value)
-                      }
-                    />
-                  </Field>
-                ) : null}
-                {authFields.queryParam ? (
-                  <Field
-                    label={t("fields.queryParam")}
-                    htmlFor="endpoint-query"
-                    required
-                  >
-                    <Input
-                      id="endpoint-query"
-                      maxLength={128}
-                      value={form.queryParam}
-                      onChange={(event) =>
-                        set("queryParam", event.target.value)
-                      }
-                    />
-                  </Field>
-                ) : null}
-                {authFields.secret ? (
-                  <Field
-                    label={
-                      form.authType === "header_api_key"
-                        ? t("fields.headerValue")
-                        : t("fields.secret")
-                    }
-                    htmlFor="endpoint-secret"
-                    required={secretRequired}
-                  >
-                    <Input
-                      id="endpoint-secret"
-                      type="text"
-                      autoComplete="off"
+                <Field
+                  label={t("fields.headerValue")}
+                  htmlFor="endpoint-header-value"
+                  hint={t("fields.headerHint")}
+                  error={
+                    form.headerName.trim() && !form.headerValue.trim()
+                      ? t("fields.headerValueRequired")
+                      : undefined
+                  }
+                >
+                  <InputGroup>
+                    <InputGroupInput
+                      id="endpoint-header-value"
+                      type={showHeaderValue ? "text" : "password"}
+                      autoComplete="new-password"
                       maxLength={4096}
-                      value={form.secret}
-                      onChange={(event) => set("secret", event.target.value)}
+                      mono
+                      value={form.headerValue}
+                      onChange={(event) =>
+                        set("headerValue", event.target.value)
+                      }
+                      placeholder={t("fields.headerValuePlaceholder")}
                     />
-                  </Field>
-                ) : null}
+                    <InputGroupAddon>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={
+                          showHeaderValue
+                            ? t("fields.hideHeaderValue")
+                            : t("fields.showHeaderValue")
+                        }
+                        aria-pressed={showHeaderValue}
+                        onClick={() => setShowHeaderValue((value) => !value)}
+                      >
+                        {showHeaderValue ? (
+                          <EyeOff aria-hidden />
+                        ) : (
+                          <Eye aria-hidden />
+                        )}
+                      </Button>
+                    </InputGroupAddon>
+                  </InputGroup>
+                </Field>
               </FormSection>
             )}
 

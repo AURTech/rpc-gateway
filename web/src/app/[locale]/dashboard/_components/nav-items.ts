@@ -3,8 +3,6 @@ import {
   BarChart3,
   Boxes,
   LayoutDashboard,
-  LayoutGrid,
-  Network,
   Settings,
   Users,
   Waypoints,
@@ -20,6 +18,10 @@ import type { NavItemDef } from "@/components/layout/nav-item";
 const SETTINGS_CHILDREN: readonly NavItemDef[] = [
   { key: "settingsProfile", href: "/dashboard/settings", exact: true },
   { key: "settingsSecurity", href: "/dashboard/settings/security" },
+  {
+    key: "settingsTokens",
+    href: "/dashboard/settings/personal-access-tokens",
+  },
 ];
 
 function settingsNavItem(): NavItemDef {
@@ -40,7 +42,6 @@ const PRIMARY_NAV: readonly NavItemDef[] = [
   { key: "overview", href: "/dashboard", icon: LayoutDashboard, exact: true },
   { key: "apps", href: "/dashboard/apps", icon: Boxes },
   { key: "endpoints", href: "/dashboard/endpoints", icon: Waypoints },
-  { key: "providers", href: "/dashboard/providers", icon: LayoutGrid },
   { key: "usage", href: "/dashboard/usage", icon: BarChart3 },
   { key: "settings", href: "/dashboard/settings", icon: Settings },
 ] as const;
@@ -68,7 +69,8 @@ export function appIdFromPathname(pathname: string): string | null {
  * dashboard entries; gateways have no standalone page — they live inside an
  * app. Once you're inside a specific app (`/dashboard/apps/<id>`) the sidebar
  * becomes that app's own navigation: a back-to-apps entry plus the app's
- * sections; the global entries are hidden until you go back.
+ * sections; the global entries are hidden until you go back. Gateway
+ * management remains a tab within Overview.
  */
 export function buildDashboardNav({
   isAdmin,
@@ -85,9 +87,9 @@ export function buildDashboardNav({
     // Inside an app: the whole sidebar is scoped to it. The back-to-apps entry
     // renders as a distinct "back" command (muted, compact, set apart from the
     // section nav). Overview is the app home at the bare `/apps/<id>` route;
-    // `exact` keeps it off the sub-routes, while Gateways stays lit on its
-    // nested per-gateway config pages. Usage follows Gateways as its own app
-    // section; Overview keeps only the setup and gateway-management tabs.
+    // `exact` keeps it off the sub-routes. Usage and Settings are separate app
+    // sections; Settings expands to General and Access keys, while Overview
+    // owns both setup and gateway management.
     return [
       {
         key: "backToApps",
@@ -102,11 +104,6 @@ export function buildDashboardNav({
         exact: true,
       },
       {
-        key: "gateways",
-        href: `/dashboard/apps/${appId}/gateways`,
-        icon: Network,
-      },
-      {
         key: "appUsage",
         href: `/dashboard/apps/${appId}/usage`,
         icon: BarChart3,
@@ -115,6 +112,18 @@ export function buildDashboardNav({
         key: "appSettings",
         href: `/dashboard/apps/${appId}/settings`,
         icon: Settings,
+        exact: true,
+        children: [
+          {
+            key: "appSettingsGeneral",
+            href: `/dashboard/apps/${appId}/settings`,
+            exact: true,
+          },
+          {
+            key: "appSettingsAccessKeys",
+            href: `/dashboard/apps/${appId}/settings/access-keys`,
+          },
+        ],
       },
     ];
   }

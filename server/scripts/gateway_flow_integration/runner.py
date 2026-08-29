@@ -121,15 +121,15 @@ async def _execute() -> tuple[dict[str, object], bool]:
         [
             sys.executable,
             '-m',
-            'scripts.system_jsonrpc_cache_stress',
+            'scripts.system_cache_stress',
             '--mode',
             'all',
             '--profile',
             profile,
             '--redis-url',
-            _required('SYSTEM_JSONRPC_CACHE_STRESS_REDIS_URL'),
+            _required('SYSTEM_CACHE_STRESS_REDIS_URL'),
             '--postgres-url',
-            _required('SYSTEM_JSONRPC_CACHE_STRESS_POSTGRES_URL'),
+            _required('SYSTEM_CACHE_STRESS_POSTGRES_URL'),
         ],
         timeout_seconds=stress_timeout,
     )
