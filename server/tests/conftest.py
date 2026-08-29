@@ -9,14 +9,20 @@ from app import init_app
 from app.clients.endpoint import EndpointHttpClient
 from app.clients.transport import HttpTransport
 from app.core.config import CONF
-from app.infra.cache import close_cache
 from app.infra.outbound_policy import OutboundTargetPolicy
 from app.services.auth import AuthManager
 from app.services.auth.password import PasswordWorker
 from app.services.base import Manager
-from app.services.endpoint import EndpointAccessManager, EndpointManager, ManagedEndpointManager
+from app.services.endpoint import (
+    EndpointAccessManager,
+    EndpointHealthManager,
+    EndpointManager,
+    ManagedEndpointManager,
+)
+from app.services.endpoint.probe import EndpointProbeManager
 from app.services.jsonrpc_route import DatabaseJsonRpcEndpointRouteReferenceLookup
 from app.services.provider import ProviderManager
+from app.services.runtime_state.endpoint.health import HealthManager
 from asgi_lifespan import LifespanManager
 from fastapi import FastAPI
 from httpx import AsyncClient
@@ -99,23 +105,32 @@ async def test_lifespan(app: FastAPI, schema: str) -> AsyncGenerator[None]:
         password_worker = PasswordWorker(max_concurrency=CONF.AUTH_PASSWORD_MAX_CONCURRENCY)
         transport = HttpTransport(shared_http_client)
         policy = OutboundTargetPolicy()
+        endpoint_client = EndpointHttpClient(transport)
+        health_manager = HealthManager(redis)
+        probe_manager = EndpointProbeManager(
+            http_client=endpoint_client,
+            target_policy=policy,
+            timeout_seconds=CONF.ENDPOINT_HEALTH_CHECK_TIMEOUT_SECONDS,
+            max_response_bytes=CONF.ENDPOINT_HEALTH_CHECK_MAX_RESPONSE_BYTES,
+        )
         app.state.auth_manager = AuthManager(http_client=shared_http_client, password_worker=password_worker)
-        app.state.endpoint_access_manager = EndpointAccessManager(EndpointHttpClient(transport), policy)
+        app.state.endpoint_access_manager = EndpointAccessManager(endpoint_client, policy)
+        app.state.endpoint_health_manager = EndpointHealthManager(
+            probe_manager=probe_manager,
+            health_manager=health_manager,
+        )
         route_references = DatabaseJsonRpcEndpointRouteReferenceLookup()
         app.state.endpoint_manager = EndpointManager(route_references)
         app.state.provider_manager = ProviderManager(transport, ManagedEndpointManager(route_references))
         async with RegisterTortoise(app, config=config, generate_schemas=False):
             yield
     finally:
-        try:
-            await close_cache()
-        finally:
-            if redis is not None:
-                await clear_test_redis_keys(redis)
-                await redis.aclose()
-            Manager.clear_redis()
-            await Tortoise.close_connections()
-            await shared_http_client.aclose()
+        if redis is not None:
+            await clear_test_redis_keys(redis)
+            await redis.aclose()
+        Manager.clear_redis()
+        await Tortoise.close_connections()
+        await shared_http_client.aclose()
 
 
 @pytest.fixture

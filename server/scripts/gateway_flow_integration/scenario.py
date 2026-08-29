@@ -1,5 +1,4 @@
 import asyncio
-import hashlib
 import math
 import secrets
 import time
@@ -7,9 +6,9 @@ from dataclasses import dataclass
 from typing import Any
 
 import httpx
-import orjson
 from app.model.blockchain import Chain, Network
 from app.model.runtime_state.tip import Finality, TipUnit
+from app.services.system_cache.key import build_cache_digest
 from scripts.gateway_flow_integration.client import EndpointResource, GatewayClient, RouteResource
 from scripts.gateway_flow_integration.inspector import (
     PostgresRetentionAuditSpec,
@@ -140,8 +139,7 @@ def _redis_ttl_result(chain: Chain) -> object:
 
 
 def _cache_digest(method: str, identity: object) -> str:
-    canonical = orjson.dumps({'method': method, 'identity': identity}, option=orjson.OPT_SORT_KEYS)
-    return hashlib.blake2b(canonical, digest_size=20).hexdigest()
+    return build_cache_digest(operation=method, identity=identity)
 
 
 async def _create_app(client: GatewayClient, name: str) -> AccountResources:

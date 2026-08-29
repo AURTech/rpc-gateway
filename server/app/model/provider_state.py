@@ -31,6 +31,24 @@ class ProviderEndpointSyncStatus(StrEnum):
     MISSING = 'missing'
 
 
+class ProviderEndpointDiscoveryStatus(StrEnum):
+    PRESENT = 'present'
+    MISSING = 'missing'
+
+
+class ProviderSyncTrigger(StrEnum):
+    MANUAL = 'manual'
+    SCHEDULED = 'scheduled'
+
+
+class ProviderSyncRunState(StrEnum):
+    QUEUED = 'queued'
+    RUNNING = 'running'
+    SUCCESS = 'success'
+    PARTIAL = 'partial'
+    FAILED = 'failed'
+
+
 class ProviderEndpointAction(StrEnum):
     CREATED = 'created'
     UPDATED = 'updated'

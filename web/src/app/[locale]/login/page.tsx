@@ -2,21 +2,25 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Suspense, useState } from "react";
-import { getGoogleLoginUrl } from "@/api/auth/actions";
+import { getAurPayLoginUrl, getGoogleLoginUrl } from "@/api/auth/actions";
 import { passwordLogin } from "@/api/auth/client";
 import { isApiError } from "@/api/client";
 import { AuthShell } from "@/components/patterns/auth-shell";
 import { Field } from "@/components/patterns/form-field";
+import { SwapLabel } from "@/components/patterns/swap-label";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { authIdentityQueryKey } from "@/hooks/use-auth";
+import { useMotionPreset } from "@/hooks/use-motion-preset";
 import { Link, useRouter } from "@/i18n/navigation";
 import { authErrorKey } from "@/lib/auth-error";
+import { collapseVariants, easeEmphasized } from "@/lib/motion";
 
 function GoogleIcon() {
   return (
@@ -44,7 +48,7 @@ function GoogleIcon() {
 
 function LoginContent() {
   const t = useTranslations("auth");
-  const reduce = useReducedMotion();
+  const motionPreset = useMotionPreset();
   const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
@@ -103,12 +107,14 @@ function LoginContent() {
               <motion.div
                 key="login-error"
                 className="overflow-hidden"
-                initial={reduce ? false : { height: 0, opacity: 0 }}
-                animate={
-                  reduce ? { opacity: 1 } : { height: "auto", opacity: 1 }
-                }
-                exit={reduce ? { opacity: 0 } : { height: 0, opacity: 0 }}
-                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                variants={collapseVariants}
+                initial={motionPreset.initial("initial")}
+                animate="animate"
+                exit="exit"
+                transition={motionPreset.transition({
+                  duration: 0.2,
+                  ease: easeEmphasized,
+                })}
               >
                 <div
                   role="alert"
@@ -120,6 +126,51 @@ function LoginContent() {
               </motion.div>
             ) : null}
           </AnimatePresence>
+
+          <div className="flex w-full flex-col gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="w-full"
+              aria-label={t("continue_with_google_aria")}
+              onClick={() => {
+                window.location.href = getGoogleLoginUrl();
+              }}
+            >
+              <GoogleIcon />
+              {t("continue_with_google")}
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="w-full"
+              aria-label={t("sign_in_with_aurpay_aria")}
+              onClick={() => {
+                window.location.href = getAurPayLoginUrl({
+                  prompt: "select_account",
+                });
+              }}
+            >
+              <Image
+                src="/aurpay-logo.svg"
+                alt=""
+                width={20}
+                height={20}
+                className="size-5"
+                aria-hidden
+              />
+              {t("sign_in_with_aurpay")}
+            </Button>
+          </div>
+
+          <div className="my-6 flex w-full items-center gap-3">
+            <span className="h-px flex-1 bg-ink-wash" />
+            <span className="text-sm text-ink-400">{t("divider")}</span>
+            <span className="h-px flex-1 bg-ink-wash" />
+          </div>
 
           <form className="flex w-full flex-col gap-4" onSubmit={handleSubmit}>
             <Field label={t("email_label")} htmlFor="login-email">
@@ -167,37 +218,19 @@ function LoginContent() {
               className="w-full"
               disabled={!canSubmit}
             >
-              {login.isPending ? (
-                <>
-                  <Loader2 className="animate-spin" aria-hidden />
-                  {t("signing_in")}
-                </>
-              ) : (
-                t("sign_in")
-              )}
+              <SwapLabel swapKey={login.isPending ? "pending" : "idle"}>
+                {login.isPending ? (
+                  <>
+                    <Loader2 className="animate-spin" aria-hidden />
+                    {t("signing_in")}
+                  </>
+                ) : (
+                  t("sign_in")
+                )}
+              </SwapLabel>
             </Button>
           </form>
         </div>
-
-        <div className="flex w-full items-center gap-3">
-          <span className="h-px flex-1 bg-ink-wash" />
-          <span className="text-sm text-ink-400">{t("divider")}</span>
-          <span className="h-px flex-1 bg-ink-wash" />
-        </div>
-
-        <Button
-          type="button"
-          variant="outline"
-          size="lg"
-          className="w-full"
-          aria-label={t("continue_with_google_aria")}
-          onClick={() => {
-            window.location.href = getGoogleLoginUrl();
-          }}
-        >
-          <GoogleIcon />
-          {t("continue_with_google")}
-        </Button>
 
         <p className="text-center text-sm text-ink-400">
           {t("policy_line")}{" "}

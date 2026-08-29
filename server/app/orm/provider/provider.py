@@ -20,16 +20,9 @@ class Provider(GuidMixin, TimestampMixin):
     next_sync_at = fields.DatetimeField(null=True)
     encrypted_credential = fields.TextField()
     settings = fields.JSONField(default=dict)
-    only_networks = fields.JSONField(default=list)
-    ignore_networks = fields.JSONField(default=list)
+    networks = fields.JSONField(null=True)
     last_sync_at = fields.DatetimeField(null=True)
     last_sync_status = fields.CharEnumField(ProviderSyncStatus, default=ProviderSyncStatus.NEVER, max_length=32)
-    last_sync_error = fields.TextField(null=True)
-    last_sync_created = fields.IntField(default=0)
-    last_sync_updated = fields.IntField(default=0)
-    last_sync_restored = fields.IntField(default=0)
-    last_sync_archived = fields.IntField(default=0)
-    last_sync_skipped = fields.IntField(default=0)
     version = fields.IntField(default=1)
 
     class Meta:
@@ -50,24 +43,13 @@ class Provider(GuidMixin, TimestampMixin):
     def model_dump(self) -> dict:
         return {
             'id': self.id,
-            'account_id': self.account_id,
             'name': self.name,
             'vendor': ProviderVendor(self.vendor),
             'enabled': self.enabled,
             'sync_enabled': self.sync_enabled,
             'credential': {'has_secret': bool(self.encrypted_credential)},
-            'settings': self.settings if isinstance(self.settings, dict) else {},
-            'only_networks': self.only_networks if isinstance(self.only_networks, list) else [],
-            'ignore_networks': self.ignore_networks if isinstance(self.ignore_networks, list) else [],
+            'networks': self.networks if isinstance(self.networks, list) else None,
             'last_sync_at': self.last_sync_at,
             'last_sync_status': ProviderSyncStatus(self.last_sync_status),
-            'last_sync_error': self.last_sync_error,
-            'last_sync_created': self.last_sync_created,
-            'last_sync_updated': self.last_sync_updated,
-            'last_sync_restored': self.last_sync_restored,
-            'last_sync_archived': self.last_sync_archived,
-            'last_sync_skipped': self.last_sync_skipped,
             'version': self.version,
-            'created_at': self.created_at,
-            'modified_at': self.modified_at,
         }

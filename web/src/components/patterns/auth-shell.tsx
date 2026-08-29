@@ -1,8 +1,10 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
 import type { ReactNode } from "react";
 
+import { useMotionPreset } from "@/hooks/use-motion-preset";
+import { easeEmphasized } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 /**
@@ -20,7 +22,7 @@ export function AuthShell({
   footnote?: ReactNode;
   className?: string;
 }) {
-  const reduce = useReducedMotion();
+  const motionPreset = useMotionPreset();
 
   return (
     <main className="flex min-h-svh items-center justify-center bg-page-bg px-6 py-12">
@@ -29,9 +31,12 @@ export function AuthShell({
           "flex w-full max-w-sm flex-col items-center gap-8",
           className,
         )}
-        initial={reduce ? false : { opacity: 0, y: 8 }}
+        initial={motionPreset.initial({ opacity: 0, y: 8 })}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+        transition={motionPreset.transition({
+          duration: 0.2,
+          ease: easeEmphasized,
+        })}
       >
         {children}
 

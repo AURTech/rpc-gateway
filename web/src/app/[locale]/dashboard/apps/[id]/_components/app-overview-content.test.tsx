@@ -30,7 +30,7 @@ vi.mock("./use-gateway-path-key", () => ({
   useGatewayPathKey: vi.fn(),
 }));
 
-// The Gateways tab owns a large management table. Its integration is covered
+// The Gateway tab owns a large management table. Its integration is covered
 // separately; these tests only need to prove the tab contract and app scope.
 vi.mock("./app-networks-panel", () => ({
   AppNetworksPanel: ({ appId }: { appId: string }) => (
@@ -136,7 +136,7 @@ describe("AppOverviewContent", () => {
     renderContent();
 
     const cta = await screen.findByRole("link", { name: "cta" });
-    expect(cta).toHaveAttribute("href", "/dashboard/apps/app_1/gateways");
+    expect(cta).toHaveAttribute("href", "/dashboard/apps/app_1?tab=gateways");
     expect(screen.queryByText("eth_blockNumber")).not.toBeInTheDocument();
   });
 
@@ -189,7 +189,7 @@ describe("AppOverviewContent", () => {
 
     expect(await screen.findByRole("link", { name: "cta" })).toHaveAttribute(
       "href",
-      "/dashboard/apps/app_1/gateways",
+      "/dashboard/apps/app_1?tab=gateways",
     );
     expect(screen.queryByText("eth_blockNumber")).not.toBeInTheDocument();
   });
@@ -204,6 +204,7 @@ describe("AppOverviewContent", () => {
               transport: "jsonrpc",
               url: "https://eth-jsonrpc.example.test/{api_key}",
             },
+            { transport: "grpc", url: "https://eth-grpc.example.test" },
           ],
         }),
       ]),
@@ -216,10 +217,68 @@ describe("AppOverviewContent", () => {
 
     const options = await screen.findAllByRole("option");
     // http_api has no access point on this gateway, so it isn't offered.
-    expect(options.map((o) => o.textContent)).toEqual(["transport.jsonrpc"]);
+    expect(options.map((o) => o.textContent)).toEqual([
+      "transport.jsonrpc",
+      "transport.grpc",
+    ]);
   });
 
-  it("swaps in gateway management and mirrors the tab into the URL", async () => {
+  it("narrows the auth methods to the ones the protocol supports", async () => {
+    mockAppLoaded();
+    listGatewaysMock.mockResolvedValue(
+      gatewayList([
+        makeGateway({
+          access_points: [
+            {
+              transport: "jsonrpc",
+              url: "https://eth-jsonrpc.example.test/{api_key}",
+            },
+            { transport: "grpc", url: "https://eth-grpc.example.test" },
+          ],
+        }),
+      ]),
+    );
+
+    renderContent();
+
+    // Scope to the auth switcher; the page's own tabs share the role.
+    const authTabs = () =>
+      within(
+        screen.getByRole("tablist", { name: "auth.ariaLabel" }),
+      ).getAllByRole("tab");
+
+    // JSON-RPC is first, so the HTTP auth pair shows.
+    await waitFor(() => {
+      expect(authTabs().map((tab) => tab.textContent)).toEqual([
+        "auth.apiKey.label",
+        "auth.httpBearer.label",
+      ]);
+    });
+
+    await userEvent.click(
+      screen.getByRole("combobox", { name: "protocolLabel" }),
+    );
+    await userEvent.click(
+      await screen.findByRole("option", { name: "transport.grpc" }),
+    );
+
+    // gRPC shares no auth method with the HTTP transports, so the tab row
+    // swaps rather than keeping a mode the protocol can't use.
+    await waitFor(() => {
+      expect(authTabs().map((tab) => tab.textContent)).toEqual([
+        "auth.grpcBearer.label",
+      ]);
+    });
+    // The endpoint row and the gRPC config example both now read the gRPC URL.
+    expect(
+      screen.getAllByText(/eth-grpc\.example\.test/).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByText(/eth-jsonrpc\.example\.test/),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps each manual tab choice explicit in the URL", async () => {
     mockAppLoaded();
     listGatewaysMock.mockResolvedValue(gatewayList([makeGateway({})]));
 
@@ -234,6 +293,14 @@ describe("AppOverviewContent", () => {
     expect(screen.queryByText("eth_blockNumber")).not.toBeInTheDocument();
     expect(replaceMock).toHaveBeenCalledWith(
       "/dashboard/apps/app_1?tab=gateways",
+    );
+
+    await userEvent.click(screen.getByRole("tab", { name: "tabs.setup" }));
+
+    expect(await screen.findByText("eth_blockNumber")).toBeInTheDocument();
+    expect(screen.queryByTestId("gateways-panel")).not.toBeInTheDocument();
+    expect(replaceMock).toHaveBeenLastCalledWith(
+      "/dashboard/apps/app_1?tab=setup",
     );
   });
 

@@ -1,34 +1,25 @@
 import { describe, expect, it } from "vitest";
 
-import { loadMessages } from "./messages";
+import common from "../locales/en/common.json";
+import { messages } from "./messages";
 
-/** Collect every leaf key path (dot-joined) of a nested message bag. */
-function leafPaths(value: unknown, prefix = ""): string[] {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return [prefix];
-  }
-  return Object.entries(value as Record<string, unknown>).flatMap(([key, v]) =>
-    leafPaths(v, prefix ? `${prefix}.${key}` : key),
-  );
-}
+const PAGE_NAMESPACES = ["auth", "dashboard"] as const;
 
-function get(bag: unknown, path: string): unknown {
-  return path
-    .split(".")
-    .reduce<unknown>(
-      (acc, key) =>
-        typeof acc === "object" && acc !== null
-          ? (acc as Record<string, unknown>)[key]
-          : undefined,
-      bag,
+describe("i18n message bag", () => {
+  it("exposes every page namespace alongside the common keys", () => {
+    for (const namespace of PAGE_NAMESPACES) {
+      expect(messages[namespace]).toBeTypeOf("object");
+    }
+    expect(messages.errors).toBe(common.errors);
+  });
+
+  it("keeps common.json free of keys that would shadow a page namespace", () => {
+    // `common` is spread at the root of the bag, so a `common.json` key named
+    // after a page bundle would be silently replaced by that bundle.
+    const collisions = PAGE_NAMESPACES.filter(
+      (namespace) => namespace in common,
     );
-}
 
-describe("i18n message contract", () => {
-  it("loads every English message namespace", async () => {
-    const messages = await loadMessages();
-
-    expect(leafPaths(messages)).toContain("dashboard.endpoints.fields.name");
-    expect(get(messages, "dashboard.endpoints.fields.name")).toBe("Name");
+    expect(collisions).toEqual([]);
   });
 });

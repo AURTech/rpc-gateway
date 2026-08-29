@@ -45,7 +45,7 @@ def configure_auth_settings(monkeypatch: Any) -> dict[str, Any]:
         'GOOGLE_OAUTH_CLIENT_ID': 'client-id',
         'GOOGLE_OAUTH_CLIENT_SECRET': 'client-secret',
         'GOOGLE_OAUTH_REDIRECT_URI': 'http://test/v2/auth/google/callback',
-        'FRONTEND_AUTH_CALLBACK_URL': 'http://web.test/en/auth/callback',
+        'FRONTEND_AUTH_CALLBACK_URL': 'http://web.test/zh/auth/callback',
         'CORS_ORIGINS': ['http://127.0.0.1:19341', 'http://localhost:19341'],
         'ADMIN_ALLOWED_EMAILS': ['admin@example.com'],
         'AUTH_SESSION_SECRET': 'test-session-secret-value-32-bytes',

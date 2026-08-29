@@ -7,6 +7,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { ThemeProvider } from "next-themes";
 
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { getQueryClient } from "@/lib/query-client";
 
 interface ProvidersProps {
@@ -33,11 +34,15 @@ export function Providers({
         disableTransitionOnChange
         nonce={nonce}
       >
-        <QueryClientProvider client={queryClient}>
-          {children}
-          <Toaster position="bottom-right" richColors closeButton />
-          {isDevelopment ? <ReactQueryDevtools initialIsOpen={false} /> : null}
-        </QueryClientProvider>
+        <TooltipProvider>
+          <QueryClientProvider client={queryClient}>
+            {children}
+            <Toaster position="bottom-right" richColors closeButton />
+            {isDevelopment ? (
+              <ReactQueryDevtools initialIsOpen={false} />
+            ) : null}
+          </QueryClientProvider>
+        </TooltipProvider>
       </ThemeProvider>
     </NextIntlClientProvider>
   );

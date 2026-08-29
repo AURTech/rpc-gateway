@@ -1,5 +1,10 @@
 import type * as React from "react";
 
+import {
+  STAGGER_MAX,
+  TABLE_ROW_ENTER_MS,
+  TABLE_ROW_STAGGER_MS,
+} from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 /**
@@ -17,6 +22,8 @@ import { cn } from "@/lib/utils";
 
 export type TableProps = React.ComponentProps<"table"> & {
   containerClassName?: string;
+  /** Content rendered in the frame above the table viewport. */
+  header?: React.ReactNode;
   /** Override the fixed scroll-viewport height (defaults to 10 rows). */
   scrollClassName?: string;
   /** Rendered below the scroll viewport, inside the frame — for pagination so
@@ -28,40 +35,69 @@ export type TableProps = React.ComponentProps<"table"> & {
    *  opt back in. Driven by the `data-dividers` attribute + `.ui-table` CSS so
    *  this component can stay pure-presentational (no Context / "use client"). */
   dividers?: boolean;
+  /** Let content determine height instead of reserving the 10-row viewport. */
+  compact?: boolean;
+  /** Remove the gray frame, its padding, and elevation. */
+  frameless?: boolean;
+  /** Opt into inline expanded-row spotlight styling. */
+  rowSpotlight?: boolean;
 };
 
 function Table({
   className,
   containerClassName,
+  header,
   scrollClassName,
   footer,
   dividers = false,
+  compact = false,
+  frameless = false,
+  rowSpotlight = false,
   ...props
 }: TableProps) {
   return (
     // Outer shell owns the shadow and the visible rounded outline so that
     // clip-path on the inner container does not swallow the box-shadow.
-    <div className={cn("rounded-3xl shadow-elevated", containerClassName)}>
+    <div
+      className={cn(
+        compact ? "rounded-xl" : "rounded-3xl",
+        "shadow-elevated",
+        frameless && "rounded-none shadow-none",
+        containerClassName,
+      )}
+    >
       {/* clip-path is the only reliable way to clip sticky compositor layers.
        * overflow:hidden stops working for position:sticky once the browser
        * promotes the element to its own GPU layer on scroll. clip-path is
        * applied post-compositing and therefore clips all sub-layers. */}
       <div
         data-slot="table-container"
-        className="relative overflow-hidden rounded-3xl bg-table-frame px-1 pb-1"
+        data-compact={compact ? "true" : undefined}
+        className={cn(
+          "relative overflow-hidden bg-table-frame px-1 pb-1",
+          compact ? "rounded-xl" : "rounded-3xl",
+          frameless && "rounded-none bg-transparent p-0",
+        )}
       >
+        {header}
         <div
           data-slot="table-scroll"
+          data-compact={compact ? "true" : undefined}
           className={cn(
-            "h-table-viewport overflow-x-hidden overflow-y-auto rounded-b-table-pill",
+            compact
+              ? "overflow-x-auto rounded-b-xl"
+              : "h-table-viewport overflow-x-hidden overflow-y-auto rounded-b-table-pill bg-surface",
+            frameless && "rounded-none",
             scrollClassName,
           )}
         >
           <table
             data-slot="table"
             data-dividers={dividers ? undefined : "off"}
+            data-compact={compact ? "true" : undefined}
+            data-row-spotlight={rowSpotlight ? "true" : undefined}
             className={cn(
-              "ui-table w-full min-h-full border-separate border-spacing-0",
+              "ui-table w-full border-separate border-spacing-0",
               className,
             )}
             {...props}
@@ -74,8 +110,16 @@ function Table({
          * frame-coloured wedges (radial-gradient concave notch, see globals)
          * fill the arc area without covering any cell text — at px-4 (16 px)
          * the arc's solid region is <0.5 px tall, geometrically invisible. */}
-        <div data-slot="table-arc-left" aria-hidden />
-        <div data-slot="table-arc-right" aria-hidden />
+        <div
+          data-slot="table-arc-left"
+          className={compact ? "hidden" : undefined}
+          aria-hidden
+        />
+        <div
+          data-slot="table-arc-right"
+          className={compact ? "hidden" : undefined}
+          aria-hidden
+        />
       </div>
     </div>
   );
@@ -87,10 +131,26 @@ function TableHeader({ className, ...props }: TableHeaderProps) {
   return <thead data-slot="table-header" className={className} {...props} />;
 }
 
-export type TableBodyProps = React.ComponentProps<"tbody">;
+export type TableBodyProps = React.ComponentProps<"tbody"> & {
+  /** Keep stale rows visible but inert while a replacement dataset loads. */
+  refreshing?: boolean;
+};
 
-function TableBody({ className, ...props }: TableBodyProps) {
-  return <tbody data-slot="table-body" className={className} {...props} />;
+function TableBody({
+  className,
+  refreshing = false,
+  ...props
+}: TableBodyProps) {
+  return (
+    <tbody
+      data-slot="table-body"
+      data-refreshing={refreshing ? "true" : undefined}
+      aria-busy={refreshing || undefined}
+      inert={refreshing ? true : undefined}
+      className={cn("table-body-motion", className)}
+      {...props}
+    />
+  );
 }
 
 export type TableFooterProps = React.ComponentProps<"tfoot">;
@@ -100,21 +160,34 @@ function TableFooter({ className, ...props }: TableFooterProps) {
 }
 
 export type TableRowProps = React.ComponentProps<"tr"> & {
-  /**
-   * Inline row-drawer open state. Drives the table's "spotlight" design — the
-   * row + its `TableExpandedRow` float as one card while the rest dim to the
-   * frame colour (see globals.css). Use only with the inline-drawer pattern.
-   */
+  /** Join this row to a following TableExpandedRow as the active detail. */
   expanded?: boolean;
   /**
    * Side-Sheet selected state. The detail lives in a separate Sheet, so this is
-   * a light row highlight only — it must NOT dim the rest of the table the way
-   * `expanded` does. Mutually exclusive with `expanded`.
+   * a light row highlight only.
    */
   active?: boolean;
+  /**
+   * Position in the list, which staggers the row's fade-in. Pass the `map`
+   * index; omit it for rows that should appear immediately (filler rows, state
+   * rows, rows inside a nested table).
+   *
+   * Driven by `data-enter` + a `--row-i` custom property rather than
+   * `motion.tr`, for two reasons. This component stays pure-presentational (no
+   * `"use client"`, matching the `data-dividers` precedent above), and the
+   * animation stays opacity-only. See DESIGN.md §7.
+   */
+  enterIndex?: number;
 };
 
-function TableRow({ className, expanded, active, ...props }: TableRowProps) {
+function TableRow({
+  className,
+  expanded,
+  active,
+  enterIndex,
+  style,
+  ...props
+}: TableRowProps) {
   // `group` enables `group-hover:` on the cells (hover wash is painted per-cell
   // so the rounded corner-cell clip still wins, per the original Firefox note).
   return (
@@ -124,9 +197,47 @@ function TableRow({ className, expanded, active, ...props }: TableRowProps) {
         expanded === undefined ? undefined : expanded ? "open" : "closed"
       }
       data-active={active ? "true" : undefined}
+      data-enter={enterIndex === undefined ? undefined : ""}
       className={cn("group transition-colors", className)}
+      style={
+        enterIndex === undefined
+          ? style
+          : // Clamped so a long or infinite list doesn't push the last rows
+            // seconds out; past the cap everything shares the final delay.
+            ({
+              ...style,
+              "--row-i": Math.min(enterIndex, STAGGER_MAX),
+              "--row-enter-duration": `${TABLE_ROW_ENTER_MS}ms`,
+              "--row-stagger-step": `${TABLE_ROW_STAGGER_MS}ms`,
+            } as React.CSSProperties)
+      }
       {...props}
     />
+  );
+}
+
+export type TableExpandedRowProps = React.ComponentProps<"tr"> & {
+  colSpan: number;
+  cellClassName?: string;
+};
+
+function TableExpandedRow({
+  colSpan,
+  cellClassName,
+  children,
+  ...props
+}: TableExpandedRowProps) {
+  return (
+    <tr data-slot="table-expanded-row" {...props}>
+      <td
+        colSpan={colSpan}
+        className={cn("h-auto bg-surface p-0", cellClassName)}
+      >
+        <div data-slot="table-expanded-content" className="min-w-0 w-full">
+          {children}
+        </div>
+      </td>
+    </tr>
   );
 }
 
@@ -158,8 +269,7 @@ function TableHead({
 
 export type TableCellProps = React.ComponentProps<"td"> & {
   align?: "left" | "right";
-  /** Draw the 1px row hairline at the cell's bottom. Off for expanded rows so
-   *  the row + drawer read as one continuous shape. */
+  /** Draw the 1px row hairline at the cell's bottom. */
   divider?: boolean;
 };
 
@@ -183,33 +293,6 @@ function TableCell({
   );
 }
 
-export type TableExpandedRowProps = {
-  colSpan: number;
-  className?: string;
-  children: React.ReactNode;
-  /** Ref on the drawer `<tr>` so the row can scroll it into view on expand. */
-  rowRef?: React.Ref<HTMLTableRowElement>;
-};
-
-function TableExpandedRow({
-  colSpan,
-  className,
-  children,
-  rowRef,
-}: TableExpandedRowProps) {
-  // Must be conditionally MOUNTED by the caller (never display:none) so the
-  // `.ui-table tbody tr:last-child` corner CSS keeps targeting the real last row.
-  return (
-    <tr ref={rowRef} data-slot="table-expanded-row">
-      <td colSpan={colSpan} className={cn("bg-surface p-0", className)}>
-        {/* Hard 2-row cap: the drawer never grows the fixed viewport, whatever
-         * its content. The drawer body is laid out to fit without scrolling. */}
-        <div className="max-h-table-drawer overflow-hidden">{children}</div>
-      </td>
-    </tr>
-  );
-}
-
 export type TableCaptionProps = React.ComponentProps<"caption">;
 
 function TableCaption({ className, ...props }: TableCaptionProps) {
@@ -228,8 +311,8 @@ export {
   TableBody,
   TableFooter,
   TableRow,
+  TableExpandedRow,
   TableHead,
   TableCell,
-  TableExpandedRow,
   TableCaption,
 };

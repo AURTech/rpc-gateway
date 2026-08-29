@@ -4,6 +4,7 @@ import { ChevronRight } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useMemo } from "react";
 
+import { MotionList, MotionListItem } from "@/components/patterns/motion-list";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useOverviewQuery } from "@/hooks/use-overview";
 import { Link } from "@/i18n/navigation";
@@ -11,7 +12,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * Resource stat card beside Overview's apps panel: plain label + value
- * rows without charts for endpoint/app counts off
+ * rows (GitLab admin-style, no charts) for endpoint/app counts off
  * `/v2/overview`. Each row links to its management page. The counts are
  * point-in-time entity totals, so the card takes no range selector.
  */
@@ -44,7 +45,7 @@ export function OverviewResourcesCard({ className }: { className?: string }) {
             onRetry={() => query.refetch()}
           />
         ) : (
-          <ul className="flex flex-col gap-1">
+          <MotionList as="ul" className="flex flex-col gap-1">
             <ResourceRow
               href="/dashboard/endpoints"
               label={t("endpoints")}
@@ -52,8 +53,8 @@ export function OverviewResourcesCard({ className }: { className?: string }) {
               total={integer.format(query.data.endpoint_total)}
             />
             <ResourceRow
-              href="/dashboard/providers"
-              label={t("providers")}
+              href="/dashboard/endpoints/providers"
+              label={t("connections")}
               value={integer.format(query.data.provider_total)}
             />
             <ResourceRow
@@ -61,7 +62,7 @@ export function OverviewResourcesCard({ className }: { className?: string }) {
               label={t("apps")}
               value={integer.format(query.data.app_total)}
             />
-          </ul>
+          </MotionList>
         )}
       </div>
     </section>
@@ -81,7 +82,7 @@ function ResourceRow({
   total?: string;
 }) {
   return (
-    <li>
+    <MotionListItem as="li">
       <Link
         href={href}
         className="group flex items-center gap-3 rounded-lg px-3 py-3 transition-colors hover:bg-row-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40"
@@ -100,7 +101,7 @@ function ResourceRow({
           aria-hidden
         />
       </Link>
-    </li>
+    </MotionListItem>
   );
 }
 

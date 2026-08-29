@@ -68,9 +68,13 @@ export function ChainSelectCard({
         <span
           aria-hidden
           className="inline-flex size-10 shrink-0 items-center justify-center rounded-full"
-          // Tint the logo backdrop with the chain's brand colour (~10% alpha)
-          // so each card carries a splash of its identity without bundled art.
-          style={{ backgroundColor: `${accent}1a` }}
+          // Tint the logo backdrop with the chain's colour at ~10% so each card
+          // carries a splash of its identity without bundled art. Mixed rather
+          // than alpha-suffixed: `accent` is a `var(--chain-*)` reference, not a
+          // literal hex we could append an alpha pair to.
+          style={{
+            backgroundColor: `color-mix(in oklab, ${accent} 10%, transparent)`,
+          }}
         >
           <ChainIcon chain={group.chain} className="size-6" />
         </span>

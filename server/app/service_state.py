@@ -8,7 +8,6 @@ from app.clients.endpoint import EndpointHttpClient
 from app.clients.transport import HttpTransport
 from app.core.config import CONF
 from app.infra import runtime
-from app.infra.cache import close_cache
 from app.infra.db import SYSTEM_CACHE_COORDINATION_DB_CONNECTION, SYSTEM_CACHE_RETENTION_DB_CONNECTION
 from app.infra.http_client import SharedHttpClient
 from app.infra.outbound_policy import build_outbound_target_policy
@@ -16,7 +15,7 @@ from app.model.runtime_state.circuit import CircuitPolicy
 from app.services.auth import AuthManager
 from app.services.auth.password import PasswordWorker
 from app.services.base import Manager
-from app.services.endpoint import EndpointAccessManager, EndpointHealthCheckManager, EndpointManager, ManagedEndpointManager
+from app.services.endpoint import EndpointAccessManager, EndpointHealthManager, EndpointManager, ManagedEndpointManager
 from app.services.endpoint.probe import EndpointProbeManager
 from app.services.http_api_forwarding import HttpApiForwardingManager
 from app.services.http_api_rate_limit import HttpApiAdmissionManager, HttpApiRateLimitPolicyManager
@@ -37,11 +36,14 @@ from app.services.runtime_state.circuit import CircuitManager
 from app.services.runtime_state.endpoint.health import HealthDispatcher, HealthManager
 from app.services.runtime_state.endpoint.tip import TipDispatcher, TipManager
 from app.services.runtime_state.endpoint.tip.store import TipStore
+from app.services.system_cache import SystemCacheManager
+from app.services.system_cache.flight import PostgresRetentionFlight, RedisTtlFlight
+from app.services.system_cache.limits import FLIGHT_LEASE_MS, REDIS_IO_TIMEOUT_SECONDS, flight_wait_seconds
+from app.services.system_cache.store import HybridSystemCacheStore, PostgresRetentionStore, RedisTtlStore
+from app.services.system_http_api_cache import SystemHttpApiCacheManager
+from app.services.system_http_api_cache.policy import SystemHttpApiCachePolicy
 from app.services.system_jsonrpc_cache import SystemJsonRpcCacheManager
-from app.services.system_jsonrpc_cache.flight import PostgresRetentionFlight, RedisTtlFlight
-from app.services.system_jsonrpc_cache.limits import FLIGHT_LEASE_MS, REDIS_IO_TIMEOUT_SECONDS, flight_wait_seconds
 from app.services.system_jsonrpc_cache.policy import SystemJsonRpcCachePolicy
-from app.services.system_jsonrpc_cache.store import HybridSystemJsonRpcCacheStore, PostgresRetentionStore, RedisTtlStore
 from app.services.usage import GatewayUsageRecorder
 
 
@@ -114,7 +116,6 @@ def init_managers(app: FastAPI, shared_http_client: httpx.AsyncClient, redis_cli
     jsonrpc_forwarding_manager = JsonRpcForwardingManager(
         endpoint_access_manager,
         jsonrpc_route_plans,
-        health_manager,
         circuit_manager,
         health_dispatcher,
         max_attempts=CONF.JSONRPC_FORWARDING_MAX_ATTEMPTS,
@@ -123,7 +124,6 @@ def init_managers(app: FastAPI, shared_http_client: httpx.AsyncClient, redis_cli
     admin_jsonrpc_forwarding_manager = JsonRpcForwardingManager(
         endpoint_access_manager,
         jsonrpc_route_plans,
-        health_manager,
         circuit_manager,
         health_dispatcher,
         max_attempts=CONF.JSONRPC_FORWARDING_MAX_ATTEMPTS,
@@ -146,21 +146,18 @@ def init_managers(app: FastAPI, shared_http_client: httpx.AsyncClient, redis_cli
     http_api_forwarding_manager = HttpApiForwardingManager(
         endpoint_access_manager,
         DatabaseHttpApiRoutePlanProvider(),
-        health_manager,
         circuit_manager,
         health_dispatcher,
         max_attempts=CONF.HTTP_API_FORWARDING_MAX_ATTEMPTS,
     )
+    system_cache_manager: SystemCacheManager | None = None
     system_jsonrpc_cache_manager: SystemJsonRpcCacheManager | None = None
-    if CONF.SYSTEM_JSONRPC_CACHE_ENABLED:
-        system_jsonrpc_cache_manager = SystemJsonRpcCacheManager(
-            HybridSystemJsonRpcCacheStore(
+    system_http_api_cache_manager: SystemHttpApiCacheManager | None = None
+    if CONF.SYSTEM_CACHE_ENABLED:
+        system_cache_manager = SystemCacheManager(
+            HybridSystemCacheStore(
                 RedisTtlStore(redis_client),
                 PostgresRetentionStore(SYSTEM_CACHE_RETENTION_DB_CONNECTION),
-            ),
-            SystemJsonRpcCachePolicy(
-                redis_ttl_ms=CONF.SYSTEM_JSONRPC_CACHE_REDIS_TTL_MS,
-                postgres_retention_seconds=CONF.SYSTEM_JSONRPC_CACHE_POSTGRES_RETENTION_SECONDS_BY_CHAIN,
             ),
             RedisTtlFlight(
                 redis_client,
@@ -172,9 +169,25 @@ def init_managers(app: FastAPI, shared_http_client: httpx.AsyncClient, redis_cli
                 io_timeout_seconds=REDIS_IO_TIMEOUT_SECONDS,
                 connection_name=SYSTEM_CACHE_COORDINATION_DB_CONNECTION,
             ),
-            flight_wait_seconds=flight_wait_seconds(CONF.JSONRPC_FORWARDING_MAX_ATTEMPTS),
+            flight_wait_seconds=flight_wait_seconds(
+                max(CONF.JSONRPC_FORWARDING_MAX_ATTEMPTS, CONF.HTTP_API_FORWARDING_MAX_ATTEMPTS)
+            ),
         )
-    app.state.system_jsonrpc_cache_manager = system_jsonrpc_cache_manager
+        system_jsonrpc_cache_manager = SystemJsonRpcCacheManager(
+            system_cache_manager,
+            SystemJsonRpcCachePolicy(
+                redis_ttl_ms=CONF.SYSTEM_CACHE_REDIS_TTL_MS,
+                postgres_retention_seconds=CONF.SYSTEM_CACHE_POSTGRES_RETENTION_SECONDS_BY_CHAIN,
+            ),
+        )
+        system_http_api_cache_manager = SystemHttpApiCacheManager(
+            system_cache_manager,
+            SystemHttpApiCachePolicy(
+                redis_ttl_ms=CONF.SYSTEM_CACHE_REDIS_TTL_MS,
+                postgres_retention_seconds=CONF.SYSTEM_CACHE_POSTGRES_RETENTION_SECONDS_BY_CHAIN,
+            ),
+        )
+    app.state.system_cache_manager = system_cache_manager
     app.state.endpoint_access_manager = endpoint_access_manager
     app.state.endpoint_manager = EndpointManager(route_references)
     app.state.jsonrpc_rate_limit_policy_manager = jsonrpc_rate_limit_policy_manager
@@ -200,10 +213,11 @@ def init_managers(app: FastAPI, shared_http_client: httpx.AsyncClient, redis_cli
         http_api_admission_manager,
         http_api_forwarding_manager,
         usage_recorder,
+        system_cache=system_http_api_cache_manager,
     )
-    app.state.endpoint_health_check_manager = EndpointHealthCheckManager(
+    app.state.endpoint_health_manager = EndpointHealthManager(
         probe_manager=probe_manager,
-        health_dispatcher=health_dispatcher,
+        health_manager=health_manager,
     )
     app.state.health_dispatcher = health_dispatcher
     app.state.circuit_manager = circuit_manager
@@ -211,11 +225,9 @@ def init_managers(app: FastAPI, shared_http_client: httpx.AsyncClient, redis_cli
     app.state.provider_manager = ProviderManager(transport, ManagedEndpointManager(route_references))
 
 
-async def close_runtime_state(*, cache_started: bool, http_bound: bool) -> None:
+async def close_runtime_state(*, http_bound: bool) -> None:
     """Clear process-level runtime bindings and cache state."""
     async with contextlib.AsyncExitStack() as stack:
         stack.callback(Manager.clear_redis)
         if http_bound:
             stack.callback(SharedHttpClient.clear)
-        if cache_started:
-            stack.push_async_callback(close_cache)

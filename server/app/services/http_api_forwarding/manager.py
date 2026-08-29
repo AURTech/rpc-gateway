@@ -1,8 +1,7 @@
 import random
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from datetime import UTC, datetime
-from statistics import median
 
 from fastlog import log
 
@@ -20,19 +19,18 @@ from app.model.http_api_forwarding import (
     HttpApiForwardingFailureCode,
     HttpApiForwardingResult,
     HttpApiForwardingSuccess,
-    HttpApiRouteCandidate,
     HttpApiRoutePlan,
+    HttpApiRouteTarget,
 )
 from app.model.http_api_route import HttpApiRetryPolicy, HttpApiRoutingStrategyType
 from app.model.runtime_state.circuit import CircuitDecision, CircuitObservation, CircuitOutcome
-from app.model.runtime_state.endpoint.health import EndpointHealth, HealthFailure, HealthObservation, HealthOrigin, HealthStatus
+from app.model.runtime_state.endpoint.health import HealthFailure, HealthObservation, HealthOrigin
 from app.services.endpoint import EndpointAccess
 from app.services.endpoint.retry_after import parse_retry_after_seconds
-from app.services.http_api_forwarding.interface import EndpointHealthReader, HttpApiRoutePlanProvider
+from app.services.http_api_forwarding.interface import HttpApiRoutePlanProvider
 from app.services.runtime_state.circuit import CircuitManager
 from app.services.runtime_state.endpoint.health import HealthDispatcher
 
-_TRUST_ORDER = {'unverified': 0, 'trusted': 1, 'authoritative': 2}
 _SAFE_ACCESS_FAILURES = frozenset(
     {
         EndpointAccessFailureCode.NOT_FOUND,
@@ -59,21 +57,20 @@ class HttpApiForwardingManager:
         self,
         endpoint_access: EndpointAccess,
         route_plans: HttpApiRoutePlanProvider,
-        health_reader: EndpointHealthReader,
         circuit: CircuitManager,
         health: HealthDispatcher,
         *,
         max_attempts: int,
+        random_source: random.Random | None = None,
     ) -> None:
         if not 1 <= max_attempts <= 10:
             raise ValueError('HTTP API forwarding attempt limit must be between 1 and 10.')
         self._endpoint_access = endpoint_access
         self._route_plans = route_plans
-        self._health_reader = health_reader
         self._circuit = circuit
         self._health = health
         self._max_attempts = max_attempts
-        self._random = random.Random()
+        self._random = random_source or random.Random()
 
     async def load_plan(
         self,
@@ -96,24 +93,19 @@ class HttpApiForwardingManager:
         """Forward with bounded attempts, bypassing Circuit recording only when admission is unavailable."""
         if not plan.targets:
             return HttpApiForwardingFailure(code=HttpApiForwardingFailureCode.NO_ENDPOINT)
-        versions = [(target.endpoint.id, target.endpoint.version) for target in plan.targets]
-        try:
-            health_by_endpoint = await self._health_reader.get_many(versions)
-        except Exception as exc:
-            log.warning(f'HTTP API route Health read failed | Gateway:{plan.gateway_id} | Error:{exc!r}')
-            health_by_endpoint = {}
-        candidates = self._select_candidates(plan, health_by_endpoint)
+        candidates = [target for target in plan.targets if target.endpoint.enabled]
         if plan.strategy_type is HttpApiRoutingStrategyType.LOAD_BALANCE and any(
-            candidate.target.weight is None or candidate.target.weight <= 0 for candidate in candidates
+            candidate.weight is None or candidate.weight <= 0 for candidate in candidates
         ):
             return HttpApiForwardingFailure(code=HttpApiForwardingFailureCode.INTERNAL)
         attempts = 0
+        attempted_endpoint_ids: list[str] = []
         last_response: EndpointResponse | None = None
         attempt_limit = min(plan.max_attempts, self._max_attempts)
         while candidates and attempts < attempt_limit:
             candidate = self._select_next(plan.strategy_type, candidates)
             candidates.remove(candidate)
-            endpoint = candidate.target.endpoint
+            endpoint = candidate.endpoint
             decision: CircuitDecision | None = None
             try:
                 decision = await self._circuit.before_attempt(endpoint.id, endpoint.version)
@@ -124,6 +116,7 @@ class HttpApiForwardingManager:
             if decision is not None and not decision.allowed:
                 continue
             attempts += 1
+            attempted_endpoint_ids.append(endpoint.id)
             observation = CircuitObservation(outcome=CircuitOutcome.IGNORED)
             started_at = time.perf_counter()
             try:
@@ -133,79 +126,51 @@ class HttpApiForwardingManager:
                     self._submit_access_health(endpoint, result.code, latency_ms)
                     observation = self._access_observation(result.code)
                     if result.code in _INTERNAL_ACCESS_FAILURES:
-                        return HttpApiForwardingFailure(code=HttpApiForwardingFailureCode.INTERNAL)
+                        return HttpApiForwardingFailure(
+                            code=HttpApiForwardingFailureCode.INTERNAL,
+                            attempted_endpoint_ids=tuple(attempted_endpoint_ids),
+                        )
                     if self._retry_access(result.code, plan.retry_policy):
                         continue
-                    return HttpApiForwardingFailure(code=HttpApiForwardingFailureCode.ATTEMPTS_FAILED)
+                    return HttpApiForwardingFailure(
+                        code=HttpApiForwardingFailureCode.ATTEMPTS_FAILED,
+                        attempted_endpoint_ids=tuple(attempted_endpoint_ids),
+                    )
                 response = result.response
                 last_response = response
                 self._submit_response_health(endpoint, response.status_code, latency_ms)
                 observation = self._response_observation(response)
                 if self._retry_response(response.status_code, plan.retry_policy):
                     continue
-                return HttpApiForwardingSuccess(response=response)
+                return HttpApiForwardingSuccess(response=response, attempted_endpoint_ids=tuple(attempted_endpoint_ids))
+            except Exception as exc:
+                log.error(
+                    f'HTTP API Endpoint attempt failed unexpectedly | Gateway:{plan.gateway_id} | '
+                    f'Endpoint:{endpoint.id} | Error:{exc!r}'
+                )
+                return HttpApiForwardingFailure(
+                    code=HttpApiForwardingFailureCode.INTERNAL,
+                    attempted_endpoint_ids=tuple(attempted_endpoint_ids),
+                )
             finally:
                 if decision is not None:
                     self._circuit.submit(decision, observation)
         code = HttpApiForwardingFailureCode.ATTEMPTS_FAILED if attempts else HttpApiForwardingFailureCode.NO_ENDPOINT
-        return HttpApiForwardingFailure(code=code, response=last_response)
-
-    @staticmethod
-    def _select_candidates(
-        plan: HttpApiRoutePlan,
-        health_by_endpoint: Mapping[str, EndpointHealth | None],
-    ) -> list[HttpApiRouteCandidate]:
-        candidates: list[HttpApiRouteCandidate] = []
-        minimum_trust = _TRUST_ORDER[plan.minimum_trust.value]
-        for target in plan.targets:
-            endpoint = target.endpoint
-            if not endpoint.enabled or _TRUST_ORDER[endpoint.trust_level.value] < minimum_trust:
-                continue
-            health = health_by_endpoint.get(endpoint.id)
-            if (
-                plan.max_latency_ms is not None
-                and health is not None
-                and health.latency_ms is not None
-                and health.latency_ms > plan.max_latency_ms
-            ):
-                continue
-            candidates.append(HttpApiRouteCandidate(target=target, health=health))
-        return candidates
+        return HttpApiForwardingFailure(
+            code=code,
+            response=last_response,
+            attempted_endpoint_ids=tuple(attempted_endpoint_ids),
+        )
 
     def _select_next(
         self,
         strategy_type: HttpApiRoutingStrategyType,
-        candidates: Sequence[HttpApiRouteCandidate],
-    ) -> HttpApiRouteCandidate:
+        candidates: Sequence[HttpApiRouteTarget],
+    ) -> HttpApiRouteTarget:
         if strategy_type is HttpApiRoutingStrategyType.PRIORITY_FAILOVER:
-            return min(candidates, key=lambda candidate: candidate.target.position)
-        weights = [candidate.target.weight or 0 for candidate in candidates]
-        sampled = self._random.choices(candidates, weights=weights, k=min(2, len(candidates)))
-        if len(sampled) == 1 or sampled[0] is sampled[1]:
-            return sampled[0]
-        if self._is_unhealthy(sampled[0]) != self._is_unhealthy(sampled[1]):
-            return sampled[1] if self._is_unhealthy(sampled[0]) else sampled[0]
-        fallback = self._fallback_latency(candidates)
-        return min(sampled, key=lambda candidate: self._latency(candidate, fallback))
-
-    @staticmethod
-    def _latency(candidate: HttpApiRouteCandidate, fallback: float) -> float:
-        if candidate.health is None or candidate.health.latency_ms is None:
-            return fallback
-        return candidate.health.latency_ms
-
-    @staticmethod
-    def _fallback_latency(candidates: Sequence[HttpApiRouteCandidate]) -> float:
-        values = [
-            candidate.health.latency_ms
-            for candidate in candidates
-            if candidate.health is not None and candidate.health.latency_ms is not None
-        ]
-        return float(median(values)) if values else 0.0
-
-    @staticmethod
-    def _is_unhealthy(candidate: HttpApiRouteCandidate) -> bool:
-        return candidate.health is not None and candidate.health.status is HealthStatus.UNHEALTHY
+            return min(candidates, key=lambda candidate: candidate.position)
+        weights = [candidate.weight or 0 for candidate in candidates]
+        return self._random.choices(candidates, weights=weights, k=1)[0]
 
     @staticmethod
     def _retry_access(code: EndpointAccessFailureCode, policy: HttpApiRetryPolicy) -> bool:

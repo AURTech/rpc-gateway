@@ -24,12 +24,14 @@ class OAuthLoginState:
     cookie_value: str
     code_verifier: str
     code_challenge: str
+    nonce: str
 
 
 @dataclass(frozen=True)
 class ParsedOAuthState:
     code_verifier: str
     frontend_callback_url: str
+    nonce: str
 
 
 @dataclass(frozen=True)
@@ -67,13 +69,15 @@ def build_oauth_login_state(frontend_callback_url: str | None = None) -> OAuthLo
     code_verifier = secrets.token_urlsafe(64)
     challenge_digest = hashlib.sha256(code_verifier.encode()).digest()
     code_challenge = urlsafe_b64encode(challenge_digest).decode().rstrip('=')
+    nonce = secrets.token_urlsafe(32)
     callback_url = frontend_callback_url or get_auth_settings().frontend_auth_callback_url
-    payload = f'{state}.{code_verifier}.{_encode_callback_url(callback_url)}'
+    payload = f'{state}.{code_verifier}.{nonce}.{_encode_callback_url(callback_url)}'
     return OAuthLoginState(
         state=state,
         cookie_value=f'{payload}.{_sign_value(payload)}',
         code_verifier=code_verifier,
         code_challenge=code_challenge,
+        nonce=nonce,
     )
 
 
@@ -81,14 +85,10 @@ def parse_oauth_state_cookie(state: str | None, cookie_value: str | None) -> Par
     if not state or not cookie_value:
         return None
     parts = cookie_value.split('.')
-    if len(parts) == 3:
-        cookie_state, code_verifier, signature = parts
-        frontend_callback_url = get_auth_settings().frontend_auth_callback_url
-    elif len(parts) == 4:
-        cookie_state, code_verifier, encoded_callback_url, signature = parts
-        frontend_callback_url = _decode_callback_url(encoded_callback_url)
-    else:
+    if len(parts) != 5:
         return None
+    cookie_state, code_verifier, nonce, encoded_callback_url, signature = parts
+    frontend_callback_url = _decode_callback_url(encoded_callback_url)
     if not hmac.compare_digest(cookie_state, state):
         return None
     if not code_verifier or not frontend_callback_url or not signature:
@@ -96,7 +96,7 @@ def parse_oauth_state_cookie(state: str | None, cookie_value: str | None) -> Par
     payload = '.'.join(parts[:-1])
     if not hmac.compare_digest(signature, _sign_value(payload)):
         return None
-    return ParsedOAuthState(code_verifier=code_verifier, frontend_callback_url=frontend_callback_url)
+    return ParsedOAuthState(code_verifier=code_verifier, frontend_callback_url=frontend_callback_url, nonce=nonce)
 
 
 def split_cookie_value(value: str) -> tuple[IdentityType, str] | None:

@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 
 from app.model.blockchain import Chain, Network
-from app.model.endpoint.endpoint import EndpointProtocol, EndpointTrustLevel
+from app.model.endpoint.endpoint import EndpointProtocol
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -14,7 +14,6 @@ class EndpointDescriptor:
     network: Network
     protocol: EndpointProtocol
     enabled: bool
-    trust_level: EndpointTrustLevel
     version: int
 
 
@@ -22,7 +21,7 @@ class EndpointDescriptor:
 @dataclass(frozen=True, slots=True, kw_only=True)
 class EndpointJsonRpcRequest:
     content: bytes
-    timeout: float = 10
+    timeout: float = 6
     max_response_bytes: int | None = None
 
 
@@ -33,7 +32,7 @@ class EndpointHttpApiRequest:
     headers: Mapping[str, str] = field(default_factory=dict)
     query: Mapping[str, str | int | bool] | Sequence[tuple[str, str | int | bool]] = field(default_factory=tuple)
     content: bytes | None = None
-    timeout: float = 10
+    timeout: float = 6
     max_response_bytes: int | None = None
 
 

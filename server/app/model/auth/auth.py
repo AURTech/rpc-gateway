@@ -1,5 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -12,6 +13,7 @@ class IdentityType(StrEnum):
 
 
 class AuthProvider(StrEnum):
+    AURPAY = 'aurpay'
     GOOGLE = 'google'
 
 
@@ -43,6 +45,10 @@ class LogoutResult(BaseModel):
 class PasswordLoginParams(BaseModel):
     email: str = Field(min_length=3, max_length=320)
     password: str = Field(min_length=8, max_length=128)
+
+
+class AurPayLoginParams(BaseModel):
+    prompt: Literal['login', 'select_account'] | None = None
 
 
 class SetPasswordParams(BaseModel):

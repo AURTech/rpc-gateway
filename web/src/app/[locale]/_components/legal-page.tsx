@@ -1,24 +1,15 @@
-import { ArrowLeft, FileText, ShieldCheck } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { Link } from "@/i18n/navigation";
-import type { LegalDocument, LegalLocale } from "@/lib/legal-documents";
+import type { LegalDocument } from "@/lib/legal-documents";
 
-export function LegalPage({
-  document,
-  locale,
-}: {
-  document: LegalDocument;
-  locale: LegalLocale;
-}) {
-  const DocumentIcon = document.slug === "privacy" ? ShieldCheck : FileText;
-
+export function LegalPage({ document }: { document: LegalDocument }) {
   return (
     <main className="min-h-screen bg-page-bg text-ink-900">
       <header className="border-table-frame border-b bg-surface/90 backdrop-blur">
         <div className="mx-auto flex min-h-16 w-full max-w-7xl items-center justify-between gap-4 px-5 sm:px-8 lg:px-10">
           <Link
             href="/login"
-            locale={locale}
             className="flex items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
           >
             <span className="flex size-9 items-center justify-center rounded-lg bg-ink-900 text-md font-bold text-white">
@@ -62,7 +53,6 @@ export function LegalPage({
         <article className="min-w-0 max-w-3xl">
           <Link
             href="/login"
-            locale={locale}
             className="mb-8 inline-flex items-center gap-2 text-sm font-semibold text-ink-500 transition-colors hover:text-brand"
           >
             <ArrowLeft className="size-4" aria-hidden />
@@ -70,13 +60,7 @@ export function LegalPage({
           </Link>
 
           <div className="mb-12 border-table-frame border-b pb-10">
-            <div className="mb-5 flex size-11 items-center justify-center rounded-lg bg-brand-soft text-brand">
-              <DocumentIcon className="size-5" aria-hidden />
-            </div>
-            <p className="text-sm font-semibold tracking-wider text-brand uppercase">
-              {document.eyebrow}
-            </p>
-            <h1 className="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">
+            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
               {document.title}
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-ink-500">
@@ -125,7 +109,6 @@ export function LegalPage({
             </div>
             <Link
               href={document.companionHref}
-              locale={locale}
               className="inline-flex min-h-10 items-center justify-center rounded-md bg-ink-900 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-ink-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-ink-wash"
             >
               {document.companionTitle}

@@ -40,6 +40,7 @@ async def list_apps(account: AccountIdentityDep, params: Annotated[AppListParams
         account.id,
         search=params.search,
         enabled=params.enabled,
+        provider_id=params.provider_id,
         start_at=params.start_at,
         end_at=params.end_at,
         sort=params.sort,

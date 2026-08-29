@@ -1,5 +1,5 @@
 from app.model.blockchain import Chain, Network
-from app.model.endpoint import EndpointDescriptor, EndpointProtocol, EndpointTrustLevel
+from app.model.endpoint import EndpointDescriptor, EndpointProtocol
 from app.model.http_api_forwarding import HttpApiRoutePlan, HttpApiRouteTarget
 from app.model.http_api_route import HttpApiRetryPolicy, HttpApiRoutingStrategyType
 from app.orm.http_api_route import HttpApiRoute
@@ -45,7 +45,6 @@ class DatabaseHttpApiRoutePlanProvider:
                 network=Network(endpoint.network),
                 protocol=EndpointProtocol(endpoint.protocol),
                 enabled=endpoint.enabled,
-                trust_level=EndpointTrustLevel(endpoint.trust_level),
                 version=endpoint.version,
             )
             if descriptor.account_id != account_id or descriptor.chain is not chain or descriptor.network is not network:
@@ -60,8 +59,6 @@ class DatabaseHttpApiRoutePlanProvider:
             chain=chain,
             network=network,
             strategy_type=strategy_type,
-            minimum_trust=EndpointTrustLevel(route.minimum_trust),
-            max_latency_ms=route.max_latency_ms,
             max_attempts=route.max_attempts,
             retry_policy=HttpApiRetryPolicy(route.retry_policy),
             targets=tuple(targets),

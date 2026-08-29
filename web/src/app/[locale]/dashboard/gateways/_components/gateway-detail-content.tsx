@@ -1,12 +1,13 @@
 "use client";
 
-import { ChevronLeftIcon } from "lucide-react";
+import { ArrowLeftIcon, ChevronLeftIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
 import type { RpcGatewayTransport } from "@/api/gateways/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs } from "@/components/ui/tabs";
+import { useGatewayPathKey } from "@/hooks/use-gateway-path-key";
 import { useGatewayQuery } from "@/hooks/use-gateways";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
 
@@ -37,6 +38,7 @@ export function GatewayDetailContent({
   const router = useRouter();
   const [transportChoice, setTransportChoice] =
     useState<ConfigurableTransport>(initialTransport);
+  const pathKeyState = useGatewayPathKey(appId);
 
   useEffect(() => {
     setTransportChoice(initialTransport);
@@ -47,7 +49,7 @@ export function GatewayDetailContent({
     isError,
     refetch,
   } = useGatewayQuery(gatewayId);
-  const backHref = `/dashboard/apps/${appId}/gateways`;
+  const backHref = `/dashboard/apps/${appId}?tab=gateways`;
 
   if (isLoading) {
     return (
@@ -107,8 +109,21 @@ export function GatewayDetailContent({
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <GatewayHeader gateway={gateway} backHref={backHref} />
+    <div className="flex flex-col gap-5">
+      <Link
+        href={backHref}
+        className="inline-flex w-fit items-center gap-1.5 rounded-md px-1 py-0.5 text-sm font-medium text-ink-500 transition-colors hover:bg-ink-wash hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+      >
+        <ArrowLeftIcon className="size-4" aria-hidden />
+        {t("page.backToGateways")}
+      </Link>
+
+      <GatewayHeader
+        gateway={gateway}
+        transport={transport}
+        pathKey={pathKeyState.pathKey}
+        pathKeyStatus={pathKeyState.status}
+      />
 
       {transportOptions.length > 1 ? (
         <Tabs
@@ -126,7 +141,7 @@ export function GatewayDetailContent({
         />
       ) : null}
 
-      <div
+      <section
         id="gateway-transport-panel"
         role="tabpanel"
         aria-labelledby={
@@ -134,14 +149,13 @@ export function GatewayDetailContent({
             ? `gateway-transport-${transport}`
             : undefined
         }
-        className="rounded-2xl bg-surface p-5 shadow-section md:p-6"
       >
         {transport === "http_api" ? (
           <HttpApiRoutingSection gateway={gateway} />
         ) : (
           <GatewayRoutingSection gateway={gateway} />
         )}
-      </div>
+      </section>
     </div>
   );
 }

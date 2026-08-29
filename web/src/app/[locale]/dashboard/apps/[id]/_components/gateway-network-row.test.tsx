@@ -20,7 +20,7 @@ vi.mock("@/i18n/navigation", async () =>
   (await import("@/test/navigation")).navigationMock(),
 );
 
-/** A TRON gateway exposing both supported transports. */
+/** A TRON gateway exposing all three transports, one per row the test surfaces. */
 function makeGateway(overrides: Partial<RpcGatewayBase> = {}): RpcGatewayBase {
   return sharedGateway({
     id: "gw_tron",
@@ -36,6 +36,7 @@ function makeGateway(overrides: Partial<RpcGatewayBase> = {}): RpcGatewayBase {
         transport: "http_api",
         url: "https://tron-httpapi.example.test/{path_key}",
       },
+      { transport: "grpc", url: "grpcs://tron-grpc.example.test:443" },
     ],
     ...overrides,
   });

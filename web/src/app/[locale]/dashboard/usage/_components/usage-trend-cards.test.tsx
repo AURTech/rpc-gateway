@@ -1,7 +1,10 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  CachePerformanceCard,
   MethodTrendCard,
   NetworkTrendCard,
   OverallTrendCard,
@@ -10,6 +13,8 @@ import {
 vi.mock("next-intl", async () => (await import("@/test/intl")).nextIntlMock());
 
 const {
+  cacheByMethodSeriesMock,
+  cacheSeriesMock,
   methodSeriesMock,
   networkSeriesMock,
   overallSeriesMock,
@@ -18,10 +23,14 @@ const {
   useUsageByNetworkQueryMock,
   useUsageSeriesQueryMock,
 } = vi.hoisted(() => ({
+  cacheByMethodSeriesMock: vi.fn(() => []),
+  cacheSeriesMock: vi.fn(() => []),
   methodSeriesMock: vi.fn(() => []),
   networkSeriesMock: vi.fn(() => []),
   overallSeriesMock: vi.fn(() => []),
-  trendChartCardMock: vi.fn((_props: Record<string, unknown>) => null),
+  trendChartCardMock: vi.fn(
+    (_props: Record<string, unknown>): ReactNode => null,
+  ),
   useUsageByMethodQueryMock: vi.fn(),
   useUsageByNetworkQueryMock: vi.fn(),
   useUsageSeriesQueryMock: vi.fn(),
@@ -29,8 +38,8 @@ const {
 
 vi.mock("@/components/dashboard/usage-trend-chart", () => ({
   bytesFormat: {},
-  cacheByMethodSeries: vi.fn(() => []),
-  cacheSeries: vi.fn(() => []),
+  cacheByMethodSeries: cacheByMethodSeriesMock,
+  cacheSeries: cacheSeriesMock,
   durationFormat: {},
   latencySeries: vi.fn(() => []),
   methodSeries: methodSeriesMock,
@@ -47,11 +56,7 @@ vi.mock("@/hooks/use-usage", () => ({
   useUsageSeriesQuery: useUsageSeriesQueryMock,
 }));
 
-vi.mock("./usage-filter-bar", () => ({
-  DEFAULT_USAGE_RANGE: "weekly",
-  UsageFilterToolchain: () => null,
-  UsageRangeSelect: () => null,
-}));
+const FILTERS = { range: "weekly" } as const;
 
 const QUERY = {
   data: undefined,
@@ -72,9 +77,9 @@ describe("request volume trend cards", () => {
   it("plots overall, method, and network values on a shared unstacked axis", () => {
     render(
       <>
-        <OverallTrendCard />
-        <MethodTrendCard />
-        <NetworkTrendCard />
+        <OverallTrendCard filters={FILTERS} />
+        <MethodTrendCard filters={FILTERS} />
+        <NetworkTrendCard filters={FILTERS} />
       </>,
     );
 
@@ -84,6 +89,46 @@ describe("request volume trend cards", () => {
       "area",
       "area",
     ]);
+  });
+
+  it("keeps cache hit rate in one card and swaps the series per view", async () => {
+    const user = userEvent.setup();
+    trendChartCardMock.mockImplementation((props) => props.action as ReactNode);
+    cacheSeriesMock.mockReturnValue([]);
+    cacheByMethodSeriesMock.mockReturnValue([]);
+    render(<CachePerformanceCard filters={FILTERS} />);
+
+    expect(useUsageByNetworkQueryMock).toHaveBeenCalledWith({
+      range: "weekly",
+      limit: 100,
+    });
+    expect(useUsageByMethodQueryMock).toHaveBeenCalledWith({
+      range: "weekly",
+      rank_by: "cache_eligible_requests",
+      limit: 8,
+    });
+    expect(trendChartCardMock).toHaveBeenCalledTimes(1);
+    expect(trendChartCardMock.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({
+        title: "cache.title",
+        subhead: "cache.subhead",
+        emptyLabel: "cache.empty",
+        kind: "line",
+      }),
+    );
+    expect(cacheSeriesMock).toHaveBeenCalled();
+    expect(cacheByMethodSeriesMock).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("radio", { name: "cache.views.method" }));
+
+    expect(trendChartCardMock.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({
+        title: "cache.title",
+        subhead: "cacheByMethod.subhead",
+        emptyLabel: "cacheByMethod.empty",
+      }),
+    );
+    expect(cacheByMethodSeriesMock).toHaveBeenCalled();
   });
 
   it("uses parent-owned filters without rendering a per-card action", () => {
@@ -101,7 +146,6 @@ describe("request volume trend cards", () => {
     expect(useUsageSeriesQueryMock).toHaveBeenCalledWith({ range: "hourly" });
     expect(trendChartCardMock.mock.lastCall?.[0]).toEqual(
       expect.objectContaining({
-        action: null,
         range: "hourly",
         dataThrough: "2026-07-24T12:30:00Z",
         dataThroughLabel: "dataThrough",

@@ -1,13 +1,20 @@
 "use client";
 
-import { ArrowDownIcon, ArrowUpIcon, Trash2Icon } from "lucide-react";
+import { CircleHelpIcon, GripVerticalIcon, Trash2Icon } from "lucide-react";
+import { Reorder, useDragControls } from "motion/react";
 import { useTranslations } from "next-intl";
 import { type ReactNode, useState } from "react";
 
 import type { Endpoint, EndpointProtocol } from "@/api/endpoints/client";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useEndpointsQuery } from "@/hooks/use-endpoints";
+import { useMotionPreset } from "@/hooks/use-motion-preset";
 import type { Chain, Network } from "@/lib/blockchain";
 import {
   type EndpointWeights,
@@ -15,12 +22,7 @@ import {
   sharePercents,
   weightsValid,
 } from "@/lib/endpoint-weights";
-import {
-  chainLabel,
-  networkLabel,
-  type RpcChain,
-  type RpcNetwork,
-} from "@/lib/rpc-chain";
+import type { RpcChain, RpcNetwork } from "@/lib/rpc-chain";
 import { cn } from "@/lib/utils";
 
 import { DeleteEndpointDialog } from "../../endpoints/_components/delete-endpoint-dialog";
@@ -35,13 +37,15 @@ const ENDPOINT_FETCH_SIZE = 50;
  * becomes the persisted `position`, the failover sequence under priority
  * routing.
  *
- * One shape for every caller: a titled gray frame (matching GatewaySectionGroup)
- * wrapping a single table listing EVERY endpoint for this chain/network. A
- * per-row switch turns an endpoint on for this gateway, so assigning and
- * unassigning happen in place — no tab to switch back to. Enabled rows sort
- * above the rest in pool order; disabled rows keep their controls visible but
- * inert. When `weighted` is on, an extra column exposes each row's raw weight
- * input (1–1000, the API `weight`) plus a read-only % share preview.
+ * The default grouped presentation includes a compact header and create action.
+ * The embedded presentation omits that header so a parent configuration group
+ * can own the title, description, and action without duplicating hierarchy.
+ * Both presentations wrap one table listing EVERY endpoint for this
+ * chain/network. A per-row switch turns an endpoint on for this gateway, so
+ * assigning and unassigning happen in place — no tab to switch back to. Enabled
+ * rows sort above the rest in pool order; disabled rows keep their controls
+ * visible but inert. When `weighted` is on, an extra column exposes each row's
+ * raw weight input (1–1000, the API `weight`) plus a read-only % share preview.
  *
  * Endpoints come from the account-global registry, filtered to this gateway's
  * chain/network and the route protocol selected by the caller.
@@ -50,6 +54,7 @@ export function EndpointPoolField({
   chain,
   network,
   protocol = "jsonrpc",
+  embedded = false,
   title,
   description,
   value,
@@ -62,8 +67,10 @@ export function EndpointPoolField({
   chain: RpcChain;
   network: RpcNetwork;
   protocol?: EndpointProtocol;
+  /** Omits this component's heading and create action inside a parent group. */
+  embedded?: boolean;
   /** Sub-group heading — the pool serves both the default route and rules. */
-  title: string;
+  title?: string;
   description?: string;
   value: string[];
   onChange: (next: string[]) => void;
@@ -130,7 +137,7 @@ export function EndpointPoolField({
   ) => (
     <span
       className={cn(
-        "flex min-w-0 flex-col gap-2",
+        "flex min-w-0 flex-1 flex-col gap-1",
         !enabled && "opacity-60 transition-opacity",
       )}
     >
@@ -140,19 +147,6 @@ export function EndpointPoolField({
       <span className="block min-w-0 max-w-full truncate font-mono text-xs leading-snug text-ink-500">
         {endpoint?.url ?? "--"}
       </span>
-      {endpoint ? (
-        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="rounded-full bg-brand-soft px-2 py-0.5 text-2xs font-medium text-brand">
-            {chainLabel(endpoint.chain as RpcChain)}
-          </span>
-          <span className="rounded-full bg-brand-soft px-2 py-0.5 text-2xs font-medium text-brand">
-            {networkLabel(
-              endpoint.chain as RpcChain,
-              endpoint.network as RpcNetwork,
-            )}
-          </span>
-        </span>
-      ) : null}
     </span>
   );
 
@@ -178,65 +172,172 @@ export function EndpointPoolField({
     </div>
   );
 
-  const priorityControls = (index: number, name: string, enabled: boolean) => (
-    <div className="flex items-center justify-end gap-1">
+  const priorityControls = (
+    index: number,
+    enabled: boolean,
+    dragHandle: ReactNode,
+  ) => (
+    <span className="flex shrink-0 items-center gap-0.5">
+      {dragHandle ?? (
+        <span
+          aria-hidden
+          className="flex size-7 items-center justify-center text-ink-300"
+        >
+          <GripVerticalIcon className="size-4" />
+        </span>
+      )}
       <span
         className={cn(
-          "mr-1 flex size-7 items-center justify-center rounded-full bg-ink-wash text-xs font-semibold tabular-nums",
+          "flex h-7 w-5 items-center justify-center text-xs font-semibold tabular-nums",
           enabled ? "text-ink-600" : "text-ink-400",
         )}
       >
         {enabled ? index + 1 : "--"}
       </span>
-      <RowIconButton
-        label={`${t("form.moveUp")} ${name}`}
-        onClick={() => move(index, -1)}
-        disabled={disabled || !enabled || index === 0}
-      >
-        <ArrowUpIcon className="size-3.5" aria-hidden />
-      </RowIconButton>
-      <RowIconButton
-        label={`${t("form.moveDown")} ${name}`}
-        onClick={() => move(index, 1)}
-        disabled={disabled || !enabled || index === value.length - 1}
-      >
-        <ArrowDownIcon className="size-3.5" aria-hidden />
-      </RowIconButton>
-    </div>
+    </span>
   );
 
-  const columns = 4;
+  const columns = weighted ? 4 : 3;
+
+  const renderRows = (sortable: boolean) => {
+    if (rows.length === 0) {
+      return (
+        <tr>
+          <td colSpan={columns} className="px-4 py-10 text-center">
+            <div className="flex flex-col items-center gap-3">
+              <div className="flex max-w-md flex-col gap-1">
+                <p className="text-sm font-semibold text-ink-700">
+                  {t("endpointTable.emptyTitle")}
+                </p>
+                <p className="text-sm text-ink-500">
+                  {t("endpointTable.emptyDescription")}
+                </p>
+              </div>
+              <NewEndpointButton
+                label={t("endpointTable.createEndpoint")}
+                size="sm"
+                variant="soft"
+                className="rounded-xl"
+                disabled={disabled}
+                initialChain={chain as Chain}
+                initialNetwork={network as Network}
+                initialProtocol={protocol}
+                presentation="dialog"
+              />
+            </div>
+          </td>
+        </tr>
+      );
+    }
+
+    return rows.map(({ id, endpoint }, index) => {
+      const name = endpoint?.name ?? id;
+      // Enabled rows lead the list, so the row index doubles as the pool
+      // position used by drag-and-drop and keyboard reordering.
+      const enabled = index < value.length;
+      const cells = (dragHandle: ReactNode) => (
+        <>
+          <td className="min-w-0 px-4 py-3 align-middle">
+            <div className="flex min-w-0 items-start gap-2">
+              {!weighted ? priorityControls(index, enabled, dragHandle) : null}
+              {renderConfig(endpoint, id, enabled)}
+            </div>
+          </td>
+          {weighted ? (
+            <td className="px-4 py-3 align-middle">
+              {weightControls(id, name, enabled)}
+            </td>
+          ) : null}
+          <td className="px-4 py-3 align-middle">
+            <div className="flex justify-end">
+              <Switch
+                checked={enabled}
+                onCheckedChange={(next) => toggle(id, next)}
+                disabled={disabled}
+                aria-label={t("endpointTable.toggleLabel", {
+                  name,
+                })}
+              />
+            </div>
+          </td>
+          <td className="px-4 py-3 align-middle">
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="text-ink-400 hover:text-destructive"
+                aria-label={t("endpointTable.deleteLabel", {
+                  name,
+                })}
+                title={t("endpointTable.deleteLabel", { name })}
+                disabled={disabled || !endpoint}
+                onClick={() => endpoint && setDeleteTarget(endpoint)}
+              >
+                <Trash2Icon aria-hidden />
+              </Button>
+            </div>
+          </td>
+        </>
+      );
+
+      return sortable && enabled ? (
+        <PriorityEndpointRow
+          key={id}
+          id={id}
+          disabled={disabled}
+          reorderLabel={t("endpointTable.reorderLabel", {
+            name,
+            priority: index + 1,
+          })}
+          onMove={(offset) => move(index, offset)}
+        >
+          {cells}
+        </PriorityEndpointRow>
+      ) : (
+        <tr key={id}>{cells(null)}</tr>
+      );
+    });
+  };
 
   return (
     <div
       data-slot="endpoint-pool-table"
-      className="overflow-hidden rounded-3xl bg-table-frame"
+      className={cn(
+        "overflow-hidden bg-table-frame",
+        embedded ? "rounded-table-pill p-1" : "rounded-3xl",
+      )}
     >
-      {/* Title mirrors GatewaySectionGroup's header, so the pool reads as a peer
-       * of the other routing sub-groups rather than an untitled slab. */}
-      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
-        <div className="min-w-0 flex-1 basis-52">
-          <h3 className="text-sm font-semibold text-ink-900">{title}</h3>
-          {description ? (
-            <p className="mt-0.5 text-2xs leading-snug text-ink-500">
-              {description}
-            </p>
-          ) : null}
-        </div>
-        <NewEndpointButton
-          label={t("endpointTable.createEndpoint")}
-          size="sm"
-          variant="soft"
-          showIcon={false}
-          className="rounded-xl"
-          disabled={disabled}
-          initialChain={chain as Chain}
-          initialNetwork={network as Network}
-          initialProtocol={protocol}
-          presentation="dialog"
-        />
-      </header>
-      <div className="mx-1 mb-1 overflow-hidden rounded-table-pill bg-surface">
+      {!embedded ? (
+        <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
+          <div className="min-w-0 flex-1 basis-52">
+            <h3 className="text-sm font-semibold text-ink-900">{title}</h3>
+            {description ? (
+              <p className="mt-0.5 text-2xs leading-snug text-ink-500">
+                {description}
+              </p>
+            ) : null}
+          </div>
+          <NewEndpointButton
+            label={t("endpointTable.createEndpoint")}
+            size="sm"
+            variant="soft"
+            showIcon={false}
+            className="rounded-xl"
+            disabled={disabled}
+            initialChain={chain as Chain}
+            initialNetwork={network as Network}
+            initialProtocol={protocol}
+            presentation="dialog"
+          />
+        </header>
+      ) : null}
+      <div
+        className={cn(
+          "overflow-hidden rounded-table-pill bg-surface",
+          !embedded && "mx-1 mb-1",
+        )}
+      >
         <div className="overflow-x-auto">
           <table
             aria-label={t("form.endpoints")}
@@ -244,102 +345,48 @@ export function EndpointPoolField({
           >
             <colgroup>
               <col />
-              {weighted ? <col className="w-48" /> : null}
-              {!weighted ? <col className="w-32" /> : null}
+              {weighted ? <col className="w-40" /> : null}
               <col className="w-20" />
               <col className="w-20" />
             </colgroup>
             <thead className="border-b border-ink-wash">
               <tr>
-                <th className="px-4 py-4 text-left text-sm font-semibold text-ink-900">
+                <th className="px-4 py-3 text-left text-xs font-medium text-ink-500">
                   {t("endpointTable.configuration")}
                 </th>
                 {weighted ? (
-                  <th className="px-4 py-4 text-right text-sm font-semibold text-ink-900">
-                    {t("weights.relativeColumn")}
+                  <th className="px-4 py-3 text-right text-xs font-medium text-ink-500">
+                    <WeightHeaderLabel
+                      label={t("weights.relativeColumn")}
+                      hint={t("weights.relativeHint")}
+                    />
                   </th>
                 ) : null}
-                {!weighted ? (
-                  <th className="px-4 py-4 text-right text-sm font-semibold text-ink-900">
-                    {t("endpointTable.priority")}
-                  </th>
-                ) : null}
-                <th className="px-4 py-4 text-right text-sm font-semibold text-ink-900">
+                <th className="px-4 py-3 text-right text-xs font-medium text-ink-500">
                   {t("endpointTable.state")}
                 </th>
-                <th className="px-4 py-4 text-right text-sm font-semibold text-ink-900">
+                <th className="px-4 py-3 text-right text-xs font-medium text-ink-500">
                   {t("endpointTable.actions")}
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-ink-wash">
-              {rows.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={columns}
-                    className="px-4 py-8 text-center text-sm text-ink-400"
-                  >
-                    {t("endpointTable.empty")}
-                  </td>
-                </tr>
-              ) : (
-                rows.map(({ id, endpoint }, index) => {
-                  const name = endpoint?.name ?? id;
-                  // Enabled rows lead the list, so the row index doubles as the
-                  // pool position for the reorder controls.
-                  const enabled = index < value.length;
-                  return (
-                    <tr key={id}>
-                      <td className="min-w-0 px-4 py-4 align-top">
-                        {renderConfig(endpoint, id, enabled)}
-                      </td>
-                      {weighted ? (
-                        <td className="px-4 py-4 align-top">
-                          {weightControls(id, name, enabled)}
-                        </td>
-                      ) : null}
-                      {!weighted ? (
-                        <td className="px-4 py-4 align-top">
-                          {priorityControls(index, name, enabled)}
-                        </td>
-                      ) : null}
-                      <td className="px-4 py-4 align-top">
-                        <div className="flex justify-end">
-                          <Switch
-                            checked={enabled}
-                            onCheckedChange={(next) => toggle(id, next)}
-                            disabled={disabled}
-                            aria-label={t("endpointTable.toggleLabel", {
-                              name,
-                            })}
-                          />
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 align-top">
-                        <div className="flex justify-end">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-xs"
-                            className="text-ink-400 hover:text-destructive"
-                            aria-label={t("endpointTable.deleteLabel", {
-                              name,
-                            })}
-                            title={t("endpointTable.deleteLabel", { name })}
-                            disabled={disabled || !endpoint}
-                            onClick={() =>
-                              endpoint && setDeleteTarget(endpoint)
-                            }
-                          >
-                            <Trash2Icon aria-hidden />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
+            {!weighted ? (
+              <Reorder.Group
+                as="tbody"
+                axis="y"
+                values={value}
+                onReorder={(next) => {
+                  if (!disabled) onChange(next);
+                }}
+                className="divide-y divide-ink-wash"
+              >
+                {renderRows(true)}
+              </Reorder.Group>
+            ) : (
+              <tbody className="divide-y divide-ink-wash">
+                {renderRows(false)}
+              </tbody>
+            )}
           </table>
         </div>
       </div>
@@ -359,27 +406,75 @@ export function EndpointPoolField({
   );
 }
 
-function RowIconButton({
-  label,
-  onClick,
+function PriorityEndpointRow({
+  id,
   disabled,
+  reorderLabel,
+  onMove,
   children,
 }: {
-  label: string;
-  onClick: () => void;
+  id: string;
   disabled?: boolean;
-  children: ReactNode;
+  reorderLabel: string;
+  onMove: (offset: -1 | 1) => void;
+  children: (dragHandle: ReactNode) => ReactNode;
 }) {
-  return (
+  const dragControls = useDragControls();
+  const motionPreset = useMotionPreset();
+
+  const dragHandle = (
     <button
       type="button"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
+      aria-label={reorderLabel}
+      title={reorderLabel}
       disabled={disabled}
-      className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-surface hover:text-ink-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:cursor-not-allowed disabled:opacity-40"
+      onPointerDown={(event) => dragControls.start(event)}
+      onKeyDown={(event) => {
+        if (event.key === "ArrowUp") {
+          event.preventDefault();
+          onMove(-1);
+        } else if (event.key === "ArrowDown") {
+          event.preventDefault();
+          onMove(1);
+        }
+      }}
+      className="inline-flex size-7 shrink-0 touch-none cursor-grab items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-ink-wash hover:text-ink-700 active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:cursor-not-allowed disabled:opacity-40"
     >
-      {children}
+      <GripVerticalIcon className="size-4" aria-hidden />
     </button>
+  );
+
+  return (
+    <Reorder.Item
+      as="tr"
+      value={id}
+      dragListener={false}
+      dragControls={dragControls}
+      whileDrag={{ opacity: 0.72 }}
+      transition={motionPreset.transition({
+        duration: 0.15,
+        ease: "easeOut",
+      })}
+      className="relative bg-surface"
+    >
+      {children(dragHandle)}
+    </Reorder.Item>
+  );
+}
+
+function WeightHeaderLabel({ label, hint }: { label: string; hint: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className="ml-auto flex items-center gap-1 rounded-md text-xs font-medium text-ink-500 outline-none transition-colors hover:text-ink-700 focus-visible:ring-2 focus-visible:ring-brand/40"
+        >
+          {label}
+          <CircleHelpIcon className="size-3.5" aria-hidden />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top">{hint}</TooltipContent>
+    </Tooltip>
   );
 }

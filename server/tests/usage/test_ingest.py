@@ -36,6 +36,48 @@ def test_method_cardinality_overflow_keeps_gateway_totals() -> None:
     assert values.cache_hit_requests == 1
 
 
+def test_endpoint_attempts_are_counted_without_duplicating_gateway_requests() -> None:
+    event = make_event(
+        'd' * 32,
+        route_id='route-1',
+        attempted_endpoint_ids=('endpoint-1', 'endpoint-2'),
+    )
+    buffered = BufferedUsageEvent(stream_id='1-0', event=event)
+    scope = GatewayUsageIngestManager._event_scope(event)
+
+    rows = GatewayUsageIngestManager._aggregate_rows([buffered], {scope: set()})
+
+    gateway = next(iter(rows.gateway_hourly.values()))
+    assert gateway.total_requests == 1
+    assert sum(item.total_attempts for item in rows.endpoint_hourly.values()) == 2
+    assert sum(item.first_attempts for item in rows.endpoint_hourly.values()) == 1
+    assert sum(item.retry_attempts for item in rows.endpoint_hourly.values()) == 1
+    assert {key[4] for key in rows.endpoint_hourly} == {'endpoint-1', 'endpoint-2'}
+    route = next(iter(rows.route_hourly.values()))
+    assert route.routed_requests == 1
+    assert route.successful_requests == 1
+    assert route.total_attempts == 2
+    assert route.multi_attempt_requests == 1
+    assert route.exhausted_requests == 0
+
+
+def test_failed_routed_request_records_exhaustion_after_attempts() -> None:
+    event = make_event(
+        'e' * 32,
+        successful=False,
+        route_id='route-1',
+        attempted_endpoint_ids=('endpoint-1', 'endpoint-2'),
+    )
+    buffered = BufferedUsageEvent(stream_id='1-0', event=event)
+    scope = GatewayUsageIngestManager._event_scope(event)
+
+    rows = GatewayUsageIngestManager._aggregate_rows([buffered], {scope: set()})
+
+    route = next(iter(rows.route_hourly.values()))
+    assert route.failed_requests == 1
+    assert route.exhausted_requests == 1
+
+
 class _Connection:
     def __init__(self) -> None:
         self.statements: list[str] = []
@@ -54,10 +96,13 @@ class _Connection:
 
 
 @pytest.mark.anyio
-async def test_batch_uses_seven_statements(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_batch_activates_route_aware_metrics_before_aggregate_writes(monkeypatch: pytest.MonkeyPatch) -> None:
     connection = _Connection()
     orm_statements: list[str] = []
-    buffered = BufferedUsageEvent(stream_id='1-0', event=make_event('c' * 32))
+    buffered = BufferedUsageEvent(
+        stream_id='1-0',
+        event=make_event('c' * 32, route_id='route-1', attempted_endpoint_ids=('endpoint-1',)),
+    )
     batch = GatewayUsageBatch(events=[buffered], stream_ids=['1-0'], last_stream_id='1-0', invalid=0)
 
     @asynccontextmanager
@@ -107,4 +152,15 @@ async def test_batch_uses_seven_statements(monkeypatch: pytest.MonkeyPatch) -> N
     result = await GatewayUsageIngestManager._flush_batch(count=500)
 
     assert result == (1, 1, 1, 1, 0)
-    assert len(connection.statements) + len(orm_statements) == 7
+    assert len(connection.statements) + len(orm_statements) == 12
+    activation_index = next(
+        index for index, statement in enumerate(connection.statements) if 'gateway_usage_metric_availability' in statement
+    )
+    endpoint_index = next(
+        index for index, statement in enumerate(connection.statements) if 'gateway_usage_endpoint_five_minute' in statement
+    )
+    route_index = next(
+        index for index, statement in enumerate(connection.statements) if 'gateway_usage_route_five_minute' in statement
+    )
+    assert activation_index < endpoint_index
+    assert activation_index < route_index

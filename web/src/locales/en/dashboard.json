@@ -1,47 +1,9 @@
 {
-  "workspace_label": "Default workspace",
   "landing": {
     "title": "Dashboard",
     "subtitle": "View gateway traffic, resources, and usage.",
-    "sign_out": "Sign out",
-    "metric_requests_24h": "Total requests · 24h",
-    "metric_requests_24h_hint": "JSON-RPC calls handled",
-    "metric_success_rate": "Success rate · 24h",
-    "metric_success_rate_hint": "Valid JSON-RPC responses",
-    "metric_avg_latency": "Avg endpoint latency",
-    "metric_avg_latency_hint": "Per attempt, last 24h",
-    "metric_active_gateways": "Active gateways",
-    "metric_active_gateways_hint": "{total} total provisioned",
-    "chart_title": "Request volume",
-    "chart_window": "Last 24h · UTC",
-    "chart_empty": "No traffic in the last 24 hours yet.",
-    "recent_gateways_title": "Recent gateways",
-    "recent_keys_title": "Recent apps",
-    "view_all": "View all",
-    "empty_gateways": "No gateways yet. Create one to receive JSON-RPC requests.",
-    "empty_keys": "No apps yet. Create one to get an API key."
+    "sign_out": "Sign out"
   },
-  "sidebar_section_operations": "Operations",
-  "sidebar_overview": "Overview",
-  "sidebar_gateways": "Gateways",
-  "sidebar_account": "Account",
-  "sidebar_open_menu": "Open navigation",
-  "sidebar_close_menu": "Close navigation",
-  "sign_out": "Sign out",
-  "account": {
-    "title": "Account",
-    "subtitle": "View profile and sign-in status."
-  },
-  "placeholder": {
-    "coming_soon_title": "Coming soon",
-    "coming_soon_subtitle": "This feature is not available yet."
-  },
-  "user_menu_open": "Open account menu",
-  "user_menu_account": "Account",
-  "user_menu_signed_in_as": "Signed in as",
-  "topbar_skip_to_content": "Skip to content",
-  "topbar_breadcrumb_overview": "Overview",
-  "topbar_toggle_sidebar": "Toggle sidebar",
   "gateways": {
     "metaTitle": "Gateways",
     "title": "Gateways",
@@ -149,6 +111,7 @@
       "name": "Name",
       "jsonRpc": "JSON-RPC",
       "httpApi": "HTTP API",
+      "grpc": "gRPC",
       "chain": "Chain",
       "network": "Network",
       "status": "Status",
@@ -197,17 +160,19 @@
       "toggleHintInactive": "Applies after switching to Load distribution.",
       "total": "Total {total}/100",
       "column": "Weight",
-      "relativeColumn": "Relative weight",
-      "relativeInputLabel": "Relative weight for {name}",
-      "share": "{percent}% traffic",
-      "shareInputLabel": "Traffic share for {name}",
+      "relativeColumn": "Weight",
+      "relativeHint": "Weights set the expected traffic share while endpoints are eligible.",
+      "relativeInputLabel": "Weight for {name}",
+      "share": "{percent}%",
+      "shareInputLabel": "Expected traffic share for {name}",
       "shareUnavailable": "--%",
       "inputLabel": "Weight for {name}",
       "badge": "Weighted"
     },
     "page": {
       "metaTitle": "Gateway configuration",
-      "back": "Gateways",
+      "back": "Gateway",
+      "backToGateways": "Back to gateways",
       "notFoundTitle": "Gateway not found",
       "notFoundBody": "This gateway may have been deleted. Go back to the app to see the current list.",
       "subtitle": "Manage this gateway's endpoint, endpoint pool, routing mode, and method rules.",
@@ -221,15 +186,16 @@
     },
     "routing": {
       "title": "Routing",
-      "subtitle": "Attach endpoints and choose how traffic is split — for all methods by default, or for specific methods.",
+      "description": "Choose how requests are routed and which endpoints receive them.",
       "methodsLabel": "Methods (optional)",
       "methodsHint": "Leave empty to edit the default route that applies to all methods.",
-      "saveDefault": "Save default routing",
-      "addRule": "Add rule"
+      "methodsEditLabel": "Methods",
+      "methodsEditHint": "Requests for these methods use this rule instead of the default route.",
+      "saveDefault": "Save routing",
+      "addRule": "Add rule",
+      "saveRule": "Save rule"
     },
     "httpApiRouting": {
-      "subtitle": "Attach HTTP API endpoints and choose how requests fail over or are distributed.",
-      "endpointDescription": "HTTP API requests use these endpoints in the configured routing mode.",
       "save": "Save HTTP API routing",
       "error": "Couldn't load the HTTP API route."
     },
@@ -240,18 +206,18 @@
       }
     },
     "endpointTable": {
-      "defaultTitle": "Default endpoints",
-      "defaultDescription": "Requests use these endpoints by priority unless a method rule overrides them.",
+      "title": "Endpoints",
       "ruleTitle": "Rule endpoints",
       "ruleDescription": "The selected methods use these endpoints instead of the default ones.",
       "createEndpoint": "Create endpoint",
-      "configuration": "Endpoint configuration",
-      "priority": "Priority",
+      "configuration": "Endpoints",
       "toggleLabel": "Use {name} in this gateway",
-      "state": "In use",
+      "reorderLabel": "Reorder {name}, priority {priority}. Drag or use Arrow Up and Arrow Down.",
+      "state": "Enabled",
       "actions": "Actions",
       "deleteLabel": "Delete {name}",
-      "empty": "No endpoints for this chain and network yet."
+      "emptyTitle": "No endpoints yet",
+      "emptyDescription": "Create an endpoint for this chain and network, then add it to routing."
     },
     "form": {
       "basicInfo": "Basic information",
@@ -316,7 +282,8 @@
     },
     "apiTypes": {
       "jsonrpc": "JSON-RPC",
-      "httpapi": "HTTP API"
+      "httpapi": "HTTP API",
+      "grpc": "gRPC"
     },
     "dialog": {
       "cancel": "Cancel",
@@ -406,7 +373,10 @@
         "noMethods": "No methods match.",
         "deprecated": "deprecated",
         "endpointPoolEmpty": "No endpoints selected.",
-        "deleteRule": "Delete rule"
+        "traffic": "Traffic",
+        "deleteRule": "Delete rule",
+        "editRule": "Edit",
+        "reset": "Reset"
       },
       "deleteDialog": {
         "title": "Delete this method rule?",
@@ -417,8 +387,40 @@
       "toast": {
         "created": "Method routing rule added",
         "createError": "Couldn't add rule — please retry",
+        "updated": "Method routing rule updated",
+        "updateError": "Couldn't save rule — please retry",
         "deleted": "Method routing rule deleted",
         "deleteError": "Couldn't delete rule — please retry"
+      }
+    },
+    "methodWorkbench": {
+      "title": "Method rules",
+      "description": "Route selected methods differently from the default route.",
+      "addNewRule": "Add New Rule",
+      "emptyTitle": "No method rules yet",
+      "noRules": "Add a rule to route selected methods differently from the default route.",
+      "loadError": "Couldn't load method rules.",
+      "routeDescription": "Choose how requests for the selected methods are routed.",
+      "traffic": {
+        "title": "Endpoint attempts",
+        "description": "Actual upstream attempts handled by this rule, including retries and failovers.",
+        "attempts": "Attempts",
+        "breakdown": "Endpoint attempt breakdown",
+        "attemptCount": "{count, number} attempts",
+        "other": "Other",
+        "historical": "Historical",
+        "selectEndpoint": "Highlight endpoint",
+        "timeRange": "Request time range",
+        "range": {
+          "hourly": "1h",
+          "daily": "24h",
+          "weekly": "7d",
+          "monthly": "30d"
+        },
+        "saveFirst": "Save this rule to start collecting endpoint attempt data.",
+        "empty": "No endpoint attempts were recorded in this time range.",
+        "error": "Couldn't load endpoint attempt data.",
+        "savedConfigHint": "Attempts reflect the last saved rule configuration."
       }
     }
   },
@@ -462,37 +464,42 @@
         "clear": "Clear",
         "selectedCount": "{count} of {total} networks selected",
         "requireOne": "Select at least one network to continue.",
-        "applyError": "App created, but some networks couldn't be applied — adjust them on the Gateways page."
+        "applyError": "App created, but some networks couldn't be applied — adjust them on the Gateway tab in the app overview."
       },
       "rpcAccess": {
-        "title": "Connect a provider (optional)",
-        "subtitle": "Choose an existing provider, or create one without leaving this step. Matching endpoints are synchronized and connected automatically.",
         "provider": {
           "title": "Provider",
-          "subtitle": "The provider inventory stays linked to this App. Each sync automatically connects matching endpoints for the networks you selected.",
+          "subtitle": "Choose an existing Provider or create one here. Matching endpoints for your selected networks are synchronized and connected automatically.",
           "createNew": "Create new",
-          "existingLabel": "Existing provider",
-          "existingHint": "Only enabled providers in this account are available.",
-          "selectPlaceholder": "Select a provider",
+          "columns": {
+            "provider": "Provider",
+            "vendor": "Vendor",
+            "networks": "Networks",
+            "select": "Select"
+          },
+          "allNetworks": "All networks",
+          "networkCount": "{count, plural, one {# network} other {# networks}}",
+          "selectLabel": "Select {name}",
           "loading": "Loading providers…",
           "loadError": "Providers couldn't be loaded. Refresh the page or create a new provider.",
           "emptyTitle": "No providers yet",
-          "empty": "This account has no enabled provider. Create one now and it will be selected automatically.",
-          "emptyCta": "Create a provider"
-        },
-        "footerHint": "Providers are account resources — creating one here keeps it available to every App. You can also skip this step and connect a Provider later."
+          "empty": "Create a Provider to connect it to this App.",
+          "emptyCta": "Create a Provider"
+        }
       },
       "summary": {
-        "eyebrow": "App created",
-        "title": "{name} is ready",
-        "providerConnected": "The Provider is connected. Matching endpoints will be maintained automatically after every sync.",
-        "providerPending": "The App was created, but the Provider still needs attention.",
-        "skipped": "No upstream was added. JSON-RPC is limited to Accelerator cache hits, and HTTP API requires later Endpoint setup.",
+        "title": "Finish setting up {name}",
+        "description": "The App was created successfully. Resolve the remaining issues before sending traffic.",
+        "app": "App",
+        "created": "Created",
+        "appReady": "The App dashboard and its first API key are available.",
+        "remainingSetup": "Remaining setup",
+        "needsAttention": "Needs attention",
+        "setupDescription": "Review the issues below, then retry the incomplete setup.",
         "uncovered": "{count} selected network protocol routes still have no Endpoint.",
         "complete": "All selected network protocol routes have an upstream Endpoint.",
-        "errorsTitle": "Some setup tasks need attention",
-        "retry": "Retry failed setup",
-        "openApp": "Open app",
+        "retry": "Retry setup",
+        "openApp": "Open App dashboard",
         "networks": "Networks",
         "provider": "Provider",
         "endpoint": "Endpoint",
@@ -507,14 +514,13 @@
       "aria": "Search apps"
     },
     "detail": {
-      "metaTitle": "App gateways",
       "overviewMetaTitle": "App overview",
       "usageMetaTitle": "App usage",
       "overview": {
         "tabsAriaLabel": "App sections",
         "tabs": {
           "setup": "Quick Start",
-          "gateways": "Gateways"
+          "gateways": "Gateway"
         },
         "quickstart": {
           "title": "Get started",
@@ -525,7 +531,8 @@
           "protocolLabel": "Select protocol",
           "transport": {
             "jsonrpc": "JSON-RPC",
-            "http_api": "HTTP API"
+            "http_api": "HTTP API",
+            "grpc": "gRPC"
           },
           "method": "Method",
           "endpointUrl": "Endpoint",
@@ -546,6 +553,11 @@
               "label": "HTTP Bearer",
               "description": "Call the endpoint root path and send the full API key in the Authorization: Bearer header.",
               "exampleTitle": "HTTP Bearer example"
+            },
+            "grpcBearer": {
+              "label": "gRPC Bearer",
+              "description": "Keep the gRPC endpoint unchanged and send the API key as Bearer authorization metadata.",
+              "exampleTitle": "gRPC Bearer example"
             }
           }
         },
@@ -557,7 +569,7 @@
       },
       "pathKey": "API key",
       "created": "Created",
-      "gatewaysTitle": "Gateways",
+      "gatewaysTitle": "Gateway",
       "emptyGateways": "This app has no gateways yet.",
       "copyJsonRpc": "Copy JSON-RPC URL",
       "networks": {
@@ -595,7 +607,6 @@
           "network": "Network",
           "url": "Endpoints",
           "lastRequest": "Last request",
-          "created": "Created",
           "status": "Status"
         },
         "bulkEnabled": "All networks enabled",
@@ -614,8 +625,63 @@
         }
       },
       "metrics": {
+        "title": "App Usage",
+        "description": "Monitor request and endpoint activity across this app.",
         "gatewayLabel": "Gateway",
-        "allGateways": "All gateways"
+        "allGateways": "All gateways",
+        "tabs": {
+          "ariaLabel": "Usage sections",
+          "overview": "Overview",
+          "endpoints": "Endpoints"
+        },
+        "routes": {
+          "empty": "This gateway has no configured routes.",
+          "error": "Route configuration couldn't be loaded. Previously loaded routes may be out of date.",
+          "retry": "Retry route loading",
+          "defaultRoute": "Default Route",
+          "methods": "{methods}",
+          "methodRouteGroup": "Method Routes · {count, number}",
+          "protocols": {
+            "jsonRpc": "JSON-RPC",
+            "httpApi": "HTTP API"
+          },
+          "strategies": {
+            "priority_failover": "Priority failover",
+            "load_balance": "Load balancing"
+          }
+        },
+        "endpointTraffic": {
+          "subhead": "Attempts sent to each endpoint over time.",
+          "views": {
+            "attempt_count": "Attempt count",
+            "traffic_share": "Traffic share"
+          },
+          "viewAriaLabel": "Endpoint attempts display",
+          "other": "Other",
+          "historical": "Historical",
+          "attempts": "{count} attempts",
+          "empty": "No classified endpoint attempts after data became available in this range.",
+          "loading": "Loading endpoint attempts",
+          "chartAriaLabel": "Endpoint attempts for {route} ({protocol}, {strategy})",
+          "textAlternative": "{total, number} classified upstream attempts for {route} ({protocol}, {strategy}). ",
+          "textAlternativeHistorical": "{endpoint} is historical. ",
+          "textAlternativeEndpoint": "{endpoint}: {attempts, number} attempts, {share, number, percent} of the displayed total. "
+        },
+        "routeSummary": {
+          "title": "Route activity",
+          "gateway": "Gateway",
+          "route": "Route",
+          "strategy": "Strategy",
+          "unknown": "Not available",
+          "requests": "Requests",
+          "attemptsPerRequest": "Attempts / request",
+          "multiAttemptRate": "Multi-attempt rate",
+          "exhausted": "Exhausted",
+          "loading": "Loading route activity",
+          "empty": "No route activity in this range yet.",
+          "error": "Route activity couldn't be loaded.",
+          "retry": "Retry"
+        }
       },
       "notFound": {
         "title": "App not found",
@@ -625,22 +691,22 @@
     "settings": {
       "metaTitle": "App settings",
       "title": "App settings",
-      "subtitle": "Manage app details, access keys, and deletion.",
+      "subtitle": "Manage general settings and deletion.",
       "details": {
+        "title": "General",
+        "description": "Naming, identity, and availability settings for this app.",
+        "nameHint": "Use 1–128 characters. Leading and trailing spaces are removed.",
         "appId": "App ID",
+        "appIdHint": "Generated by the system and cannot be changed.",
         "copy": "Copy",
         "meta": "App created by {name} on {date}",
         "save": "Save changes"
       },
       "keys": {
         "title": "Access keys",
-        "subtitle": "Complete keys are always visible to authenticated dashboard users and remain encrypted at rest.",
+        "subtitle": "Complete keys remain visible and encrypted at rest.",
         "rotate": "Rotate key",
         "copy": "Copy key",
-        "rotateAction": {
-          "title": "Rotate the active key",
-          "body": "Generate a new key while the current key remains usable during the configured grace period."
-        },
         "revoke": "Revoke",
         "notRevocable": "No action",
         "cancel": "Cancel",
@@ -648,8 +714,6 @@
         "columns": {
           "apiKey": "API key",
           "state": "State",
-          "expiresAt": "Expires at",
-          "revokedAt": "Revoked at",
           "createdAt": "Created at",
           "actions": "Actions"
         },
@@ -684,9 +748,9 @@
         }
       },
       "danger": {
-        "title": "Delete App",
+        "title": "Advanced",
         "description": "After deletion, this app's gateways stop receiving traffic.",
-        "delete": "Delete"
+        "delete": "Delete app"
       }
     },
     "status": {
@@ -769,7 +833,7 @@
       "ariaLabel": "Resources",
       "title": "Resources",
       "endpoints": "Active endpoints",
-      "providers": "Providers",
+      "connections": "Provider connections",
       "apps": "Apps",
       "error": {
         "title": "Couldn't load stats",
@@ -831,11 +895,9 @@
       "toolbarAriaLabel": "Usage defaults",
       "allAppsLabel": "All apps",
       "defaultsLabel": "Default chart filters",
-      "applyToAll": "Apply to all",
       "refresh": "Refresh",
       "chainLabel": "Chain",
       "networkLabel": "Network",
-      "allChains": "All chains",
       "allNetworks": "All networks",
       "searchPlaceholder": "Search chain or network",
       "searchAria": "Search chain or network",
@@ -846,6 +908,12 @@
         "daily": "Daily",
         "weekly": "Weekly",
         "monthly": "Monthly"
+      },
+      "rangeWindows": {
+        "hourly": "Last hour",
+        "daily": "Last 24 hours",
+        "weekly": "Last 7 days",
+        "monthly": "Last 30 days"
       }
     },
     "kpi": {
@@ -857,13 +925,20 @@
         "label": "Success rate"
       },
       "cacheHit": {
-        "label": "Cache acceleration rate"
+        "label": "Cache hit rate"
       },
       "latency": {
         "label": "Avg latency"
       },
       "traffic": {
         "label": "Traffic"
+      },
+      "comparison": {
+        "hourly": "vs previous hour",
+        "daily": "vs previous 24 hours",
+        "weekly": "vs previous 7 days",
+        "monthly": "vs previous 30 days",
+        "new": "New"
       },
       "error": {
         "title": "Couldn't load summary",
@@ -873,8 +948,10 @@
     "overall": {
       "title": "Requests over time",
       "subhead": "Successful vs. failed requests across the range.",
+      "appSubhead": "Successful and failed requests with upstream attempts, including retries and failovers.",
       "success": "Success",
       "failure": "Failure",
+      "upstreamAttempts": "Upstream attempts",
       "empty": "No request activity in this range yet."
     },
     "methods": {
@@ -891,10 +968,14 @@
       "title": "Cache hit rate",
       "subhead": "Compare system cache hit rates by chain and network.",
       "label": "Hit rate",
-      "empty": "No cache-eligible requests in this range yet."
+      "empty": "No cache-eligible requests in this range yet.",
+      "views": {
+        "overTime": "Over time",
+        "method": "Method"
+      },
+      "viewAriaLabel": "Cache hit rate view"
     },
     "cacheByMethod": {
-      "title": "Cache hit rate by method",
       "subhead": "Compare cache hit rates across cache-eligible RPC methods.",
       "empty": "No cache-eligible method activity in this range yet."
     },
@@ -930,10 +1011,11 @@
         "hideDetails": "Hide",
         "enable": "Enable",
         "disable": "Disable",
+        "revoke": "Revoke invite",
         "archive": "Archive"
       },
       "status": {
-        "unactivated": "Unactivated",
+        "invited": "Invited",
         "active": "Active",
         "disabled": "Disabled",
         "archived": "Archived"
@@ -1000,6 +1082,11 @@
           "body": "Once disabled, \"{email}\" cannot sign in.",
           "confirm": "Disable account"
         },
+        "revoke": {
+          "title": "Revoke this invite?",
+          "body": "\"{email}\" has never signed in. Revoking blocks its first sign-in.",
+          "confirm": "Revoke invite"
+        },
         "archive": {
           "title": "Archive this account?",
           "body": "\"{email}\" will be signed out, its email released, and the account removed from the list. This cannot be undone.",
@@ -1026,69 +1113,12 @@
         "createError": "Couldn't create account — please retry",
         "enabled": "Account enabled",
         "disabled": "Account disabled",
+        "revoked": "Invite revoked",
         "statusError": "Couldn't update account — please retry",
         "archived": "Account \"{email}\" archived",
         "archiveError": "Couldn't archive account — please retry",
         "copyOk": "Copied to clipboard",
         "copyError": "Couldn't copy to clipboard"
-      }
-    },
-    "endpoints": {
-      "actions": {
-        "openMenu": "Open actions menu",
-        "viewDetails": "Details",
-        "hideDetails": "Hide",
-        "toggleOn": "Enable",
-        "toggleOff": "Disable"
-      },
-      "filters": {
-        "stateAll": "All states",
-        "stateEnabled": "Enabled",
-        "stateDisabled": "Disabled",
-        "allChains": "All chains",
-        "allNetworks": "All networks"
-      },
-      "table": {
-        "name": "Name",
-        "chain": "Chain",
-        "network": "Network",
-        "state": "State",
-        "action": "Action",
-        "range": "{from} to {to} of {total} results",
-        "prev": "Prev",
-        "next": "Next"
-      },
-      "detail": {
-        "title": "Endpoint Detail",
-        "name": "Name",
-        "chain": "Chain",
-        "network": "Network",
-        "url": "URL",
-        "state": "State",
-        "created": "Created",
-        "connectionTitle": "Connection",
-        "authType": "Auth type",
-        "timeout": "Timeout (ms)"
-      },
-      "empty": {
-        "title": "No endpoints yet",
-        "body": "No manageable RPC endpoints yet.",
-        "cta": ""
-      },
-      "filteredEmpty": {
-        "title": "No endpoints match these filters",
-        "body": "No endpoints match. Adjust the filters and try again.",
-        "cta": "Clear filters"
-      },
-      "error": {
-        "title": "Couldn't load endpoints",
-        "body": "Endpoint data failed to load. Check your connection and retry.",
-        "retry": "Retry"
-      },
-      "toast": {
-        "enabled": "Endpoint enabled",
-        "disabled": "Endpoint disabled",
-        "updateError": "Couldn't update endpoint — please retry"
       }
     }
   },
@@ -1099,15 +1129,17 @@
     "apps": "Apps",
     "backToApps": "All apps",
     "appOverview": "Overview",
-    "gateways": "Gateways",
-    "appUsage": "App Usage",
+    "appUsage": "Usage",
     "appSettings": "App settings",
+    "appSettingsGeneral": "General",
+    "appSettingsAccessKeys": "Access keys",
     "routes": "Routes",
     "usage": "Usage",
     "settings": "Settings",
     "systemConfig": "System",
     "settingsProfile": "Profile",
     "settingsSecurity": "Security",
+    "settingsTokens": "Access",
     "settingsRpc": "Runtime & cache",
     "settingsRateLimit": "Traffic protection",
     "settingsChains": "Chain policies",
@@ -1119,8 +1151,8 @@
     "nodes": "Nodes"
   },
   "userMenu": {
+    "accountMenu": "Account menu",
     "accountSettings": "Settings",
-    "admin": "Admin",
     "docs": "Docs",
     "signOut": "Sign out"
   },
@@ -1138,7 +1170,7 @@
     "security": {
       "metaTitle": "Security",
       "title": "Security",
-      "subtitle": "Manage sign-in methods and personal access tokens."
+      "subtitle": "Manage sign-in methods."
     },
     "password": {
       "title": "Password",
@@ -1158,11 +1190,28 @@
       "too_short": "Password must be at least 8 characters."
     },
     "tokens": {
+      "metaTitle": "Access",
+      "pageTitle": "Access",
+      "pageDescription": "Create and manage credentials for CLI tools, automation, and API access.",
       "title": "Personal access tokens",
-      "description": "Create scoped credentials for CLI tools and AI agents.",
-      "activeCount": "{active} of {max} active tokens",
-      "limitReached": "Revoke an active token or wait for one to expire before creating another.",
+      "description": "Create scoped credentials for CLI tools, automation, and API access.",
+      "summary": {
+        "active": "Active tokens",
+        "expiring": "Expiring soon",
+        "unused": "Never used",
+        "usage": "Token usage"
+      },
+      "summaryHints": {
+        "active": "Ready to use",
+        "expiring": "Within the next 14 days",
+        "unused": "No recorded activity",
+        "usage": "Active token limit"
+      },
+      "actions": {
+        "open": "Open actions for {name}"
+      },
       "create": "Create token",
+      "generate": "Generate token",
       "createTitle": "Create a personal access token",
       "createDescription": "Choose only the permissions this client needs.",
       "secretTitle": "Copy your token now",
@@ -1171,6 +1220,14 @@
       "expiry": "Expires after",
       "days": "{days} days",
       "scopes": "Permissions",
+      "moreScopes": "+{count} more",
+      "columns": {
+        "token": "Token",
+        "state": "State",
+        "permissions": "Permissions",
+        "activity": "Activity",
+        "actions": "Actions"
+      },
       "creating": "Creating…",
       "copy": "Copy token",
       "copied": "Token copied.",
@@ -1180,7 +1237,9 @@
       "empty": "No active personal access tokens.",
       "expires": "Expires",
       "lastUsed": "Last used",
+      "neverUsed": "Never used",
       "revoke": "Revoke",
+      "noAction": "No action",
       "revoking": "Revoking…",
       "revoked": "Token revoked.",
       "revokeTitle": "Revoke personal access token?",
@@ -1202,37 +1261,6 @@
       "description": "Sign out on this device.",
       "sign_out": "Sign out",
       "signing_out": "Signing out…"
-    },
-    "configShared": {
-      "save": "Save",
-      "saveAll": "Save all",
-      "saving": "Saving…",
-      "reset": "Discard changes",
-      "discardConfirm": "Discard unsaved changes?",
-      "conflict": {
-        "body": "This configuration changed on the server. Your draft has been kept.",
-        "acceptRemote": "Use server version",
-        "reapply": "Reapply my changes"
-      },
-      "rangeError": "Enter a number between {min} and {max}.",
-      "riskConfirm": {
-        "title": "Review high-impact changes",
-        "description": "Confirm the new values and their operational impact before saving.",
-        "impact": "Impact",
-        "confirm": "Confirm and save",
-        "confirming": "Saving…",
-        "cancel": "Cancel"
-      },
-      "toast": {
-        "saved": "Config saved",
-        "pending": "Config saved and waiting for deployment convergence",
-        "error": "Couldn't save config — please retry"
-      },
-      "error": {
-        "title": "Couldn't load RPC config",
-        "body": "Check your connection and retry.",
-        "retry": "Retry"
-      }
     }
   },
   "sidebar": {
@@ -1245,7 +1273,13 @@
   "endpoints": {
     "metaTitle": "Endpoints",
     "title": "Endpoint",
-    "subtitle": "Manage reusable RPC endpoint connections.",
+    "subtitle": "Manage reusable RPC endpoints.",
+    "workspace": {
+      "label": "Endpoint workspace",
+      "registry": "Endpoints",
+      "providers": "Providers",
+      "syncRunning": "{count} running"
+    },
     "newEndpoint": "New endpoint",
     "loading": "Loading endpoints…",
     "loadError": "Couldn’t load endpoints.",
@@ -1256,10 +1290,13 @@
       "description": "Filter by chain, network, protocol, state, or origin.",
       "all": "All",
       "apply": "Apply filters",
-      "clear": "Clear filters",
+      "clear": "Clear",
       "done": "Done",
       "allChains": "All chains",
       "allNetworks": "All networks",
+      "chainNetwork": "Chain / Network",
+      "searchChainNetwork": "Search chain or network",
+      "noChainNetworkMatches": "No matching chain or network",
       "allProtocols": "All protocols",
       "allOrigins": "All origins",
       "allStates": "All states",
@@ -1269,19 +1306,29 @@
     "fields": {
       "name": "Name",
       "chain": "Chain",
+      "chainNetwork": "Network",
       "network": "Network",
       "protocol": "Protocol",
+      "endpoint": "Endpoint",
       "state": "State",
       "origin": "Origin",
       "provider": "Provider",
-      "chainNetwork": "Chain / Network",
-      "url": "Connection URL",
+      "copyEndpoint": "Copy endpoint",
+      "endpointCopied": "Endpoint copied",
+      "copyError": "Couldn’t copy the endpoint",
+      "url": "Endpoint URL",
+      "urlPlaceholder": "https://rpc.example.com/provider-key",
       "enabled": "Enabled",
-      "authType": "Authentication",
-      "secret": "Auth secret",
-      "headerName": "Name",
-      "headerValue": "Value",
-      "queryParam": "Query parameter",
+      "headerName": "Header name (optional)",
+      "headerValue": "Header value",
+      "headerHint": "Leave both header fields empty if your provider doesn’t require one.",
+      "headerNamePlaceholder": "Authorization",
+      "headerValuePlaceholder": "Bearer token",
+      "headerNameRequired": "Enter a header name.",
+      "headerValueRequired": "Enter a header value.",
+      "urlInvalid": "Enter a valid HTTP or HTTPS URL.",
+      "showHeaderValue": "Show header value",
+      "hideHeaderValue": "Hide header value",
       "modified": "Last modified",
       "enabledHint": "Disabled endpoints are skipped when routing."
     },
@@ -1291,7 +1338,8 @@
     },
     "protocol": {
       "jsonrpc": "JSON-RPC",
-      "http_api": "HTTP API"
+      "http_api": "HTTP API",
+      "grpc": "gRPC"
     },
     "chain": {
       "ethereum": "Ethereum",
@@ -1318,26 +1366,17 @@
       "manual": "Manual",
       "provider": "Provider"
     },
-    "auth": {
-      "none": "None",
-      "bearer": "Bearer token",
-      "header_api_key": "Header API key",
-      "query_api_key": "Query API key",
-      "path_api_key": "Path API key"
-    },
     "actions": {
       "edit": "Edit",
-      "audit": "Audit",
       "enable": "Enable",
       "disable": "Disable",
-      "delete": "Delete",
-      "openMenu": "Open endpoint actions",
-      "viewDetails": "Details",
-      "hideDetails": "Hide"
+      "enableEndpoint": "Enable {name}",
+      "disableEndpoint": "Disable {name}",
+      "delete": "Delete"
     },
     "empty": {
       "title": "No endpoints yet",
-      "body": "Create a manual endpoint to store a static connection configuration.",
+      "body": "Create a manual endpoint with a static RPC configuration.",
       "filteredTitle": "No matching endpoints",
       "filteredBody": "No endpoints match the active filters.",
       "cta": "New endpoint",
@@ -1349,14 +1388,45 @@
       "previous": "Previous",
       "next": "Next"
     },
+    "registry": {
+      "title": "Endpoint Management",
+      "subtitle": "Manage manual and provider-synced endpoints.",
+      "addEndpoint": "Add endpoint",
+      "connectProvider": "Connect provider",
+      "viewLabel": "Endpoint inventory views",
+      "views": {
+        "all": "All endpoints",
+        "manual": "Manual",
+        "managed": "Provider-managed"
+      },
+      "inventoryLabel": "Endpoint inventory",
+      "columnsLabel": "Show or hide columns",
+      "selected": "{count} selected",
+      "columns": {
+        "endpoint": "Endpoint",
+        "url": "URL",
+        "network": "Network",
+        "health": "Health"
+      }
+    },
+    "health": {
+      "check": "Check health",
+      "checkEndpoint": "Check health for {name}",
+      "checkComplete": "Health check complete",
+      "checkError": "Couldn’t check endpoint health",
+      "status": {
+        "noRecentData": "No recent health data",
+        "healthy": "Healthy",
+        "unhealthy": "Unhealthy"
+      }
+    },
     "form": {
       "createTitle": "New endpoint",
-      "createDescription": "Secrets are encrypted at rest.",
+      "createDescription": "Add an upstream RPC endpoint.",
       "editTitle": "Edit endpoint",
-      "editDescription": "Saving requires the latest endpoint registry version.",
+      "editDescription": "Update this endpoint’s settings.",
       "conflict": "This endpoint changed after it was loaded.",
-      "reload": "Reload",
-      "providerManaged": "This endpoint is managed by a provider sync. Only its name and enabled state can be edited here."
+      "reload": "Reload"
     },
     "cancel": "Cancel",
     "saving": "Saving…",
@@ -1364,10 +1434,13 @@
     "create": "Create endpoint",
     "delete": {
       "title": "Delete endpoint",
-      "description": "Delete “{name}”? The registry record will be soft-deleted.",
-      "providerWarning": "This endpoint is managed by a provider sync and may be recreated on the next sync."
+      "providerManaged": "Provider-managed endpoints must be removed through their provider.",
+      "bindingWarningTitle": "Used by {count, plural, one {# active route} other {# active routes}}",
+      "bindingWarningFallbackTitle": "This endpoint may be in use",
+      "bindingWarningBody": "Deleting it also removes it from every Gateway route. Remaining load-balanced endpoints continue using their relative weights."
     },
     "bulk": {
+      "selectionActions": "Selected endpoint actions",
       "deleteSelectedCount": "Delete selected ({count})",
       "selectAll": "Select shown endpoints",
       "clearSelection": "Clear selection",
@@ -1375,30 +1448,13 @@
       "limit": "You can delete up to 50 endpoints at once.",
       "dialog": {
         "title": "Delete selected endpoints",
-        "description": "Delete {count} selected endpoints? Eligible registry records will be soft-deleted.",
-        "referenceWarning": "Endpoints used by active Gateway routes will be kept. Remove them from those routes, then retry deletion.",
+        "bindingWarning": "Deleting these endpoints also removes them from every Gateway route. Remaining load-balanced endpoints continue using their relative weights.",
         "confirm": "Delete endpoints",
         "deleting": "Deleting…"
       },
       "toast": {
         "deleted": "Deleted {count} endpoints",
-        "partial": "Deleted {deleted} endpoints; {referenced} are still used by active routes",
-        "allReferenced": "No endpoints deleted; all {count} are still used by active routes",
         "deleteError": "Couldn’t delete endpoints"
-      }
-    },
-    "audit": {
-      "title": "Audit · {name}",
-      "description": "Audit entries contain versions and field names only. URLs and secrets are never stored here.",
-      "loadError": "Couldn’t load audit events.",
-      "empty": "No audit events yet.",
-      "version": "Version {previous} → {next}",
-      "fields": "Changed fields: {fields}",
-      "noFields": "No registry fields changed.",
-      "action": {
-        "created": "Created",
-        "updated": "Updated",
-        "deleted": "Deleted"
       }
     },
     "toast": {
@@ -1411,22 +1467,13 @@
       "enabled": "Endpoint enabled",
       "disabled": "Endpoint disabled"
     },
-    "tabs": {
-      "endpoints": "Endpoints",
-      "sync": "Provider sync",
-      "manual": "Manual",
-      "provider": "Provider"
-    },
-    "tabsAriaLabel": "Endpoints views",
-    "cta": {
-      "newEndpoint": "New endpoint",
-      "manageProviders": "Manage providers"
-    },
     "table": {
       "name": "Name",
       "chain": "Chain",
+      "chainNetwork": "Network",
       "network": "Network",
       "protocol": "Protocol",
+      "endpoint": "Endpoint",
       "origin": "Origin",
       "state": "State",
       "columnsLabel": "Columns",
@@ -1435,25 +1482,79 @@
       "next": "Next",
       "provider": "Provider"
     },
-    "detail": {
-      "title": "Endpoint details",
-      "id": "Endpoint ID",
-      "chain": "Chain",
-      "network": "Network",
-      "protocol": "Protocol",
-      "origin": "Origin",
-      "enabled": "Enabled",
-      "yes": "Yes",
-      "no": "No",
-      "providerSection": "Provider",
-      "provider": "Provider",
-      "syncStatus": "Sync status",
-      "lastSeen": "Last seen",
-      "connection": "Connection",
-      "authType": "Authentication",
-      "authConfig": "Auth configuration",
-      "created": "Created",
-      "modified": "Modified"
+    "rowExpansion": {
+      "tabs": {
+        "label": "Endpoint details",
+        "endpoint": "Endpoint",
+        "bindings": "Bindings",
+        "bindingsCount": "Bindings {count}"
+      },
+      "retry": "Try again",
+      "details": {
+        "id": "Endpoint ID",
+        "endpointUrl": "Endpoint URL",
+        "authentication": "Authentication",
+        "noAuth": "No authentication",
+        "authInUrl": "Included in Endpoint URL",
+        "showAuth": "Show authentication value",
+        "hideAuth": "Hide authentication value",
+        "created": "Created",
+        "version": "Registry",
+        "errorTitle": "Couldn’t load endpoint details",
+        "errorBody": "Refresh the endpoint details and try again."
+      },
+      "bindings": {
+        "title": "Bindings",
+        "columns": {
+          "gateway": "Gateway",
+          "route": "Route",
+          "routing": "Routing",
+          "action": "Action"
+        },
+        "defaultRoute": "Default route",
+        "httpApiRoute": "HTTP API route",
+        "methodRoute": "Method route",
+        "methods": "Methods",
+        "noMethods": "No methods",
+        "moreMethods": "+{count} more",
+        "showAllMethods": "Show all {count} methods",
+        "copyRouteId": "Copy route ID",
+        "routeIdCopied": "Route ID copied",
+        "copyError": "Couldn’t copy route ID",
+        "targetCount": "{count, plural, one {# target} other {# targets}}",
+        "lastTarget": "Last target",
+        "strategy": {
+          "priority_failover": "Priority failover",
+          "load_balance": "Load balancing"
+        },
+        "emptyTitle": "No route bindings",
+        "emptyBody": "No Gateway route currently uses this endpoint.",
+        "errorTitle": "Couldn’t load bindings",
+        "errorBody": "Refresh the binding list and try again.",
+        "unbind": "Unbind",
+        "unbound": "Endpoint unbound",
+        "unbindError": "Couldn’t unbind endpoint"
+      },
+      "dialog": {
+        "close": "Close",
+        "title": "Unbind endpoint",
+        "descriptionRemaining": "Remove this endpoint from the route in “{gateway}”? The route will continue with {count, plural, one {# target} other {# targets}}.",
+        "descriptionDeleteMethod": "This is the last target in the method route for “{gateway}”. Unbinding it will delete the route.",
+        "descriptionEmptyRoute": "This is the last target in the {route} for “{gateway}”. Unbinding it will leave the route with no targets.",
+        "cancel": "Cancel",
+        "unbind": "Unbind",
+        "unbinding": "Unbinding…"
+      },
+      "provider": {
+        "unavailableTitle": "Provider unavailable",
+        "externalId": "Provider external ID",
+        "syncStatus": "Sync status",
+        "lastSeen": "Last seen",
+        "status": {
+          "available": "Available",
+          "missing": "Missing"
+        }
+      }
     },
     "sync": {
       "available": "Available",
@@ -1470,169 +1571,303 @@
       "retry": "Try again"
     }
   },
-  "nodes": {
-    "metaTitle": "Nodes",
-    "title": "Nodes",
-    "subtitle": "Every RPC node your gateways route to.",
-    "tabs": {
-      "allNodes": "All nodes",
-      "sync": "Provider sync"
-    },
-    "tabsAriaLabel": "Nodes views",
-    "cta": {
-      "newNode": "Add node"
-    },
-    "actions": {
-      "openMenu": "Open node actions",
-      "viewDetails": "View details",
-      "hideDetails": "Hide details",
-      "edit": "Edit",
-      "delete": "Delete"
-    },
-    "filters": {
-      "allChains": "All chains",
-      "allNetworks": "All networks",
-      "allApiTypes": "All transports",
-      "title": "Filters",
-      "done": "Done"
-    },
-    "table": {
-      "name": "Name",
-      "chain": "Chain",
-      "network": "Network",
-      "apiType": "Transport",
-      "columnsLabel": "Columns",
-      "range": "{from} to {to} of {total} results",
-      "prev": "Prev",
+  "networkSelect": {
+    "placeholder": "Search chain or network…",
+    "openMenu": "Open chain and network options",
+    "empty": "No matching chain or network.",
+    "allNetworks": "All supported networks",
+    "allNetworksHint": "Leave empty to sync all supported networks.",
+    "selected": "{count, plural, one {# network selected} other {# networks selected}}"
+  },
+  "endpointProviders": {
+    "list": {
+      "ariaLabel": "Providers",
+      "range": "Showing {from}–{to} of {total}",
+      "previous": "Previous",
       "next": "Next"
     },
-    "detail": {
-      "title": "Node details",
-      "id": "Node ID",
-      "chain": "Chain",
-      "network": "Network",
-      "apiType": "Transport",
-      "enabled": "Enabled",
-      "yes": "Yes",
-      "no": "No",
-      "connection": "Connection",
-      "timeout": "Timeout",
-      "timeoutValue": "{value} ms",
-      "authType": "Authentication",
-      "authConfig": "Auth configuration",
-      "methodSupport": "Method support",
-      "methodSupportUnknown": "No explicit method capability is configured.",
-      "routingReferences": "Routing references",
-      "noRoutingReferences": "This node is not used by a gateway or method route.",
-      "methodRouteReference": "{gateway} · {methods}",
-      "created": "Created",
-      "modified": "Modified",
-      "loadError": "Couldn't load node details."
+    "actions": {
+      "connect": "Connect provider",
+      "sync": "Sync now",
+      "settings": "Settings",
+      "delete": "Remove provider"
     },
-    "form": {
-      "name": "Name",
-      "url": "Endpoint URL",
-      "urlInvalid": "Enter a valid URL for the selected transport.",
-      "timeout": "Timeout (ms)",
-      "apiType": "Transport",
-      "authType": "Authentication",
-      "headerName": "Header name",
-      "queryParam": "Query parameter",
-      "secret": "Secret",
-      "secretHint": "Leave blank to keep the existing secret.",
-      "methodSupport": "EVM Debug support",
-      "methodSupportHint": "Controls whether debug RPC methods may route to this node.",
-      "enabled": "Enabled",
-      "enabledHint": "Disabled nodes are excluded from routing."
+    "status": {
+      "syncing": "Syncing"
     },
-    "methodSupport": {
-      "unknown": "Unknown",
-      "supported": "Supported",
-      "unsupported": "Unsupported"
+    "endpoints": {
+      "missing": "{count} missing"
     },
-    "dialog": {
-      "cancel": "Cancel",
-      "saving": "Saving…",
-      "deleting": "Deleting…",
-      "edit": {
-        "title": "Edit node",
-        "subtitle": "Update the node's connection and routing capabilities.",
-        "submit": "Save changes",
-        "loadError": "Couldn't load the node for editing."
-      },
-      "delete": {
-        "title": "Delete this node?",
-        "body": "Delete “{name}” from your account. This cannot be undone.",
-        "confirm": "Delete node",
-        "blockedTitle": "This node is still in use",
-        "blockedBody": "Remove “{name}” from every gateway and method route before deleting it.",
-        "gatewayReferences": "Gateways",
-        "methodReferences": "Method routes",
-        "close": "Close"
+    "syncDialog": {
+      "title": "Sync provider",
+      "close": "Close",
+      "done": "Done",
+      "retry": "Try again",
+      "workingBody": "Provider discovery is running. You can close this window without stopping it.",
+      "changes": "{count, plural, one {# endpoint change} other {# endpoint changes}} applied.",
+      "noChanges": "No endpoint changes were needed.",
+      "partialBody": "Sync applied {count, plural, =0 {no endpoint changes} one {# endpoint change} other {# endpoint changes}}, but some items need attention.",
+      "failedBody": "Provider sync could not be completed.",
+      "statusError": "The sync continues, but its latest status couldn't be loaded.",
+      "state": {
+        "starting": "Starting",
+        "queued": "Queued",
+        "running": "Running",
+        "success": "Success",
+        "partial": "Partial",
+        "failed": "Failed"
       }
     },
-    "toast": {
-      "updated": "Node “{name}” updated",
-      "updateError": "Couldn't update the node",
-      "deleted": "Node “{name}” deleted",
-      "deleteError": "Couldn't delete the node"
+    "filters": {
+      "allVendors": "All providers",
+      "allResults": "All results",
+      "results": {
+        "never": "Never",
+        "success": "Success",
+        "partial": "Partial",
+        "failed": "Failed"
+      }
     },
-    "empty": {
-      "title": "No nodes yet",
-      "body": "Add a self-hosted node, or sync one from a provider to get started.",
-      "cta": "Add node"
+    "columns": {
+      "provider": "Provider",
+      "networks": "Networks",
+      "endpoints": "Endpoints",
+      "syncStatus": "Sync status",
+      "lastSync": "Last sync"
     },
-    "filteredEmpty": {
-      "title": "No matching nodes",
-      "body": "No nodes match the current filters.",
-      "cta": "Clear filters"
+    "columnsLabel": "Show or hide columns",
+    "networks": {
+      "all": "All networks"
     },
     "error": {
-      "title": "Couldn't load nodes",
-      "body": "Something went wrong loading your nodes.",
+      "title": "Providers could not be loaded",
+      "body": "Providers are temporarily unavailable.",
       "retry": "Try again"
+    },
+    "empty": {
+      "title": "No providers yet",
+      "body": "Connect a provider to discover endpoints and keep their configuration synchronized.",
+      "cta": "Connect provider"
+    },
+    "filtered": {
+      "title": "No providers match these filters",
+      "body": "Adjust or clear the current filters to see providers.",
+      "cta": "Clear filters"
+    },
+    "rowExpansion": {
+      "retry": "Try again",
+      "range": "Showing {from}–{to} of {total}",
+      "previous": "Previous",
+      "next": "Next",
+      "tabs": {
+        "label": "Provider details",
+        "provider": "Provider",
+        "endpoints": "Endpoints",
+        "endpointsCount": "Endpoints {count}",
+        "activity": "Activity"
+      },
+      "provider": {
+        "credentials": "Credentials",
+        "providerCredential": "Provider credential",
+        "providerCredentialPurpose": "Used to access and synchronize provider inventory.",
+        "endpointAuthentication": "Endpoint authentication",
+        "endpointAuthenticationPurpose": "URL credentials appear on each Endpoint; header values stay hidden until revealed.",
+        "endpointAuth": {
+          "alchemy": "Synchronized endpoints reuse this credential in their Endpoint URL.",
+          "drpc": "Synchronized endpoints reuse this credential in their Endpoint URL.",
+          "tenderly": "Synchronized endpoints reuse this credential in their Endpoint URL.",
+          "quicknode": "Endpoint credentials are supplied by QuickNode and may differ from the provider credential.",
+          "chainstack": "Endpoint credentials are supplied by Chainstack and differ from the provider credential."
+        },
+        "showCredential": "Show provider credential",
+        "hideCredential": "Hide provider credential",
+        "credentialError": "Credential could not be revealed. Try again.",
+        "missing": "Missing",
+        "apps": "Connected apps",
+        "networks": "Networks",
+        "autoSync": "Auto-sync",
+        "on": "On",
+        "off": "Off"
+      },
+      "endpoints": {
+        "listLabel": "Discovered endpoints",
+        "columns": {
+          "endpoint": "Endpoint",
+          "network": "Network",
+          "protocol": "Protocol",
+          "discovery": "Discovery",
+          "lastSeen": "Last seen"
+        },
+        "discovery": {
+          "present": "Present",
+          "missing": "Missing"
+        },
+        "retained": "Retained",
+        "errorTitle": "Endpoints could not be loaded",
+        "errorBody": "Endpoints are temporarily unavailable.",
+        "emptyTitle": "No endpoints discovered yet",
+        "emptyBody": "Run a sync to discover endpoints from this provider."
+      },
+      "activity": {
+        "listLabel": "Sync activity",
+        "columns": {
+          "trigger": "Trigger",
+          "status": "Status",
+          "changes": "Changes",
+          "started": "Started"
+        },
+        "trigger": {
+          "manual": "Manual sync",
+          "scheduled": "Scheduled sync"
+        },
+        "state": {
+          "queued": "Queued",
+          "running": "Running",
+          "success": "Success",
+          "partial": "Partial",
+          "failed": "Failed"
+        },
+        "inProgress": "Discovery is running.",
+        "changes": "{count, plural, one {# endpoint change} other {# endpoint changes}}",
+        "noChanges": "No endpoint changes",
+        "errorTitle": "Activity could not be loaded",
+        "errorBody": "Sync records are temporarily unavailable.",
+        "emptyTitle": "No sync activity yet",
+        "emptyBody": "Run the first sync to create an activity record."
+      }
+    },
+    "onboarding": {
+      "close": "Close connect provider",
+      "steps": {
+        "provider": {
+          "title": "Provider",
+          "description": "Choose a source"
+        },
+        "configure": {
+          "title": "Configure",
+          "description": "Set access and scope"
+        },
+        "review": {
+          "title": "Review",
+          "description": "Save and discover"
+        }
+      },
+      "vendors": {
+        "alchemy": "Alchemy",
+        "quicknode": "QuickNode",
+        "chainstack": "Chainstack",
+        "drpc": "dRPC",
+        "tenderly": "Tenderly"
+      },
+      "provider": {
+        "title": "Choose Provider",
+        "description": "Select the infrastructure service that owns the endpoints you want to discover.",
+        "available": "Endpoint discovery"
+      },
+      "configure": {
+        "title": "Configure Provider",
+        "description": "Add a credential and choose networks.",
+        "name": "Provider name",
+        "nameHint": "Use a name that distinguishes the environment or account.",
+        "credential": "Provider credential",
+        "credentialHint": "Enter the credential issued by {vendor}.",
+        "schedule": "Daily sync",
+        "scheduleHint": "Sync endpoints once per day.",
+        "scope": "Networks"
+      },
+      "review": {
+        "title": "Review & Discover",
+        "description": "The provider is saved before discovery starts, so a failed first run can be retried.",
+        "providerName": "Provider name",
+        "provider": "Provider",
+        "scope": "Networks",
+        "schedule": "Auto-sync",
+        "selectedNetworks": "{count} selected networks",
+        "daily": "On",
+        "manual": "Off",
+        "discovering": "Validating the credential and discovering endpoints…"
+      },
+      "actions": {
+        "back": "Back",
+        "continue": "Continue",
+        "saveDiscover": "Save and discover",
+        "retry": "Retry discovery",
+        "updateCredential": "Update credential"
+      },
+      "error": {
+        "discoveryTitle": "Provider saved, but discovery failed",
+        "credential": "The credential could not be validated. Check it and try again.",
+        "unknown": "An unexpected error occurred."
+      }
+    },
+    "settings": {
+      "dialogTitle": "Provider settings",
+      "dialogDescription": "Update the provider name, credential, networks, and sync.",
+      "close": "Close provider settings",
+      "name": {
+        "title": "Name"
+      },
+      "credential": {
+        "title": "Provider credential",
+        "description": "Used to access and synchronize provider inventory.",
+        "add": "Add credential",
+        "replace": "Replace credential",
+        "newCredential": "New credential",
+        "addHint": "Enter the credential issued by this provider.",
+        "replaceWarning": "Saving overwrites the current credential. An invalid credential can cause provider syncs to fail.",
+        "cancel": "Cancel"
+      },
+      "networks": {
+        "title": "Networks"
+      },
+      "sync": {
+        "schedule": "Daily sync",
+        "scheduleHint": "Sync endpoints once per day.",
+        "enabled": "Enabled",
+        "enabledHint": "Turning this off stops sync. Existing endpoints continue serving traffic."
+      },
+      "save": "Save settings",
+      "saved": "Provider settings saved.",
+      "saveError": "Couldn't save provider settings."
+    },
+    "delete": {
+      "close": "Close",
+      "title": "Remove {name}?",
+      "impact": "Removing this provider disconnects its apps and deletes automatic route targets. Choose how to handle {count} managed endpoints.",
+      "impactError": "Couldn't calculate the removal impact.",
+      "retryImpact": "Retry impact check",
+      "apps": "Connected apps",
+      "routeTargets": "Automatic route targets",
+      "managedEndpoints": "Managed endpoints",
+      "wouldDetach": "Would detach",
+      "wouldArchive": "Would archive",
+      "wouldRetain": "Would retain",
+      "strategy": {
+        "detach": {
+          "title": "Keep endpoints",
+          "body": "Convert active managed endpoints to manual. Manual route bindings remain; automatic provider targets are removed."
+        },
+        "cleanup": {
+          "title": "Clean up unused endpoints",
+          "body": "Archive unreferenced endpoints. Routed endpoints become manual, while automatic provider targets are removed."
+        }
+      },
+      "cancel": "Cancel",
+      "confirm": "Remove provider"
     }
   },
   "providers": {
     "metaTitle": "Providers",
     "title": "Providers",
     "subtitle": "Connect providers and sync endpoint endpoints.",
-    "cta": {
-      "newProvider": "New provider"
-    },
-    "card": {
-      "neverSynced": "Never synced",
-      "tagsMore": "+{count}",
-      "meta": {
-        "type": "Type",
-        "project": "Project",
-        "organization": "Organization",
-        "region": "Region",
-        "tags": "Tags"
-      }
-    },
     "table": {
       "name": "Name",
-      "vendor": "Vendor",
-      "autoSync": "Auto-sync",
-      "lastSync": "Last sync",
-      "state": "State",
-      "action": "Action",
       "range": "{from} to {to} of {total} results",
       "prev": "Prev",
       "next": "Next"
     },
     "filters": {
-      "vendor": "Vendor",
       "allVendors": "All vendors",
-      "state": "State",
-      "stateAll": "All",
-      "stateEnabled": "Enabled",
-      "stateDisabled": "Disabled",
-      "autoSync": "Auto-sync",
-      "syncAll": "All",
-      "syncOn": "Sync on",
-      "syncOff": "Sync off",
       "title": "Filters",
       "done": "Done"
     },
@@ -1644,31 +1879,12 @@
       "tenderly": "Tenderly"
     },
     "detail": {
-      "notFoundTitle": "Provider not found",
-      "notFoundBody": "This provider may have been deleted.",
-      "disableTitle": "Disable this provider?",
-      "disableBody": "Once disabled, \"{name}\" stops syncing endpoints. Synced endpoints are kept.",
-      "secretReplaceTitle": "Replace the stored secret?",
-      "secretReplaceBody": "Saving a new secret immediately replaces the old one. This cannot be undone.",
-      "secretReplaceConfirm": "Replace secret",
-      "sensitiveChangesTitle": "Save sensitive changes?",
-      "sensitiveChangesBody": "This replaces the stored secret and disables “{name}”. Scheduled endpoint sync will stop.",
-      "deleteTitle": "Delete provider",
-      "dangerBody": "Delete this provider and stop managing its synced endpoints.",
-      "dailyAutomatic": "Daily automatic sync",
-      "manualOnly": "Manual only",
       "loading": "Loading provider…"
     },
     "actions": {
       "openMenu": "Open actions menu",
       "viewDetails": "Details",
-      "hideDetails": "Hide",
-      "syncNow": "Sync now",
-      "syncing": "Syncing…",
-      "editProvider": "Edit",
-      "deleteProvider": "Delete",
-      "toggleOn": "Toggle on",
-      "toggleOff": "Toggle off"
+      "hideDetails": "Hide"
     },
     "toast": {
       "created": "Provider “{name}” created",
@@ -1678,9 +1894,7 @@
       "deleted": "Provider “{name}” deleted",
       "deleteError": "Could not delete the provider",
       "enabled": "Provider enabled",
-      "disabled": "Provider disabled",
-      "syncStarted": "Syncing “{name}”…",
-      "syncError": "Sync failed"
+      "disabled": "Provider disabled"
     },
     "dialog": {
       "cancel": "Cancel",
@@ -1689,6 +1903,7 @@
       "create": {
         "title": "New provider",
         "subtitle": "Connect a provider and sync endpoints.",
+        "close": "Close new provider",
         "submit": "Create provider"
       },
       "edit": {
@@ -1708,31 +1923,20 @@
       "name": "Name",
       "nameHint": "Used to identify this provider connection.",
       "namePlaceholder": "my-alchemy",
-      "vendor": "Vendor",
+      "vendor": "Provider",
       "vendorHint": "Select the RPC provider to connect.",
       "vendorLocked": "Vendor can’t be changed after creation.",
-      "secret": "API key / secret",
-      "secretHint": "Provider secret used to sync endpoints.",
+      "secret": "Provider credential",
+      "secretHint": "Used to access and synchronize provider inventory.",
       "secretPlaceholder": "Paste the vendor API key",
-      "secretKeepHint": "The stored credential is shown directly and saved only when its value changes.",
       "drpcSecretHint": "Paste a dRPC API key or a full https://lb.drpc.live network endpoint URL.",
       "drpcSecretKeepHint": "Use a dRPC API key or a full https://lb.drpc.live network endpoint URL. The stored credential is saved only when its value changes.",
       "drpcSecretPlaceholder": "Paste a dRPC API key or endpoint URL",
-      "autoSync": "Automatic sync",
-      "autoSyncHint": "Sync provider endpoints once per day at a platform-assigned UTC time.",
-      "systemCacheSource": "System cache source",
-      "systemCacheSourceHint": "Trust synced endpoints from this provider to publish SYSTEM tips and shared cache entries.",
+      "autoSync": "Daily sync",
+      "autoSyncHint": "Sync endpoints once per day.",
       "enabled": "Enabled",
       "enabledHint": "When disabled, automatic sync stops.",
-      "networkFilter": "Network filter",
-      "networkFilterHint": "Choose which networks participate in sync.",
-      "networkFilterNone": "All networks",
-      "networkFilterOnly": "Only these",
-      "networkFilterIgnore": "Exclude these",
-      "chainNetwork": "Chain / Network",
-      "chainNetworkSearch": "Search chain or network…",
-      "openChainNetworks": "Open chain and network options",
-      "chainNetworkEmpty": "No matching chain or network."
+      "networks": "Networks"
     },
     "error": {
       "title": "Couldn’t load providers",
@@ -1752,28 +1956,9 @@
     "sync": {
       "title": "Sync result",
       "subtitle": "Sync result for {name}.",
-      "statusLabel": "Status",
-      "created": "Created",
-      "updated": "Updated",
-      "restored": "Restored",
-      "archived": "Archived",
-      "skipped": "Skipped",
-      "deleted": "Removed",
-      "itemsTitle": "Details",
-      "colChain": "Chain",
-      "colNetwork": "Network",
-      "colAction": "Action",
-      "colError": "Error",
-      "noItems": "No endpoint changes were reported.",
-      "viewItems": "Show details",
-      "hideItems": "Hide details",
       "close": "Close",
-      "running": "Syncing provider…",
-      "upToDate": "Already up to date — no changes were needed.",
       "summary": {
-        "success": "Sync complete — endpoints are up to date.",
-        "partial": "Partly synced — some endpoints could not be processed.",
-        "failed": "Sync failed — no changes were applied."
+        "success": "Sync complete — endpoints are up to date."
       }
     }
   }

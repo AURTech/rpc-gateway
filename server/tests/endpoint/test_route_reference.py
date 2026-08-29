@@ -103,21 +103,22 @@ async def test_reference_lookup_only_returns_active_route_targets(route_schema: 
 
 
 @pytest.mark.anyio
-async def test_manual_delete_rejects_referenced_endpoint(route_schema: None) -> None:
+async def test_manual_delete_removes_referenced_endpoint_from_route(route_schema: None) -> None:
     endpoint = await _create_endpoint('endpoint0000000000001')
     await _create_route(endpoint.id)
     manager = EndpointManager(DatabaseJsonRpcEndpointRouteReferenceLookup())
 
-    with pytest.raises(BadRequestError, match='referenced by an active RPC route'):
-        await manager.delete_endpoint(endpoint.account_id, endpoint.account_id, endpoint.id)
+    await manager.delete_endpoint(endpoint.account_id, endpoint.account_id, endpoint.id)
 
     await endpoint.refresh_from_db()
-    assert endpoint.deleted_at is None
-    assert await EndpointAuditEvent.filter(endpoint_id=endpoint.id).count() == 0
+    assert endpoint.deleted_at is not None
+    assert endpoint.version == 2
+    assert await JsonRpcRouteTarget.filter(endpoint_id=endpoint.id).count() == 0
+    assert await EndpointAuditEvent.filter(endpoint_id=endpoint.id).count() == 1
 
 
 @pytest.mark.anyio
-async def test_bulk_delete_skips_referenced_endpoint_and_deletes_the_rest(route_schema: None) -> None:
+async def test_bulk_delete_removes_references_and_deletes_all_endpoints(route_schema: None) -> None:
     referenced = await _create_endpoint('endpoint0000000000001')
     deletable = await _create_endpoint('endpoint0000000000002')
     await _create_route(referenced.id)
@@ -130,15 +131,15 @@ async def test_bulk_delete_skips_referenced_endpoint_and_deletes_the_rest(route_
     )
 
     assert result.total == 2
-    assert [item.id for item in result.deleted] == [deletable.id]
-    assert result.referenced_ids == [referenced.id]
+    assert [item.id for item in result.deleted] == [deletable.id, referenced.id]
     await referenced.refresh_from_db()
     await deletable.refresh_from_db()
-    assert referenced.deleted_at is None
-    assert referenced.version == 1
+    assert referenced.deleted_at is not None
+    assert referenced.version == 2
     assert deletable.deleted_at is not None
     assert deletable.version == 2
-    assert await EndpointAuditEvent.filter(endpoint_id=referenced.id).count() == 0
+    assert await EndpointAuditEvent.filter(endpoint_id=referenced.id).count() == 1
+    assert await JsonRpcRouteTarget.filter(endpoint_id=referenced.id).count() == 0
     event = await EndpointAuditEvent.get(endpoint_id=deletable.id)
     assert event.previous_version == 1
     assert event.new_version == 2
@@ -146,7 +147,7 @@ async def test_bulk_delete_skips_referenced_endpoint_and_deletes_the_rest(route_
 
 
 @pytest.mark.anyio
-async def test_bulk_delete_returns_all_references_without_writes(route_schema: None) -> None:
+async def test_bulk_delete_removes_final_method_route_target(route_schema: None) -> None:
     endpoint = await _create_endpoint('endpoint0000000000001')
     await _create_route(endpoint.id)
     manager = EndpointManager(DatabaseJsonRpcEndpointRouteReferenceLookup())
@@ -157,16 +158,16 @@ async def test_bulk_delete_returns_all_references_without_writes(route_schema: N
         BulkDeleteEndpointParams(endpoint_ids=[endpoint.id]),
     )
 
-    assert result.deleted == []
-    assert result.referenced_ids == [endpoint.id]
+    assert [item.id for item in result.deleted] == [endpoint.id]
     await endpoint.refresh_from_db()
-    assert endpoint.deleted_at is None
-    assert endpoint.version == 1
-    assert await EndpointAuditEvent.filter(endpoint_id=endpoint.id).count() == 0
+    assert endpoint.deleted_at is not None
+    assert endpoint.version == 2
+    assert await EndpointAuditEvent.filter(endpoint_id=endpoint.id).count() == 1
+    assert await JsonRpcRouteTarget.filter(endpoint_id=endpoint.id).count() == 0
 
 
 @pytest.mark.anyio
-async def test_bulk_delete_skips_active_http_api_reference(route_schema: None) -> None:
+async def test_bulk_delete_removes_active_http_api_reference(route_schema: None) -> None:
     endpoint = await _create_endpoint('endpoint0000000000001', EndpointProtocol.HTTP_API)
     app = await App.create(id='app000000000000000001', account_id=endpoint.account_id, name='Route app')
     gateway = await Gateway.create(
@@ -187,8 +188,8 @@ async def test_bulk_delete_skips_active_http_api_reference(route_schema: None) -
         BulkDeleteEndpointParams(endpoint_ids=[endpoint.id]),
     )
 
-    assert result.deleted == []
-    assert result.referenced_ids == [endpoint.id]
+    assert [item.id for item in result.deleted] == [endpoint.id]
+    assert await HttpApiRouteTarget.filter(endpoint_id=endpoint.id).count() == 0
 
 
 @pytest.mark.anyio

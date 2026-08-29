@@ -18,6 +18,7 @@ import {
   TableLoadingRows,
 } from "@/components/ui/table-states";
 import { Toolbar, ToolbarGroup } from "@/components/ui/toolbar";
+import { useInitialTableRowEntrance } from "@/hooks/use-initial-table-row-entrance";
 import { useIsDesktop } from "@/hooks/use-media-query";
 import type { TableController } from "@/hooks/use-table-controller";
 import { Link } from "@/i18n/navigation";
@@ -43,11 +44,13 @@ export type ResponsiveListViewProps<T, C extends string> = {
   getKey: (item: T) => string;
   isLoading?: boolean;
   isError?: boolean;
+  isRefreshing?: boolean;
 
   // Desktop table — page owns the header + row; the shell owns state rows.
   table: TableController<C>;
   tableHeader: React.ReactNode;
-  renderRow: (item: T) => React.ReactNode;
+  /** `enterIndex` is present only for the first settled desktop dataset. */
+  renderRow: (item: T, enterIndex?: number) => React.ReactNode;
   /** Columns beyond `visibleColumns` for colSpan; default 1 (Action column). */
   extraColSpan?: number;
 
@@ -97,6 +100,7 @@ export function ResponsiveListView<T, C extends string>({
   getKey,
   isLoading = false,
   isError = false,
+  isRefreshing = false,
   table,
   tableHeader,
   renderRow,
@@ -111,6 +115,9 @@ export function ResponsiveListView<T, C extends string>({
   states,
 }: ResponsiveListViewProps<T, C>) {
   const isDesktop = useIsDesktop();
+  const animateInitialRows = useInitialTableRowEntrance(
+    isDesktop && !isLoading && !isError,
+  );
   const colSpan = table.visibleColumns.size + extraColSpan;
   const filtered = states.filtered ?? states.empty;
 
@@ -192,7 +199,7 @@ export function ResponsiveListView<T, C extends string>({
       {isDesktop ? (
         <Table footer={footer}>
           {isLoading ? <TableLoadingHeader colSpan={colSpan} /> : tableHeader}
-          <TableBody>
+          <TableBody refreshing={isRefreshing}>
             {isLoading ? (
               <TableLoadingRows
                 colSpan={colSpan}
@@ -219,7 +226,9 @@ export function ResponsiveListView<T, C extends string>({
             ) : null}
             {!isLoading && !isError && items.length > 0 ? (
               <>
-                {items.map(renderRow)}
+                {items.map((item, index) =>
+                  renderRow(item, animateInitialRows ? index : undefined),
+                )}
                 <TableFillerRows
                   count={TABLE_VIEWPORT_ROWS - items.length}
                   colSpan={colSpan}

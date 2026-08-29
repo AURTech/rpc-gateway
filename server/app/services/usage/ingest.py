@@ -10,7 +10,16 @@ from app.infra.db import in_tx
 from app.infra.redis import acquire_redis_lease
 from app.model.usage import GatewayUsageEvent
 from app.services.usage.buffer import BufferedUsageEvent, GatewayUsageBuffer
-from app.services.usage.store import GatewayUsageStore, UsageAggregate, UsagePartitionResult, UsageScope
+from app.services.usage.store import (
+    EndpointUsageAggregate,
+    GatewayUsageStore,
+    RouteUsageAggregate,
+    UsageAggregate,
+    UsageEndpointKey,
+    UsagePartitionResult,
+    UsageRouteKey,
+    UsageScope,
+)
 from app.util.datetime import floor_utc_five_minutes, floor_utc_hour
 
 METHODS_PER_GATEWAY_HOUR = 500
@@ -25,8 +34,12 @@ FineMethodAggregateKey = tuple[str, str, str, str, str, str, datetime]
 class UsageRows:
     gateway_hourly: dict[UsageScope, UsageAggregate]
     method_hourly: dict[MethodAggregateKey, UsageAggregate]
+    endpoint_hourly: dict[UsageEndpointKey, EndpointUsageAggregate]
+    route_hourly: dict[UsageRouteKey, RouteUsageAggregate]
     gateway_fine: dict[FineAggregateKey, UsageAggregate]
     method_fine: dict[FineMethodAggregateKey, UsageAggregate]
+    endpoint_fine: dict[UsageEndpointKey, EndpointUsageAggregate]
+    route_fine: dict[UsageRouteKey, RouteUsageAggregate]
     rollup_hours: set[datetime]
 
 
@@ -76,8 +89,12 @@ class GatewayUsageIngestManager:
     ) -> UsageRows:
         gateway_hourly: dict[UsageScope, UsageAggregate] = {}
         method_hourly: dict[MethodAggregateKey, UsageAggregate] = {}
+        endpoint_hourly: dict[UsageEndpointKey, EndpointUsageAggregate] = {}
+        route_hourly: dict[UsageRouteKey, RouteUsageAggregate] = {}
         gateway_fine: dict[FineAggregateKey, UsageAggregate] = {}
         method_fine: dict[FineMethodAggregateKey, UsageAggregate] = {}
+        endpoint_fine: dict[UsageEndpointKey, EndpointUsageAggregate] = {}
+        route_fine: dict[UsageRouteKey, RouteUsageAggregate] = {}
         rollup_hours: set[datetime] = set()
         cutover_at = CONF.USAGE_ASYNC_ROLLUP_CUTOVER_AT
         reference_at = now or datetime.now(UTC)
@@ -99,6 +116,8 @@ class GatewayUsageIngestManager:
                 fine_method_values = method_fine.setdefault((*fine_scope[:5], method, fine_scope[5]), UsageAggregate())
                 cls._add_event(fine_gateway_values, event)
                 cls._add_event(fine_method_values, event)
+                cls._add_endpoint_attempts(endpoint_fine, event, fine_scope[5])
+                cls._add_route_request(route_fine, event, fine_scope[5])
             if uses_fine and cutover_at is not None and event.started_at >= cutover_at:
                 rollup_hours.add(scope[5])
                 continue
@@ -106,11 +125,17 @@ class GatewayUsageIngestManager:
             hourly_method_values = method_hourly.setdefault((*scope[:5], method, scope[5]), UsageAggregate())
             cls._add_event(hourly_gateway_values, event)
             cls._add_event(hourly_method_values, event)
+            cls._add_endpoint_attempts(endpoint_hourly, event, scope[5])
+            cls._add_route_request(route_hourly, event, scope[5])
         return UsageRows(
             gateway_hourly=gateway_hourly,
             method_hourly=method_hourly,
+            endpoint_hourly=endpoint_hourly,
+            route_hourly=route_hourly,
             gateway_fine=gateway_fine,
             method_fine=method_fine,
+            endpoint_fine=endpoint_fine,
+            route_fine=route_fine,
             rollup_hours=rollup_hours,
         )
 
@@ -124,6 +149,57 @@ class GatewayUsageIngestManager:
         values.total_response_bytes += event.response_bytes
         values.cache_eligible_requests += int(event.cache_eligible)
         values.cache_hit_requests += int(event.cache_hit)
+
+    @staticmethod
+    def _add_endpoint_attempts(
+        rows: dict[UsageEndpointKey, EndpointUsageAggregate],
+        event: GatewayUsageEvent,
+        bucket: datetime,
+    ) -> None:
+        if event.route_id is None:
+            return
+        for index, endpoint_id in enumerate(event.attempted_endpoint_ids):
+            key: UsageEndpointKey = (
+                event.account_id,
+                event.app_id,
+                event.gateway_id,
+                event.route_id,
+                endpoint_id,
+                event.chain.value,
+                event.network.value,
+                bucket,
+            )
+            values = rows.setdefault(key, EndpointUsageAggregate())
+            values.total_attempts += 1
+            values.first_attempts += int(index == 0)
+            values.retry_attempts += int(index > 0)
+
+    @staticmethod
+    def _add_route_request(
+        rows: dict[UsageRouteKey, RouteUsageAggregate],
+        event: GatewayUsageEvent,
+        bucket: datetime,
+    ) -> None:
+        if event.route_id is None:
+            return
+        key: UsageRouteKey = (
+            event.account_id,
+            event.app_id,
+            event.gateway_id,
+            event.route_id,
+            event.chain.value,
+            event.network.value,
+            bucket,
+        )
+        attempts = len(event.attempted_endpoint_ids)
+        values = rows.setdefault(key, RouteUsageAggregate())
+        values.routed_requests += 1
+        values.successful_requests += int(event.successful)
+        values.failed_requests += int(not event.successful)
+        values.total_duration_ms += event.duration_ms
+        values.total_attempts += attempts
+        values.multi_attempt_requests += int(attempts > 1)
+        values.exhausted_requests += int(attempts > 0 and not event.successful)
 
     @classmethod
     async def _flush_batch(cls, *, count: int) -> tuple[int, int, int, int, int]:
@@ -139,6 +215,7 @@ class GatewayUsageIngestManager:
             batch = await GatewayUsageBuffer.read_batch(after_id=checkpoint.last_stream_id, count=count)
             if not batch.stream_ids:
                 return 0, 0, 0, 0, 0
+            await GatewayUsageStore.activate_route_aware_metrics(connection, datetime.now(UTC))
             if batch.events:
                 scopes = {cls._event_scope(buffered.event) for buffered in batch.events}
                 known_methods = await GatewayUsageStore.get_known_methods(
@@ -149,8 +226,12 @@ class GatewayUsageIngestManager:
                 rows = cls._aggregate_rows(batch.events, known_methods)
                 await GatewayUsageStore.upsert_gateway_fine(connection, rows.gateway_fine)
                 await GatewayUsageStore.upsert_method_fine(connection, rows.method_fine)
+                await GatewayUsageStore.upsert_endpoint_fine(connection, rows.endpoint_fine)
+                await GatewayUsageStore.upsert_route_fine(connection, rows.route_fine)
                 await GatewayUsageStore.upsert_gateway_hourly(connection, rows.gateway_hourly)
                 await GatewayUsageStore.upsert_method_hourly(connection, rows.method_hourly)
+                await GatewayUsageStore.upsert_endpoint_hourly(connection, rows.endpoint_hourly)
+                await GatewayUsageStore.upsert_route_hourly(connection, rows.route_hourly)
                 await GatewayUsageStore.mark_rollup_hours(connection, rows.rollup_hours)
             await GatewayUsageStore.update_checkpoint(connection, checkpoint, batch.last_stream_id)
 
