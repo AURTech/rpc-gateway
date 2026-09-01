@@ -5,7 +5,7 @@
 <h1 align="center">RPC Gateway</h1>
 
 <p align="center">
-  A multi-tenant gateway for reliable access to blockchain RPC networks.
+  An open-source, self-hosted gateway for reliable access to blockchain RPC networks.
 </p>
 
 <p align="center">
@@ -15,9 +15,30 @@
   <img src="https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white" alt="Next.js 16">
 </p>
 
----
+<p align="center">
+  <a href="https://rpc.aurpay.net">Documentation</a> ·
+  <a href="./server/openapi/v2.json">OpenAPI schema</a> ·
+  <a href="./SECURITY.md">Security</a>
+</p>
 
-Connect applications through one stable endpoint per network and manage upstream RPC access from one place.
+Connect applications through one stable endpoint per network while managing multi-tenant access, upstream providers,
+traffic policy, caching and usage metering from one place. RPC Gateway supports JSON-RPC networks and the TRON HTTP
+API, with a FastAPI backend and a Next.js management console.
+
+## How it works
+
+```mermaid
+graph LR
+    Apps["Applications"] --> Gateway["RPC Gateway"]
+    Console["Management console"] --> Gateway
+    Gateway --> Policy["Authentication, admission and routing"]
+    Policy --> Cache["Response cache and usage metering"]
+    Cache --> Providers["Upstream RPC providers"]
+```
+
+Each application receives stable gateway URLs and credentials. The gateway applies access and traffic policy, chooses
+an eligible upstream endpoint, handles supported retries and failover, and records usage without exposing provider
+credentials to callers.
 
 ## Highlights
 
